@@ -1,0 +1,72 @@
+@use '../base/_icon.scss';
+
+/* breadcrumb */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+
+  .link-crumb {
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    font-weight: 400;
+    font-size: 13px;
+    line-height: 24px;
+    white-space: nowrap;
+    word-break: break-all;
+    text-overflow: ellipsis;
+    color: $gray-40;
+
+    &:not(:last-child) {
+      &:after {
+        @include ico-comm;
+        width: 16px;
+        height: 16px;
+        background-position: -180px -280px;
+        margin: 0 3px;
+        content: '';
+      }
+    }
+
+    // 텍스트 타입이 아닌경우에만 호버처리
+    &:not(.txt-crumb) {
+      &:hover,
+      &:focus,
+      &:active {
+        text-decoration: underline;
+        color: $gray-10;
+
+        button {
+          cursor: pointer;
+        }
+      }
+    }
+
+    &:last-of-type {
+      color: $gray-10;
+      font-weight: 600;
+    }
+  }
+
+  button,
+  span {
+    cursor: default;
+    color: inherit;
+    font-weight: inherit;
+  }
+
+  .ico-arrow-right-16 {
+    margin: 0 8px;
+  }
+
+  &.type-wrap {
+    flex-wrap: wrap;
+    gap: 0 8px;
+    .ico-arrow-right-16 {
+      margin: 0;
+    }
+  }
+}

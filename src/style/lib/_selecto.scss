@@ -1,0 +1,15 @@
+.selecto-selection {
+  border-radius: 12px;
+  border: 1px solid #fbb348 !important;
+  background-color: rgba(251, 179, 72, 0.3) !important;
+  z-index: 0;
+}
+
+.modal-upload {
+  .list-thumbnail-grid {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+}

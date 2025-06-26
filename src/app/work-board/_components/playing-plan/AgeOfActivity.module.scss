@@ -1,0 +1,13 @@
+.container {
+  .title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+
+  .buttonGroup {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+}

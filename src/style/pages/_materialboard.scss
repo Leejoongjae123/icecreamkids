@@ -1,0 +1,29 @@
+/* page - materialboard */
+.doc-material {
+  .main-content {
+    background-color: $bgray-60;
+  }
+  .content-article {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .group-content{
+    +.group-content{
+      margin-top:50px;
+    }
+  }
+  .group-empty {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    .body-content {
+      flex: 1;
+      .item-table {
+        + .head-list {
+          margin-top: 24px;;
+        }
+      }
+    }
+  }
+}

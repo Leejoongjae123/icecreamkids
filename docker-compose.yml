@@ -1,0 +1,9 @@
+#version: "10"
+services:
+  web:
+    container_name: react_web
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - "3000:3000"

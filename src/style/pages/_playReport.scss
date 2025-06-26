@@ -1,0 +1,408 @@
+/* page - playreport */
+.doc-playreport {
+  flex: 1;
+  .inner-main,
+  .main-content {
+    height: 100%;
+  }
+  .content-article {
+    padding: 40px 0 60px;
+  }
+  .head-content {
+    display: flex;
+    align-items: center;
+    &.head-list {
+      padding-bottom: 14px;
+    }
+  }
+  .util-head {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    &.util-left {
+      margin-right: auto;
+    }
+    &.util-right {
+      margin-left: auto;
+    }
+    .btn {
+      & + .btn {
+        margin-left: 0;
+      }
+    }
+    .btn-small {
+      min-width: 80px;
+    }
+  }
+  .info-util {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    dt {
+      font-weight: 600;
+      font-size: 16px;
+      line-height: 24px;
+      color: $primary-02;
+    }
+  }
+  .notice-util {
+    margin-left: 6px;
+    font-weight: 500;
+    font-size: 12px;
+    line-height: 18px;
+    color: $gray-55;
+  }
+  .body-content {
+    position: relative;
+    & + .body-content {
+      margin-top: 50px;
+      padding-top: 54px;
+      border-top: 1px solid $gray-90;
+    }
+    .tit-content {
+      flex: 1;
+      display: block;
+      font-weight: 700;
+      font-size: 24px;
+      line-height: 34px;
+      color: $gray-10;
+    }
+    .util-body {
+      display: flex;
+      margin-bottom: 12px;
+      .btn-util {
+        &.btn-prev {
+          margin-left: 4px;
+        }
+      }
+      .btn-find {
+        margin-left: auto;
+        margin-right: 0;
+      }
+    }
+    .btn-find {
+      margin-right: auto;
+    }
+    .btn-util {
+      min-width: unset;
+      margin: 0;
+      padding: 9px;
+      background-color: transparent;
+      &:hover {
+        position: relative;
+      }
+      &.btn-prev {
+        margin-left: auto;
+        border-radius: 8px 0 0 8px;
+      }
+      &.btn-next {
+        border-radius: 0 8px 8px 0;
+      }
+      & + .btn-util {
+        margin-left: -1px;
+      }
+      .ico-comm {
+        display: block;
+      }
+    }
+    .item-empty {
+      padding: 90px 0;
+      .btn-small {
+        margin-top: 15px;
+      }
+    }
+    &.body-info {
+      padding: 30px;
+      border-radius: 12px;
+      background-color: $gray-100;
+    }
+    &.body-detail {
+      margin-top: 30px;
+      padding: 0;
+      border: 0 none;
+      .list-thumbnail {
+        flex-wrap: wrap;
+        align-items: stretch;
+        gap: 12px;
+        li {
+          flex: unset;
+          flex-basis: calc((100% - 36px) / 4);
+          display: flex;
+          flex-direction: column;
+          width: calc((100% - 36px) / 4);
+          padding: 12px;
+          border: 1px solid $gray-90;
+          box-sizing: border-box;
+        }
+        .item-thumbnail {
+          box-shadow: none;
+        }
+        .wrap-report {
+          flex: 1;
+          padding: 20px;
+          box-sizing: border-box;
+
+          // 자료보드 : 미리보기용 제어
+          // &.type_layer {
+          //   // TODO: 전체보기 해달래서 주석처리함
+          //   // .txt-report {
+          //   //   display: -webkit-box;
+          //   //   overflow: hidden;
+          //   //   -webkit-box-orient: vertical;
+          //   //   -webkit-line-clamp: 10;
+          //   //   overflow: hidden;
+          //   // }
+          // }
+
+          .tit-report {
+            margin-bottom: 13px;
+            padding: 0;
+          }
+          .txt-report {
+            height: auto;
+            padding: 0;
+          }
+        }
+      }
+      .item-text {
+        & + .type-textarea {
+          margin-top: 6px;
+        }
+        &.type-textarea {
+          .inner-text {
+            height: 343px;
+            border: 1px solid $primary-06;
+            &:hover,
+            &.focus {
+              border-color: $gray-30;
+            }
+          }
+        }
+      }
+    }
+  }
+  .list-thumbnail {
+    display: flex;
+    align-items: flex-start;
+    gap: 13px;
+    .item-card,
+    & > li {
+      flex: 1 1 auto;
+      width: 100%;
+      min-width: 0;
+      border-radius: 12px;
+      background-color: $gray-100;
+      box-shadow: 2px 4px 10px -4px rgba(#181d24, 8%);
+    }
+  }
+  .list-playcard {
+    & > li,
+    .item-card {
+      background-color: transparent;
+      box-shadow: none;
+    }
+  }
+  .item-thumbnail {
+    z-index: 1;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px 0 rgba($gray-0, 20%);
+    .util-thumbnail {
+      background: rgba($gray-0, 15%);
+    }
+    .content-thumbnail {
+      padding: 0;
+    }
+  }
+  .wrap-report {
+    position: relative;
+    padding: 16px;
+    -webkit-transition: all 0.2s;
+    -moz-transition: all 0.2s;
+    transition: all 0.2s;
+    & > * {
+      position: relative;
+      width: 100%;
+      -webkit-transition: 0.2s;
+      -moz-transition: 0.2s;
+      transition: 0.2s;
+      box-sizing: border-box;
+    }
+    .tit-report {
+      display: block;
+      padding: 12px 10px 13px;
+      font-weight: 700;
+      font-size: 15px;
+      line-height: 20px;
+      word-break: break-all;
+      color: $gray-10;
+    }
+    .txt-report {
+      overflow-y: auto;
+      display: block;
+      height: 165px;
+      padding: 0 10px;
+      font-weight: 400;
+      font-size: 14px;
+      line-height: 21px;
+      word-break: break-all;
+      white-space: pre-wrap;
+      color: $gray-30;
+    }
+    .btn-delete {
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: auto;
+      padding: 12px;
+      box-sizing: border-box;
+      .ico-comm {
+        display: block;
+      }
+    }
+    .card-report {
+      height: 64px;
+      margin-bottom: 4px;
+      border: 1px dashed $bgray-20;
+      border-radius: 8px;
+      box-sizing: border-box;
+
+      .item-empty {
+        border-radius: 10px;
+      }
+    }
+    .item-empty {
+      flex-direction: row;
+      gap: 8px;
+      padding: 15px 19px;
+      background-color: $bgray-60;
+      box-sizing: border-box;
+      .ico-upload-26 {
+        margin: 0;
+        flex: none;
+      }
+      .txt-empty {
+        margin: 0;
+        font-weight: 500;
+        font-size: 12px;
+        line-height: 16px;
+        color: $gray-55;
+      }
+    }
+    .item-file {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 21px 15px;
+      .ico-comm {
+        flex-shrink: 0;
+        display: block;
+      }
+      .txt-file {
+        flex: 1;
+        display: flex;
+        min-width: 0;
+        font-weight: 500;
+        font-size: 13px;
+        line-height: 19px;
+      }
+      .btn-del {
+        margin: 0 -2px;
+        padding: 2px;
+      }
+    }
+    .item-text.type-textarea {
+      .inner-text {
+        border: 1px dashed $bgray-20;
+      }
+      .inp-text {
+        border-radius: 10px 10px 0 0;
+        min-height: 103px;
+        &:placeholder-shown {
+          background-color: $bgray-60;
+          & + .count-text {
+            background-color: $bgray-60;
+          }
+        }
+      }
+      .count-text {
+        border-radius: 0 0 10px 10px;
+      }
+    }
+    .util-report {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 6px;
+      .btn-toggle {
+        display: flex;
+        padding: 10px 11px;
+        border-radius: 8px;
+        background-color: $bgray-50;
+        &:hover,
+        &:active {
+          background-color: $gray-80;
+        }
+        .ico-comm {
+          display: block;
+          margin: auto;
+          -webkit-transition: 0.2s;
+          -moz-transition: 0.2s;
+          transition: 0.2s;
+        }
+      }
+      .txt-util {
+        font-weight: 400;
+        font-size: 14px;
+        line-height: 21px;
+        color: $gray-30;
+      }
+      .btn-ai {
+        margin-left: auto;
+      }
+    }
+    &.fold {
+      & > * {
+        overflow: hidden;
+        top: -100px;
+        height: 0;
+        margin: 0;
+        padding: 0;
+        border: 0 none;
+      }
+      .item-text.type-textarea {
+        .inner-text {
+          height: 0;
+        }
+        .inp-text {
+          min-height: unset;
+        }
+      }
+      .util-report {
+        top: 0;
+        margin-top: 0;
+        height: auto;
+      }
+      .btn-toggle {
+        .ico-triangle-12 {
+          transform: rotate(180deg);
+        }
+      }
+    }
+  }
+  .item-table.type-vertical {
+    td[colspan] {
+      height: 140px;
+      box-sizing: border-box;
+    }
+  }
+}
+
+.util-edit-report {
+  @media screen and (max-width: 1700px) {
+    button {
+      flex: 1 0 auto;
+      min-width: 0;
+      padding: 7px;
+    }
+  }
+}

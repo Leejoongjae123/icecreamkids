@@ -1,0 +1,252 @@
+/* layout */
+html,
+body {
+  height: 100%;
+}
+.container-doc {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-width: 1440px;
+  height: 100%;
+  &.sticky {
+    .doc-header {
+      position: sticky;
+      top: 0;
+      -webkit-animation: showHeader .2s linear;
+      -moz-animation: showHeader .2s linear;
+      animation: showHeader .2s linear;
+    }
+    &.sticky-hide {
+      .doc-header {
+        position: sticky;
+        top: 0;
+        -webkit-animation: hideHeader .2s linear;
+        -moz-animation: hideHeader .2s linear;
+        animation: hideHeader .2s linear;
+      }
+    }
+    &.fixed {
+      padding-top: 79px;
+      .doc-header {
+        position: fixed;
+      }
+    }
+    @-webkit-keyframes showHeader {
+      0% {
+        -webkit-transform: translateY(-100%);
+      }
+      100% {
+        -webkit-transform: translateY(0);
+      }
+    }
+    @-moz-keyframes showHeader {
+      0% {
+        -moz-transform: translateY(-100%);
+      }
+      100% {
+        -moz-transform: translateY(0);
+      }
+    }
+    @keyframes showHeader {
+      0% {
+        -ms-transform: translateY(-100%);
+        transform: translateY(-100%);
+      }
+      100% {
+        -ms-transform: translateY(0);
+        transform: translateY(0);
+      }
+    }
+    @-webkit-keyframes hideHeader {
+      0% {
+        -webkit-transform: translateY(0);
+      }
+    
+      100% {
+        -webkit-transform: translateY(-100%);
+      }
+    }
+    
+    @-moz-keyframes hideHeader {
+      0% {
+        -moz-transform: translateY(0);
+      }
+    
+      100% {
+        -moz-transform: translateY(-100%);
+      }
+    }
+    
+    @keyframes hideHeader {
+      0% {
+        -ms-transform: translateY(0);
+        transform: translateY(0);
+      }
+    
+      100% {
+        -ms-transform: translateY(-100%);
+        transform: translateY(-100%);
+      }
+    }
+    .content-sub,
+    .content-feature,
+    .content-aside,
+    .group-preset,
+    .content-feature .wrap-btn .btn-toggle {
+      top: 80px;
+    }
+  }
+  &.app_error {
+    .doc-main {
+      flex: 1;
+    }
+    .inner-main {
+      height: 100%;
+      min-height: auto !important;
+    }
+    .content-article {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 0;
+    }
+    .doc-footer {
+      display: none;
+    }
+  }
+  .doc-main {
+    max-width: 1920px;
+    margin: 0 auto;
+  }
+  .main-content {
+    padding: 0 50px;
+  }
+  .content-article {
+    max-width: 100%;
+  }
+}
+.container-type1 {
+  // snb, footer 가 없는 layout
+  .doc-main {
+    min-height: calc(100% - 80px);
+  }
+  .main-content {
+    padding: 0 40px;
+  }
+}
+.container-type2 {
+  // 가변 snb 기본 240px layout
+  .doc-main {
+    min-height: calc(100% - 80px - 175px);
+    .inner-main {
+      display: flex;
+      width: 100%;
+      height: 100%;
+    }
+  }
+  .main-content {
+    min-width: 0;
+  }
+}
+.container-type3 {
+  // snb 고정 320px layout
+  .doc-main {
+    min-height: calc(100% - 80px - 175px);
+    .inner-main {
+      display: flex;
+      width: 100%;
+      height: 100%;
+    }
+  }
+  .content-feature {
+    flex: 0 0 320px;
+  }
+  .main-content {
+    min-width: 0;
+  }
+  .content-article {
+    max-width: 1820px;
+    padding: 30px 0 80px;
+  }
+}
+.container-type4 {
+  // snb 고정 240px layout
+  .doc-main {
+    .inner-main {
+      display: flex;
+      width: 100%;
+      height: 100%;
+    }
+  }
+}
+.container-type5 {
+  // snb 없는 좌우 중앙정렬 layout
+  .doc-main {
+    max-width: unset;
+  }
+  .main-content {
+    padding: 0;
+  }
+  .content-article {
+    padding: 0;
+  }
+  .inner-content {
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+}
+.container-type6 {
+  // 좌측 놀이카드 우측 추천 자료 노출되는 layout (활동카드 상세)
+  .doc-main {
+    min-height: calc(100% - 80px - 175px);
+    .inner-main {
+      display: flex;
+      width: 100%;
+      height: 100%;
+    }
+  }
+  .main-content {
+    padding: 0 40px;
+  }
+  .content-aside {
+    flex: 0 0 320px;
+    width: 320px;
+  }
+  .content-article {
+    padding: 40px 0;
+  }
+}
+
+// 전역 top 플로팅 버튼
+.container-doc {
+  .floating-top-move {
+    position: fixed;
+    bottom: 88px;
+    right: 14px;
+    z-index: 100;
+    transition: all 0.2s ease;
+
+    &.sticky {
+      position: fixed;
+      bottom: 10px;
+    }
+    .btn-top {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      padding: 10px 0;
+      font-weight: 700;
+      font-size: 12px;
+      line-height: 18px;
+      color: #656565;
+
+      .ico-comm {
+        margin-right: 2px;
+      }
+    }
+  }
+}

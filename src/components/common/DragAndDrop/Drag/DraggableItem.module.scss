@@ -1,0 +1,15 @@
+.draggableItem {
+  padding: 8px;
+  margin-bottom: 4px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  cursor: move;
+}
+
+.selected {
+  background-color: #e0f7fa;
+}
+
+.dragging {
+  opacity: 0.5;
+}

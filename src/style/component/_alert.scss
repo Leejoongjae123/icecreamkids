@@ -1,0 +1,82 @@
+/* layer - alert */
+.alert-layer {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  .inner-layer {
+    flex: none;
+    position: relative;
+    width: 400px;
+    min-height: 48px;
+    padding: 12px 16px 12px 32px;
+    margin: auto;
+    border-radius: 8px;
+    text-align: left;
+    background-color: $gray-30;
+    box-sizing: border-box;
+    &.type-small {
+      padding-right: 76px;
+    }
+  }
+  .layer-body {
+    width: 100%;
+    & + .layer-foot {
+      padding-top: 16px;
+    }
+  }
+  .wrap-txt {
+    display: table-cell;
+    vertical-align: middle;
+  }
+  .tit-alert {
+    display: block;
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 24px;
+    color: $primary-09;
+    & + .txt-alert {
+      padding-top: 4px;
+    }
+  }
+  .txt-alert {
+    display: block;
+    font-size: 13px;
+    line-height: 20px;
+    color: $primary-09;
+  }
+  .layer-foot {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0;
+  }
+  .btn-alert {
+    height: 24px;
+    padding: 0 8px;
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 24px;
+    color: $primary-09;
+    opacity: 0.6;
+    text-align: center;
+    & + .btn-alert {
+      margin-left: 8px;
+    }
+    &.btn-complete {
+      opacity: 1;
+    }
+  }
+  .btn-close {
+    position: absolute;
+    top: 12px;
+    right: 20px;
+    width: 24px;
+    height: 24px;
+  }
+}

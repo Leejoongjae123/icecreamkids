@@ -1,0 +1,65 @@
+/* global */
+.direct_link {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  z-index: 1000;
+  height: 1px;
+  a {
+    position: absolute;
+    top: -999px;
+    padding: 5px 10px;
+    font-weight: bold;
+    color: #fff;
+    background: #333;
+    text-decoration: none;
+    white-space: nowrap;
+    &:focus {
+      top: 0;
+    }
+  }
+}
+.ir_pm {
+  display: block;
+  overflow: hidden;
+  font-size: 1px;
+  line-height: 0;
+  text-indent: -9999px;
+  color: transparent;
+  /* 사용된 이미지내 의미있는 텍스트의 대체텍스트를 제공할때 */
+}
+.ir_wa {
+  display: block;
+  overflow: hidden;
+  position: relative;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  /* 중요한 이미지 대체텍스트로 이미지off시에도 대체 텍스트를 보여주고자 할때 */
+}
+.ir_caption,
+.screen_out {
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  font-size: 1px;
+  line-height: 1px;
+  clip-path: inset(100%);
+  clip: rect(1px, 1px, 1px, 1px);
+  /* 대체텍스트가 아닌 접근성을 위한 숨김텍스트를 제공할때 */
+}
+.show {
+  display: block;
+}
+.hide {
+  display: none;
+}
+img {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+  /* 이미지 드래그 방지 */
+}

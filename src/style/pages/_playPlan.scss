@@ -1,0 +1,168 @@
+/* page - playplan */
+.doc-playplan {
+  .head-content {
+    display: flex;
+    align-items: center;
+    padding-bottom: 13px;
+    border-bottom: 1px solid $gray-80;
+  }
+  .util-head {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    &.util-left {
+      margin-right: auto;
+    }
+    &.util-right {
+      margin-left: auto;
+    }
+    .btn {
+      & + .btn {
+        margin-left: 0;
+      }
+    }
+    .btn-small {
+      min-width: 80px;
+    }
+  }
+  .body-content {
+    .wrap-content {
+      position: relative;
+      padding: 0 10px;
+    }
+    .tit-content {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+      .txt-tit {
+        display: block;
+        font-weight: 700;
+        font-size: 24px;
+        line-height: 24px;
+        color: $gray-10;
+      }
+      .btn-ai {
+        margin-left: auto;
+      }
+      .item-text {
+        width: 100%;
+      }
+    }
+    .txt-content {
+      display: block;
+      font-weight: 400;
+      font-size: 16px;
+      line-height: 24px;
+      color: $gray-30;
+    }
+    .list-content {
+      position: relative;
+      padding-left: 24px;
+      font-weight: 400;
+      font-size: 16px;
+      line-height: 24px;
+      color: $gray-30;
+      &:before {
+        position: absolute;
+        left: 10.5px;
+        top: 10.5px;
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background-color: $gray-30;
+        content: '';
+      }
+      .bullet {
+        float: left;
+        display: block;
+        position: relative;
+        min-width: 24px;
+        margin-left: -24px;
+        padding: 0 2px;
+        text-align: center;
+        background-color: $gray-100;
+        box-sizing: border-box;
+      }
+      &.font-small {
+        &:before {
+          top: 9px;
+        }
+      }
+      &.font-large {
+        &:before {
+          top: 12px;
+        }
+      }
+    }
+    .font-small {
+      font-size: 14px;
+      line-height: 21px;
+    }
+    .font-large {
+      font-size: 18px;
+      line-height: 27px;
+    }
+    hr {
+      display: block;
+      width: 100%;
+      margin: 8px 0;
+      padding: 0;
+      border: 0 none;
+      background: none;
+    }
+    .fieldset-form {
+      &.form-title {
+        .inner-text {
+          height: 79px;
+        }
+        .inp-text {
+          min-height: 40px;
+        }
+      }
+      &.form-sub {
+        .inner-text {
+          height: 140px;
+        }
+      }
+      &.form-contents {
+        .inner-text {
+          height: 184px;
+        }
+      }
+    }
+  }
+  .subject-content {
+    padding: 50px 40px;
+    .wrap-content {
+      padding-left: 0;
+      & + .wrap-content {
+        margin-top: 30px;
+      }
+    }
+    .tit-content {
+      justify-content: center;
+      .txt-tit {
+        font-size: 30px;
+        line-height: 36px;
+      }
+    }
+  }
+  .detail-content {
+    padding: 0 40px 50px;
+    .wrap-content {
+      & + .wrap-content {
+        margin-top: 44px;
+      }
+    }
+  }
+
+  // 생성된 놀이 카드 전용 css
+  .snb-card-type2 {
+    .title-snb {
+      margin-bottom: 14px;
+    }
+    .inner-snb {
+      padding-top: 10px;
+    }
+  }
+}

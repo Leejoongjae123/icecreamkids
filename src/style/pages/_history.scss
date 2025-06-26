@@ -1,0 +1,54 @@
+/* 최근 작업 히스토리 */
+.doc-history {
+  .inner-content {
+    padding-top: 40px;
+    padding-bottom: 82px;
+  }
+  .title-content {
+    display: block;
+    margin-bottom: 16px;
+    font-weight: 700;
+    font-size: 32px;
+    line-height: 32px;
+    color: $gray-10;
+  }
+  .filter-content {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 20px;
+    .btn-view-list {
+      padding: 7px 5px;
+      .ico-comm {
+        display: block;
+      }
+      &.active {
+        .ico-list-20 {
+          background-position: -330px -240px;
+        }
+      }
+    }
+    .btn-view-grid {
+      margin-right: 1px;
+      padding: 7px 5px;
+      .ico-comm {
+        display: block;
+      }
+      &.active {
+        .ico-grid-20 {
+          background-position: -390px -240px;
+        }
+      }
+    }
+  }
+  .list-thumbnail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    padding: 0 2px;
+    li {
+      width: 236px;
+    }
+  }
+}

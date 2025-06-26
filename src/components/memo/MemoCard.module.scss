@@ -1,0 +1,122 @@
+.memoCard {
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  width: 300px; /* 🔥 카드 크기 고정 */
+  height: 150px; /* 🔥 카드 크기 고정 */
+}
+
+/* 헤더 */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 아바타 영역 */
+.avatars {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  position: relative;
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #e0e0e0;
+  border-radius: 50px;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.avatarImage {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatarName {
+  font-size: 14px;
+  color: #333;
+}
+
+/* 더보기 버튼 (호버 시 툴팁 표시) */
+.moreWrapper {
+  position: relative;
+  cursor: pointer;
+}
+
+.moreButton {
+  background: #444;
+  color: #fff;
+  border-radius: 50px;
+  padding: 4px 10px;
+  border: none;
+}
+
+.tooltip {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s ease-in-out,
+    visibility 0.2s ease-in-out;
+}
+
+/* 호버 시 툴팁 표시 */
+.moreWrapper:hover .tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/*  메모 내용 */
+.content {
+  font-size: 14px;
+  color: #333;
+  width: 100%;
+  height: 3.6em; /*  3줄 높이로 고정 */
+  overflow-y: auto; /* 3줄 초과 시 스크롤 적용 */
+  text-overflow: ellipsis;
+  white-space: normal;
+  line-height: 1.2em;
+  padding-right: 8px;
+}
+
+/* 스크롤바 스타일 */
+.content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.content::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+.content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 오디오 메모 (카드 아래 배치) */
+.vocalMemoWrapper {
+  margin-top: 18px;
+}

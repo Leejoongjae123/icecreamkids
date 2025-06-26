@@ -1,0 +1,154 @@
+/* tab */
+.tab {
+  display: flex;
+  position: relative;
+  &:before {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background-color: $primary-06;
+    content: '';
+  }
+  li {
+    position: relative;
+  }
+  .btn-tab {
+    display: block;
+    width: 100%;
+    color: $primary-04;
+    box-sizing: border-box;
+    -webkit-transition: border .2s ease, background-color .2s ease;
+    -moz-transition: border .2s ease, background-color .2s ease;
+    transition: border .2s ease, background-color .2s ease;
+    &:after {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 1px;
+      background-color: $primary-06;
+      content: '';
+      -webkit-transition: all .2s ease;
+      -moz-transition: all .2s ease;
+      transition: all .2s ease;
+    }
+    &:hover, &:active {
+      color: $gray-40;
+    }
+    &[aria-selected="true"] {
+      color: $gray-10;
+      &:after {
+        background-color: $gray-10;
+      }
+    }
+  }
+  &.tab-full {
+    li {
+      flex: 1;
+    }
+    .btn-tab {
+      white-space: nowrap;
+    }
+  }
+}
+.tab-large {
+  .btn-tab {
+    padding: 0 24px;
+    font-weight: 600;
+    font-size: 16px;
+    line-height: 48px;
+    &[aria-selected="true"] {
+      &:after {
+        height: 3px;
+      }
+    }
+  }
+}
+.tab-medium {
+  .btn-tab {
+    padding: 0 16px;
+    font-weight: 600;
+    font-size: 16px;
+    line-height: 42px;
+    &[aria-selected="true"] {
+      &:after {
+        height: 2px;
+      }
+    }
+  }
+}
+.tab-small {
+  .btn-tab {
+    padding: 0 16px;
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 32px;
+    &[aria-selected="true"] {
+      &:after {
+        height: 2px;
+      }
+    }
+  }
+}
+.tab-fill {
+  &:before {
+    display: none;
+  }
+  li + li {
+    &:before {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background-color: $primary-06;
+      content: '';
+    }
+  }
+  .btn-tab {
+    padding: 0 18px;
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 34px;
+    &:after {
+      display: none;
+    }
+  }
+}
+.tab-box {
+  border-radius: 6px;
+  background-color: $primary-08;
+  &:before {
+    display: none;
+  }
+  .btn-tab {
+    padding: 0 23px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 16px;
+    line-height: 42px;
+    color: $gray-40;
+    &:hover, &:active {
+      color: $gray-10;
+    }
+    &[aria-selected="true"] {
+      border-color: $gray-55;
+      background-color: $primary-09;
+    }
+    &:after {
+      display: none;
+    }
+  }
+}
+.tab-panel {
+  flex: 1;
+  &:not(.active) {
+    display: none;
+  }
+  &.active {
+    display: block;
+  }
+}

@@ -1,0 +1,20 @@
+// FE에서 사용하는 프론트용 SCSS
+
+// 전역 로딩
+.loader_wrap {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+
+  .txt-loader {
+    font-size: 20px;
+    font-weight: 500;
+    margin-top: 18px;
+  }
+}

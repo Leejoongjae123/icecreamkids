@@ -1,0 +1,613 @@
+/* icon */
+.ico-comm {
+  display: inline-block;
+  overflow: hidden;
+  font-size: 0;
+  line-height: 0;
+  background-image: url(/images/ico_comm.png);
+  background-repeat: no-repeat;
+  background-size: 1000px 420px;
+  text-indent: -9999px;
+  vertical-align: top;
+}
+@mixin ico-comm {
+  display: inline-block;
+  overflow: hidden;
+  font-size: 0;
+  line-height: 0;
+  background-image: url(/images/ico_comm.png);
+  background-repeat: no-repeat;
+  background-size: 1000px 420px;
+  text-indent: -9999px;
+  vertical-align: top;
+}
+
+/* icon - gnb */
+.ico-gnb-alarm {width: 24px;height: 24px;background-position: 0 0;}
+.ico-gnb-alarm-new {width: 24px;height: 24px;background-position: -30px 0;}
+.ico-gnb-user {width: 24px;height: 24px;background-position: -60px 0;}
+.ico-gnb-menu {width: 24px;height: 24px;background-position: -90px 0;}
+.ico-gnb-close {width: 24px;height: 24px;background-position: -120px 0;}
+.ico-gnb-settings {width: 24px;height: 24px;background-position: -510px 0;}
+
+/* icon - snb */
+.ico-snb-arrow-down{width: 20px;height: 20px;background-position: -150px 0;}
+.ico-snb-home{width: 20px;height: 20px;background-position: -170px 0;}
+.ico-snb-folder{width: 20px;height: 20px;background-position: -190px 0;}
+.ico-snb-delete{width: 20px;height: 20px;background-position: -210px 0;}
+.ico-snb-arrow-left-fill{width: 20px;height: 20px;background-position: -230px 0;}
+.ico-snb-arrow-right-fill{width: 20px;height: 20px;background-position: -250px 0;}
+.ico-snb-folder-14{width: 14px;height: 14px;background-position: -280px 0;}
+.ico-snb-arrow-right-14{width: 14px;height: 14px;background-position: -300px 0;}
+.ico-snb-arrow-down-14{width: 14px;height: 14px;background-position: -320px 0;}
+
+/* icon - input choice */
+.ico-inp-check {width: 20px;height: 20px;background-position: 0 -30px;}
+.ico-inp-check-on {width: 20px;height: 20px;background-position: -30px -30px;}
+.ico-inp-check-disabled {width: 20px;height: 20px;background-position: -60px -30px;}
+.ico-inp-check-on-disabled {width: 20px;height: 20px;background-position: -90px -30px;}
+.ico-inp-check-multi {width: 20px;height: 20px;background-position: -120px -30px;}
+.ico-inp-radio {width: 16px;height: 16px;background-position: -150px -30px;}
+.ico-inp-radio-on {width: 16px;height: 16px;background-position: -170px -30px;}
+.ico-inp-radio-disabled {width: 16px;height: 16px;background-position: -190px -30px;}
+.ico-inp-radio-on-disabled {width: 16px;height: 16px;background-position: -210px -30px;}
+.ico-inp-check2 {width: 16px;height: 16px;background-position: -650px -30px;}
+.ico-inp-check2-on {width: 16px;height: 16px;background-position: -630px -30px;}
+
+/* icon - input switch */
+.ico-inp-switch {width: 36px;height: 20px;background-position: -230px -30px;}
+.ico-inp-switch-on {width: 36px;height: 20px;background-position: -270px -30px;}
+.ico-inp-switch-disabled {width: 36px;height: 20px;background-position: -310px -30px;}
+.ico-inp-switch-on-disabled {width: 36px;height: 20px;background-position: -350px -30px;}
+.ico-inp-switch-large {width: 52px;height: 28px;background-position: -390px -30px;}
+.ico-inp-switch-large-on {width: 52px;height: 28px;background-position: -450px -30px;}
+.ico-inp-switch-large-disabled {width: 52px;height: 28px;background-position: -510px -30px;}
+.ico-inp-switch-large-on-disabled {width: 52px;height: 28px;background-position: -570px -30px;}
+
+/* icon - thumbnail util */
+.ico-util-favorite {width: 28px; height: 28px; background-position: -540px 0;}
+.ico-util-favorite-hover {width: 28px; height: 28px; background-position: -570px 0;}
+.ico-util-option {width: 28px; height: 28px; background-position: -600px 0;}
+.ico-util-option-hover {width: 28px; height: 28px; background-position: -630px 0;}
+.ico-util-message {width: 28px; height: 28px; background-position: -660px 0;}
+.ico-util-message-hover {width: 28px; height: 28px; background-position: -690px 0;}
+
+/* icon - 24 */
+.ico-arrow-up {width: 24px;height: 24px;background-position: 0 -60px;}
+.ico-arrow-down {width: 24px;height: 24px;background-position: -30px -60px;}
+.ico-arrow-left {width: 24px;height: 24px;background-position: -60px -60px;}
+.ico-arrow-right-up {width: 24px;height: 24px;background-position: -90px -60px;}
+.ico-arrow-right-down {width: 24px;height: 24px;background-position: -120px -60px;}
+.ico-arrow-left-down {width: 24px;height: 24px;background-position: -150px -60px;}
+.ico-arrow-left-up {width: 24px;height: 24px;background-position: -180px -60px;}
+.ico-chevron-up {width: 24px;height: 24px;background-position: -210px -60px;}
+.ico-chevron-down {width: 24px;height: 24px;background-position: -240px -60px;}
+.ico-chevron-left {width: 24px;height: 24px;background-position: -270px -60px;}
+.ico-chevron-right {width: 24px;height: 24px;background-position: -300px -60px;}
+.ico-chevron-double-up {width: 24px;height: 24px;background-position: -330px -60px;}
+.ico-chevron-double-down {width: 24px;height: 24px;background-position: -360px -60px;}
+.ico-chevron-double-left {width: 24px;height: 24px;background-position: -390px -60px;}
+.ico-chevron-double-right {width: 24px;height: 24px;background-position: -420px -60px;}
+.ico-caret-down {width: 24px;height: 24px;background-position: -450px -60px;}
+.ico-caret-up {width: 24px;height: 24px;background-position: -480px -60px;}
+.ico-caret-left {width: 24px;height: 24px;background-position: -510px -60px;}
+.ico-caret-right {width: 24px;height: 24px;background-position: -540px -60px;}
+.ico-delete {width: 24px;height: 24px;background-position: -570px -60px;}
+.ico-delete-alt {width: 24px;height: 24px;background-position: -600px -60px;}
+.ico-edit {width: 24px;height: 24px;background-position: -630px -60px;}
+.ico-edit2 {width: 24px;height: 24px;background-position: -660px -60px;}
+.ico-edit-alt {width: 24px;height: 24px;background-position: -690px -60px;}
+.ico-add {width: 24px;height: 24px;background-position: -720px -60px;}
+.ico-check {width: 24px;height: 24px;background-position: -750px -60px;}
+.ico-remove {width: 24px;height: 24px;background-position: -780px -60px;}
+.ico-percentage {width: 24px;height: 24px;background-position: -810px -60px;}
+.ico-close {width: 24px;height: 24px;background-position: -840px -60px;}
+.ico-close2 {width: 24px;height: 24px;background-position: -750px -210px;}
+.ico-favorite {width: 24px;height: 24px;background-position: -870px -60px;}
+.ico-favorite-fill {width: 24px;height: 24px;background-position: -900px -60px;}
+.ico-heart {width: 24px;height: 24px;background-position: -930px -60px;}
+.ico-bookmark {width: 24px;height: 24px;background-position: -960px -60px;}
+.ico-lock {width: 24px;height: 24px;background-position: 0 -90px;}
+.ico-unlock {width: 24px;height: 24px;background-position: -30px -90px;}
+.ico-options-horizontal {width: 24px;height: 24px;background-position: -60px -90px;}
+.ico-options-vertical {width: 24px;height: 24px;background-position: -90px -90px;}
+.ico-export {width: 24px;height: 24px;background-position: -120px -90px;}
+.ico-download {width: 24px;height: 24px;background-position: -150px -90px;}
+.ico-undo {width: 24px;height: 24px;background-position: -180px -90px;}
+.ico-refresh {width: 24px;height: 24px;background-position: -210px -90px;}
+.ico-share {width: 24px;height: 24px;background-position: -240px -90px;}
+.ico-sort {width: 24px;height: 24px;background-position: -270px -90px;}
+.ico-switch {width: 24px;height: 24px;background-position: -300px -90px;}
+.ico-filter {width: 24px;height: 24px;background-position: -330px -90px;}
+.ico-search {width: 24px;height: 24px;background-position: -360px -90px;}
+.ico-zoom-in {width: 24px;height: 24px;background-position: -390px -90px;}
+.ico-zoom-out {width: 24px;height: 24px;background-position: -420px -90px;}
+.ico-log-in {width: 24px;height: 24px;background-position: -450px -90px;}
+.ico-log-out {width: 24px;height: 24px;background-position: -480px -90px;}
+.ico-link {width: 24px;height: 24px;background-position: -510px -90px;}
+.ico-link-alt {width: 24px;height: 24px;background-position: -540px -90px;}
+.ico-attachment {width: 24px;height: 24px;background-position: -570px -90px;}
+.ico-reorder {width: 24px;height: 24px;background-position: -600px -90px;}
+.ico-reorder-alt {width: 24px;height: 24px;background-position: -630px -90px;}
+.ico-eye {width: 24px;height: 24px;background-position: -660px -90px;}
+.ico-eye-off {width: 24px;height: 24px;background-position: -690px -90px;}
+.ico-copy {width: 24px;height: 24px;background-position: -720px -90px;}
+.ico-external-link {width: 24px;height: 24px;background-position: -750px -90px;}
+.ico-select {width: 24px;height: 24px;background-position: -780px -90px;}
+.ico-settings {width: 24px;height: 24px;background-position: -810px -90px;}
+.ico-expand {width: 24px;height: 24px;background-position: -840px -90px;}
+.ico-minimize {width: 24px;height: 24px;background-position: -870px -90px;}
+.ico-cloud-upload {width: 24px;height: 24px;background-position: -900px -90px;}
+.ico-cloud-download {width: 24px;height: 24px;background-position: -930px -90px;}
+.ico-filter-alt {width: 24px;height: 24px;background-position: -960px -90px;}
+.ico-archive {width: 24px;height: 24px;background-position: 0 -120px;}
+.ico-ban {width: 24px;height: 24px;background-position: -30px -120px;}
+.ico-send {width: 24px;height: 24px;background-position: -60px -120px;}
+.ico-backspace {width: 24px;height: 24px;background-position: -90px -120px;}
+.ico-enter {width: 24px;height: 24px;background-position: -120px -120px;}
+.ico-flag {width: 24px;height: 24px;background-position: -150px -120px;}
+.ico-save {width: 24px;height: 24px;background-position: -180px -120px;}
+.ico-circle-information {width: 24px;height: 24px;background-position: -210px -120px;}
+.ico-circle-warning {width: 24px;height: 24px;background-position: -240px -120px;}
+.ico-circle-error {width: 24px;height: 24px;background-position: -270px -120px;}
+.ico-circle-help {width: 24px;height: 24px;background-position: -300px -120px;}
+.ico-circle-check {width: 24px;height: 24px;background-position: -330px -120px;}
+.ico-circle-add {width: 24px;height: 24px;background-position: -360px -120px;}
+.ico-circle-add-fill {width: 24px;height: 24px;background-position: -390px -120px;}
+.ico-circle-remove {width: 24px;height: 24px;background-position: -420px -120px;}
+.ico-circle-arrow-down {width: 24px;height: 24px;background-position: -450px -120px;}
+.ico-circle-arrow-up {width: 24px;height: 24px;background-position: -480px -120px;}
+.ico-circle-arrow-right {width: 24px;height: 24px;background-position: -510px -120px;}
+.ico-circle-arrow-left {width: 24px;height: 24px;background-position: -540px -120px;}
+.ico-circle {width: 24px;height: 24px;background-position: -570px -120px;}
+.ico-warning {width: 24px;height: 24px;background-position: -600px -120px;}
+.ico-notification-off {width: 24px;height: 24px;background-position: -630px -120px;}
+.ico-folder {width: 24px;height: 24px;background-position: -660px -120px;}
+.ico-folder-add {width: 24px;height: 24px;background-position: -690px -120px;}
+.ico-folder-remove {width: 24px;height: 24px;background-position: -720px -120px;}
+.ico-folder-download {width: 24px;height: 24px;background-position: -750px -120px;}
+.ico-folder-check {width: 24px;height: 24px;background-position: -780px -120px;}
+.ico-document {width: 24px;height: 24px;background-position: -810px -120px;}
+.ico-document-empty {width: 24px;height: 24px;background-position: -840px -120px;}
+.ico-document-add {width: 24px;height: 24px;background-position: -870px -120px;}
+.ico-document-remove {width: 24px;height: 24px;background-position: -900px -120px;}
+.ico-document-download {width: 24px;height: 24px;background-position: -930px -120px;}
+.ico-document-check {width: 24px;height: 24px;background-position: -960px -120px;}
+.ico-location {width: 24px;height: 24px;background-position: 0 -150px;}
+.ico-home {width: 24px;height: 24px;background-position: -30px -150px;}
+.ico-clock {width: 24px;height: 24px;background-position: -60px -150px;}
+.ico-calendar {width: 24px;height: 24px;background-position: -90px -150px;}
+.ico-image {width: 24px;height: 24px;background-position: -120px -150px;}
+.ico-map {width: 24px;height: 24px;background-position: -150px -150px;}
+.ico-bar-chart {width: 24px;height: 24px;background-position: -180px -150px;}
+.ico-bar-chart-alt {width: 24px;height: 24px;background-position: -210px -150px;}
+.ico-clipboard {width: 24px;height: 24px;background-position: -240px -150px;}
+.ico-clipboard-check {width: 24px;height: 24px;background-position: -270px -150px;}
+.ico-clipboard-list {width: 24px;height: 24px;background-position: -300px -150px;}
+.ico-book {width: 24px;height: 24px;background-position: -330px -150px;}
+.ico-credit-card {width: 24px;height: 24px;background-position: -360px -150px;}
+.ico-inbox {width: 24px;height: 24px;background-position: -390px -150px;}
+.ico-tag {width: 24px;height: 24px;background-position: -420px -150px;}
+.ico-pin {width: 24px;height: 24px;background-position: -450px -150px;}
+.ico-megaphone {width: 24px;height: 24px;background-position: -480px -150px;}
+.ico-shopping-cart {width: 24px;height: 24px;background-position: -510px -150px;}
+.ico-shopping-cart-add {width: 24px;height: 24px;background-position: -540px -150px;}
+.ico-webcam {width: 24px;height: 24px;background-position: -570px -150px;}
+.ico-compass {width: 24px;height: 24px;background-position: -600px -150px;}
+.ico-comment {width: 24px;height: 24px;background-position: -630px -150px;}
+.ico-print {width: 24px;height: 24px;background-position: -660px -150px;}
+.ico-database {width: 24px;height: 24px;background-position: -690px -150px;}
+.ico-pen {width: 24px;height: 24px;background-position: -720px -150px;}
+.ico-message {width: 24px;height: 24px;background-position: -750px -150px;}
+.ico-message-alt {width: 24px;height: 24px;background-position: -780px -150px;}
+.ico-call {width: 24px;height: 24px;background-position: -810px -150px;}
+.ico-email {width: 24px;height: 24px;background-position: -840px -150px;}
+.ico-volume-up {width: 24px;height: 24px;background-position: -870px -150px;}
+.ico-volume-off {width: 24px;height: 24px;background-position: -900px -150px;}
+.ico-repeat {width: 24px;height: 24px;background-position: -930px -150px;}
+.ico-previous {width: 24px;height: 24px;background-position: -960px -150px;}
+.ico-stop {width: 24px;height: 24px;background-position: 0 -180px;}
+.ico-play {width: 24px;height: 24px;background-position: -30px -180px;}
+.ico-pause {width: 24px;height: 24px;background-position: -60px -180px;}
+.ico-next {width: 24px;height: 24px;background-position: -90px -180px;}
+.ico-shuffle {width: 24px;height: 24px;background-position: -120px -180px;}
+.ico-mobile {width: 24px;height: 24px;background-position: -150px -180px;}
+.ico-tablet {width: 24px;height: 24px;background-position: -180px -180px;}
+.ico-computer {width: 24px;height: 24px;background-position: -210px -180px;}
+.ico-laptop {width: 24px;height: 24px;background-position: -240px -180px;}
+.ico-speakers {width: 24px;height: 24px;background-position: -270px -180px;}
+.ico-camera {width: 24px;height: 24px;background-position: -300px -180px;}
+.ico-user {width: 24px;height: 24px;background-position: -330px -180px;}
+.ico-user-add {width: 24px;height: 24px;background-position: -360px -180px;}
+.ico-user-remove {width: 24px;height: 24px;background-position: -390px -180px;}
+.ico-user-check {width: 24px;height: 24px;background-position: -420px -180px;}
+.ico-users {width: 24px;height: 24px;background-position: -450px -180px;}
+.ico-board {width: 24px;height: 24px;background-position: -480px -180px;}
+.ico-grid {width: 24px;height: 24px;background-position: -510px -180px;}
+.ico-table {width: 24px;height: 24px;background-position: -540px -180px;}
+.ico-two-columns {width: 24px;height: 24px;background-position: -570px -180px;}
+.ico-two-rows {width: 24px;height: 24px;background-position: -600px -180px;}
+.ico-three-rows {width: 24px;height: 24px;background-position: -630px -180px;}
+.ico-layers {width: 24px;height: 24px;background-position: -660px -180px;}
+.ico-layout {width: 24px;height: 24px;background-position: -690px -180px;}
+.ico-window {width: 24px;height: 24px;background-position: -720px -180px;}
+.ico-download-alt {width: 24px;height: 24px;background-position: -750px -180px;}
+.ico-sliders-alt {width: 24px;height: 24px;background-position: -780px -180px;}
+.ico-history {width: 24px;height: 24px;background-position: -810px -180px;}
+.ico-server {width: 24px;height: 24px;background-position: -840px -180px;}
+.ico-disk {width: 24px;height: 24px;background-position: -870px -180px;}
+.ico-repeat2 {width: 24px;height: 24px;background-position: -900px -180px;}
+.ico-layers2 {width: 24px;height: 24px;background-position: -930px -180px;}
+.ico-close-solid {width: 24px;height: 24px;background-position: -960px -180px;}
+.ico-check-circle-solid {width: 24px;height: 24px;background-position: 0 -210px;}
+.ico-message-solid {width: 24px;height: 24px;background-position: -30px -210px;}
+.ico-help {width: 24px;height: 24px;background-position: -60px -210px;}
+.ico-ai {width: 24px;height: 24px;background-position: -90px -210px;}
+.ico-wand {width: 24px;height: 24px;background-position: -120px -210px;}
+.ico-ai-img {width: 24px;height: 24px;background-position: -150px -210px;}
+.ico-sparkle {width: 24px;height: 24px;background-position: -180px -210px;}
+.ico-siren {width: 24px;height: 24px;background-position: -210px -210px;}
+.ico-reply {width: 24px;height: 24px;background-position: -240px -210px;}
+.ico-preview {width: 24px;height: 24px;background-position: -270px -210px;}
+.ico-arrow-up-fill {width: 24px;height: 24px;background-position: -300px -210px;}
+.ico-arrow-down-fill {width: 24px;height: 24px;background-position: -330px -210px;}
+.ico-audio {width: 24px;height: 24px;background-position: -360px -210px;}
+.ico-audio-fill {width: 24px;height: 24px;background-position: -390px -210px;}
+.ico-audio-off {width: 24px;height: 24px;background-position: -420px -210px;}
+.ico-audio-off-fill {width: 24px;height: 24px;background-position: -450px -210px;}
+.ico-play-fill {width: 24px;height: 24px;background-position: -480px -210px;}
+.ico-pause-fill {width: 24px;height: 24px;background-position: -510px -210px;}
+.ico-sound-fill {width: 24px;height: 24px;background-position: -540px -210px;}
+.ico-sound-fill-row {width: 24px;height: 24px;background-position: -570px -210px;}
+.ico-sound-fill-off {width: 24px;height: 24px;background-position: -600px -210px;}
+.ico-sound-fill-off2 {width: 24px;height: 24px;background-position: -630px -210px;}
+.ico-link2 {width: 24px;height: 24px;background-position: -660px -210px;}
+.ico-link2-none {width: 24px;height: 24px;background-position: -690px -210px;}
+.ico-menu {width: 24px;height: 24px;background-position: -720px -210px;}
+.ico-circle-add-w {width: 24px;height: 24px;background-position: -780px -210px;}
+.ico-upload-g {width: 24px;height: 24px;background-position: -810px -210px;}
+.ico-circle-check-w {width: 24px;height: 24px;background-position: -840px -210px;}
+.ico-replace-w {width: 24px;height: 24px;background-position: -870px -210px;}
+.ico-zoomin {width: 24px;height: 24px;background-position: -900px -210px;}
+.ico-zoomout {width: 24px;height: 24px;background-position: -930px -210px;}
+
+/* icon - 20 */
+.ico-close-20 {width: 20px;height: 20px;background-position: 0 -240px;}
+.ico-favorite-20 {width: 20px;height: 20px;background-position: -30px -240px;}
+.ico-favorite-fill-20 {width: 20px;height: 20px;background-position: -60px -240px;}
+.ico-edit-20{width: 20px;height: 20px;background-position: -90px -240px;}
+.ico-close-solid-20{width: 20px;height: 20px;background-position: -120px -240px;}
+.ico-download-20{width: 20px;height: 20px;background-position: -150px -240px;}
+.ico-options-vertical-20-g{width: 20px;height: 20px;background-position: -180px -240px;}
+.ico-audio-20{width: 20px;height: 20px;background-position: -210px -240px;}
+.ico-message-20{width: 20px;height: 20px;background-position: -240px -240px;}
+.ico-options-vertical-20{width: 20px;height: 20px;background-position: -270px -240px;}
+.ico-list-20{width: 20px;height: 20px;background-position: -300px -240px;}
+.ico-list-20-active{width: 20px;height: 20px;background-position: -330px -240px;}
+.ico-grid-20{width: 20px;height: 20px;background-position: -360px -240px;}
+.ico-grid-20-active{width: 20px;height: 20px;background-position: -390px -240px;}
+.ico-o {width: 20px;height: 20px;background-position: -420px -240px;}
+.ico-document-empty-20 {width: 20px;height: 20px;background-position: -450px -240px;}
+.ico-arrow-right-20 {width: 20px;height: 20px;background-position: -480px -240px;}
+.ico-home-20 {width: 20px;height: 20px;background-position: -440px 0;}
+.ico-image-20 {width: 20px;height: 20px;background-position: -460px 0;}
+.ico-etc-20 {width: 20px;height: 20px;background-position: -480px 0;}
+.ico-close-solid-20-b {width: 20px;height: 20px;background-position: -510px -240px;}
+.ico-photo-20 {width: 20px;height: 20px;background-position: -540px -240px;}
+.ico-check-circle-solid-20-b {width: 20px;height: 20px;background-position: -570px -240px;}
+.ico-edit2-20{width: 20px;height: 20px;background-position: -600px  -240px;}
+
+/* icon - 18 */
+.ico-upload {width: 18px;height: 18px;background-position: 0 -260px;}
+.ico-drive {width: 18px;height: 18px;background-position: -20px -260px;}
+.ico-delete-18 {width: 18px;height: 18px;background-position: -40px -260px;}
+.ico-search-18 {width: 18px;height: 18px;background-position: -60px -260px;}
+.ico-calendar-18 {width: 18px;height: 18px;background-position: -80px -260px;}
+.ico-image-18 {width: 18px;height: 18px;background-position: -100px -260px;}
+.ico-setting-18 {width: 18px;height: 18px;background-position: -120px -260px;}
+.ico-wand-18-w {width: 18px;height: 18px;background-position: -140px -260px;}
+.ico-chevron-left-18 {width: 18px;height: 18px;background-position: -160px -260px;}
+.ico-chevron-right-18 {width: 18px;height: 18px;background-position: -180px -260px;}
+.ico-add-18 {width: 18px;height: 18px;background-position: -200px -260px;}
+.ico-help-18-g {width: 18px;height: 18px;background-position: -220px -260px;}
+
+/* icon - 16 */
+.ico-eye-16 {width: 16px;height: 16px;background-position: 0 -280px;}
+.ico-eye-off-16 {width: 16px;height: 16px;background-position: -20px -280px;}
+.ico-arrow-down-16 {width: 16px;height: 16px;background-position: -40px -280px;}
+.ico-arrow-up-16 {width: 16px;height: 16px;background-position: -60px -280px;}
+.ico-search-16 {width: 16px;height: 16px;background-position: -80px -280px;}
+.ico-lock-16 {width: 16px;height: 16px;background-position: -100px -280px;}
+.ico-user-16 {width: 16px;height: 16px;background-position: -120px -280px;}
+.ico-arrow-down2-16 {width: 16px;height: 16px;background-position: -140px -280px;}
+.ico-folder-16 {width: 16px;height: 16px;background-position: -160px -280px;}
+.ico-arrow-right-16 {width: 16px;height: 16px;background-position: -180px -280px;}
+.ico-heart-16 {width: 16px;height: 16px;background-position: -200px -280px;}
+.ico-eye-16-g {width: 16px;height: 16px;background-position: -220px -280px;}
+.ico-user-16-w {width: 16px;height: 16px;background-position: -240px -280px;}
+.ico-message-16-w {width: 16px;height: 16px;background-position: -260px -280px;}
+.ico-favorite-16-w {width: 16px;height: 16px;background-position: -280px -280px;}
+.ico-favorite-fill-16 {width: 16px;height: 16px;background-position: -300px -280px;}
+.ico-options-vertical-16-w {width: 16px;height: 16px;background-position: -320px -280px;}
+.ico-download-16-w {width: 16px;height: 16px;background-position: -340px -280px;}
+.ico-help-16-g {width: 16px;height: 16px;background-position: -360px -280px;}
+.ico-edit-16 {width: 16px;height: 16px;background-position: -380px -280px;}
+.ico-close-16 {width: 16px;height: 16px;background-position: -400px -280px;}
+.ico-grid-16 {width: 16px;height: 16px;background-position: -420px -280px;}
+.ico-minus-16 {width: 16px;height: 16px;background-position: -440px -280px;}
+.ico-plus-16 {width: 16px;height: 16px;background-position: -460px -280px;}
+.ico-upload-16-g {width: 16px;height: 16px;background-position: -480px -280px;}
+.ico-close-16-g {width: 16px;height: 16px;background-position: -500px -280px;}
+.ico-delete-16 {width: 16px;height: 16px;background-position: -520px -280px;}
+.ico-home-16 {width: 16px;height: 16px;background-position: -540px -280px;}
+.ico-image-16 {width: 16px;height: 16px;background-position: -560px -280px;}
+.ico-setting-16 {width: 16px;height: 16px;background-position: -580px -280px;}
+.ico-reply-16 {width: 16px;height: 16px;background-position: -600px -280px;}
+.ico-arrow-down3-16 {width: 16px;height: 16px;background-position: -620px -280px;}
+
+/* icon - 14 */
+.ico-plus-w {width: 14px;height: 14px;background-position: 0 -300px;}
+.ico-plus-b {width: 14px;height: 14px;background-position: -20px -300px;}
+.ico-plus {width: 14px;height: 14px;background-position: -40px -300px;}
+.ico-minus {width: 14px;height: 14px;background-position: -60px -300px;}
+.ico-help-14 {width: 14px;height: 14px;background-position: -80px -300px;}
+.ico-help-14-active {width: 14px;height: 14px;background-position: -100px -300px;}
+.ico-warning-14 {width: 14px;height: 14px;background-position: -120px -300px;}
+.ico-information-14-g {width: 14px;height: 14px;background-position: -140px -300px;}
+.ico-information-14-d {width: 14px;height: 14px;background-position: -160px -300px;}
+.ico-warning-14-w {width: 14px;height: 14px;background-position: -180px -300px;}
+.ico-chevron-right-14 {width: 14px;height: 14px;background-position: -200px -300px;}
+.ico-chevron-down-14 {width: 14px;height: 14px;background-position: -220px -300px;}
+.ico-chevron-up-14 {width: 14px;height: 14px;background-position: -240px -300px;}
+.ico-chevron-left-14 {width: 14px;height: 14px;background-position: -260px -300px;}
+.ico-sort-14 {width: 14px;height: 14px;background-position: -280px -300px;}
+.ico-sort-top {width: 14px;height: 14px;background-position: -300px -300px;}
+.ico-sort-bottom {width: 14px;height: 14px;background-position: -320px -300px;}
+.ico-copy-14 {width: 14px;height: 14px;background-position: -340px -300px;}
+.ico-download-14 {width: 14px;height: 14px;background-position: -360px -300px;}
+.ico-dot {width: 14px;height: 14px;background-position: -380px -300px;}
+.ico-pin-14 {width: 14px;height: 14px;background-position: -400px -300px;}
+.ico-call-14 {width: 14px;height: 14px;background-position: -420px -300px;}
+.ico-memo {width: 14px;height: 14px;background-position: -440px -300px;}
+.ico-edit-14 {width: 14px;height: 14px;background-position: -460px -300px;}
+.ico-check-14 {width: 14px;height: 14px;background-position: -480px -300px;}
+.ico-check-solid-14 {width: 14px;height: 14px;background-position: -500px -300px;}
+.ico-reset {width: 14px;height: 14px;background-position: -520px -300px;}
+.ico-arrow-up-14 {width: 14px;height: 14px;background-position: -540px -300px;}
+.ico-arrow-down-14 {width: 14px;height: 14px;background-position: -560px -300px;}
+.ico-success {width: 14px;height: 14px;background-position: -580px -300px;}
+.ico-time {width: 14px;height: 14px;background-position: -600px -300px;}
+.ico-like {width: 14px;height: 14px;background-position: -620px -300px;}
+.ico-inclusion {width: 14px;height: 14px;background-position: -640px -300px;}
+.ico-exclusion {width: 14px;height: 14px;background-position: -660px -300px;}
+.ico-create {width: 14px;height: 14px;background-position: -680px -300px;}
+.ico-external-link-14 {width: 14px;height: 14px;background-position: -700px -300px;}
+.ico-send-14 {width: 14px;height: 14px;background-position: -720px -300px;}
+.ico-none {width: 14px;height: 14px;background-position: -740px -300px;}
+.ico-arrow-prev {width: 14px;height: 14px;background-position: -760px -300px;}
+.ico-arrow-next {width: 14px;height: 14px;background-position: -780px -300px;}
+.ico-delete-14 {width: 14px;height: 14px;background-position: -800px -300px;}
+.ico-move-14 {width: 14px;height: 14px;background-position: -820px -300px;}
+.ico-save-14 {width: 14px;height: 14px;background-position: -840px -300px;}
+.ico-plus-g {width: 14px;height: 14px;background-position: -880px -300px;}
+.ico-plus-14-g {width: 14px;height: 14px;background-position: -540px -320px;}
+.ico-copy-14-b {width: 14px;height: 14px;background-position: -900px -300px;}
+.ico-copy-14-b-off {width: 14px;height: 14px;background-position: -920px -300px;}
+.ico-link-14 {width: 14px;height: 14px;background-position: -940px -300px;}
+.ico-link-14-off {width: 14px;height: 14px;background-position: -960px -300px;}
+.ico-zoom-in-14 {width: 14px;height: 14px;background-position: 0px -320px;}
+.ico-zoom-out-14 {width: 14px;height: 14px;background-position: -20px -320px;}
+.ico-rotate-14 {width: 14px;height: 14px;background-position: -40px -320px;}
+.ico-setting-14-w {width: 14px;height: 14px;background-position: -980px -300px; }
+.ico-history-14 {width: 14px;height: 14px;background-position: -60px -320px;}
+.ico-minus-g {width: 14px;height: 14px;background-position: -80px -320px;}
+.ico-computer-14 {width: 14px;height: 14px;background-position: -100px -320px;}
+.ico-document-14 {width: 14px;height: 14px;background-position: -120px -320px;}
+.ico-edit2-14 {width: 14px;height: 14px;background-position: -140px -320px;}
+.ico-print-14 {width: 14px;height: 14px;background-position: -160px -320px;}
+.ico-share-14 {width: 14px;height: 14px;background-position: -180px -320px;}
+.ico-check-14-w {width: 14px;height: 14px;background-position: -200px -320px;}
+.ico-arrow-left-14 {width: 14px;height: 14px;background-position: -220px -320px;}
+.ico-preview-14 {width: 14px;height: 14px;background-position: -240px -320px;}
+.ico-sparkle-14 {width: 14px;height: 14px;background-position: -260px -320px;}
+.ico-ai-14 {width: 14px;height: 14px;background-position: -280px -320px;}
+.ico-camera-14 {width: 14px;height: 14px;background-position: -300px -320px;}
+.ico-wand-14 {width: 14px;height: 14px;background-position: -320px -320px;}
+.ico-heart-14 {width: 14px;height: 14px;background-position: -340px -320px;}
+.ico-heart-fill-14 {width: 14px;height: 14px;background-position: -360px -320px;}
+.ico-message-alt-14 {width: 14px;height: 14px;background-position: -380px -320px;}
+.ico-circle-information-14 {width: 14px;height: 14px;background-position: -400px -320px;}
+.ico-download-14-b {width: 14px;height: 14px;background-position: -420px -320px;}
+.ico-export-14 {width: 14px;height: 14px;background-position: -440px -320px;}
+.ico-favorite-14 {width: 14px;height: 14px;background-position: -460px -320px;}
+.ico-favorite-fill-14 {width: 14px;height: 14px;background-position: -480px -320px;}
+.ico-siren-14 {width: 14px;height: 14px;background-position: -500px -320px;}
+
+/* icon - 10 */
+.ico-tail { width: 10px;height: 10px;background-position: 0 -340px;}
+.ico-tail-dark { width: 10px;height: 10px;background-position: -20px -340px;}
+
+/* icon - sns */
+.ico-sns-apple {width: 56px;height: 56px;background-position: 0 -360px;}
+.ico-sns-google {width: 56px;height: 56px;background-position: -60px -360px;}
+.ico-sns-naver {width: 56px;height: 56px;background-position: -120px -360px;}
+.ico-sns-kakao {width: 56px;height: 56px;background-position: -180px -360px;}
+
+/* icon - etc. */
+.ico-folder-28 {width: 28px;height: 28px;background-position: -240px -360px;}
+.ico-plus-22 { width: 22px;height: 22px;background-position: -240px -390px;}
+.ico-line-12 {width: 12px;height: 12px;background-position: -270px -360px}
+.ico-plus-32 {width: 32px;height: 32px;background-position: -290px -360px;}
+.ico-delete-12 {width: 12px;height: 12px;background-position: -340px 0}
+.ico-empty {width: 48px;height: 48px;background-position: -330px -360px;}
+.ico-error {width: 60px;height: 60px;background-position: -380px -360px;}
+.ico-upload-60 { width: 60px;height: 60px;background-position: -450px -360px;}
+.ico-image-45 {width: 45px;height: 45px;background-position: -520px -360px;}
+.ico-upload-26 { width: 26px;height: 26px;background-position: -570px -360px;}
+.ico-triangle-12 { width: 12px;height: 14px;background-position: -600px -360px;}
+.ico-triangle-8 {width: 8px;height: 7px;background-position: -270px -390px;}
+.ico-tail2 {width: 66px;height: 57px;background-position: -670px -360px;}
+.ico-image-45-g {width: 45px;height: 45px;background-position: -620px -360px;}
+.ico-upload-play-40 {width: 40px;height: 40px;background-position: -740px -360px;}
+.ico-upload-sort-40 {width: 40px;height: 40px;background-position: -780px -360px;}
+.ico-upload-edit-40 {width: 40px;height: 40px;background-position: -820px -360px;}
+.ico-upload-face-40 {width: 40px;height: 40px;background-position: -860px -360px;}
+.ico-upload-error-40 {width: 40px;height: 40px;background-position: -900px -360px;}
+.ico-upload-dis-40 {width: 40px;height: 40px;background-position: -940px -360px;}
+.ico-select-28 {width: 28px;height: 28px;background-position: -570px -390px;}
+.ico-home-30{width:30px;height:30px;background-position: -350px 0;}
+.ico-image-30{width:30px;height:30px;background-position: -380px 0;}
+.ico-etc-30{width:30px;height:30px;background-position: -410px 0;}
+
+/* icon - illust */
+.ico-comm[class*='ico-illust'] {background-image: url(/images/ico_illust.png); background-size: 1200px 400px;}
+.ico-illust1 {width: 160px;height: 160px;background-position: 0 0;}
+.ico-illust2 {width: 160px;height: 160px;background-position: -160px 0;}
+.ico-illust3 {width: 160px;height: 160px;background-position: -320px 0;}
+.ico-illust4 {width: 120px;height: 120px;background-position: -480px 0;}
+.ico-illust5 {width: 120px;height: 120px;background-position: -600px 0;}
+.ico-illust6 {width: 120px;height: 120px;background-position: -720px 0;}
+.ico-illust7 {width: 120px;height: 120px;background-position: -840px 0;}
+.ico-illust8 {width: 120px;height: 120px;background-position: -960px 0;}
+.ico-illust9 {width: 120px;height: 120px;background-position: -1080px 0;}
+.ico-illust1-36{width: 36px;height: 36px;background-position: -480px -130px;}
+.ico-illust2-36{width: 36px;height: 36px;background-position: -520px -130px;}
+.ico-illust3-36{width: 36px;height: 36px;background-position: -560px -130px;}
+.ico-illust4-36{width: 36px;height: 36px;background-position: -600px -130px;}
+.ico-illust5-36{width: 36px;height: 36px;background-position: -640px -130px;}
+.ico-illust6-36{width: 36px;height: 36px;background-position: -680px -130px;}
+.ico-illust7-36{width: 36px;height: 36px;background-position: -720px -130px;}
+.ico-illust1-32 {width: 32px;height: 32px;background-position: -480px -170px;}
+.ico-illust2-32 {width: 32px;height: 32px;background-position: -520px -170px;}
+.ico-illust3-32 {width: 32px;height: 32px;background-position: -560px -170px;}
+.ico-illust4-32 {width: 32px;height: 32px;background-position: -600px -170px;}
+.ico-illust5-32 {width: 32px;height: 32px;background-position: -640px -170px;}
+.ico-illust6-32 {width: 32px;height: 32px;background-position: -680px -170px;}
+.ico-illust-plan {width: 56px;height: 56px;background-position: -480px -210px;}
+.ico-illust-report {width: 56px;height: 56px;background-position: -540px -210px;}
+.ico-illust-record {width: 56px;height: 56px;background-position: -600px -210px;}
+.ico-illust-ai {width: 56px;height: 56px;background-position: -660px -210px;}
+.ico-illust-audio2 {width: 100px; height: 100px; background-position: -440px -270px;}
+.ico-illust-alarm {width: 80px;height: 80px;background-position: -540px -270px;}
+.ico-illust-sort-40{width: 40px;height: 40px;background-position: -620px -270px;}
+.ico-illust-edit-40{width: 40px;height: 40px;background-position: -660px -270px;}
+.ico-illust-face-40{width: 40px;height: 40px;background-position: -700px -270px;}
+.ico-illust-profile-correct{width: 210px;height: 210px;background-position: 0 -170px;}
+.ico-illust-profile-incorrect{width: 210px;height: 210px;background-position: -220px -170px;}
+
+/* icon - thumbnail */
+.ico-comm[class*='ico-thumb'] {
+  background-repeat: no-repeat;
+  background-size: auto 100%;
+  background-position: center
+}
+$thumb-icon-list: (
+'icon1',
+'icon2',
+'icon3',
+'icon4',
+'icon5',
+'icon6',
+'icon7',
+'icon8',
+'icon9',
+'icon10',
+'icon11',
+'icon12',
+'icon13',
+'icon14',
+'icon15',
+'icon16',
+'icon17',
+/* 25/05/13 수정 썸네일 아이콘 클래스 추가 */
+'icon18',
+'folder',
+'vod',
+'audio',
+'file',
+'pdf',
+'csv',
+'txt',
+'hwp',
+'hwpx',
+'doc',
+'docx',
+'ppt',
+'pptx',
+'ppsx',
+'xls',
+'xlsx',
+'odt',
+'show',
+'hwt',
+'zip',
+'gz',
+'7z',
+'alz',
+'egg',
+'psd',
+'ai',
+'prproj',
+'voc',
+'card',
+'report',
+'photo',
+'graph',
+'story',
+'material',
+'vod2',
+'toy',
+'home',
+'event',
+'edu',
+'official',
+'folder2',
+);
+@each $icon in $thumb-icon-list {
+  $i: index($thumb-icon-list, $icon);
+  .ico-thumb-#{$icon} {
+    width: 120px;
+    height: 120px;
+    background-image: url(/images/thumb/#{$icon}.png);
+  }
+}
+
+/* icon - profile */
+.ico-comm[class*='ico-profile'] {background-image: url(/images/ico_profile.png); background-size: 300px 130px;}
+.ico-profile-130{width:130px;height:130px;background-position: 0 0;}
+.ico-profile-48{width:48px;height:48px;background-position: -140px 0;}
+.ico-profile-32{width:32px;height:32px;background-position: -200px 0;}
+.ico-profile-24{width:24px;height:24px;background-position: -240px 0;}
+
+/* icon - introduce */
+.ico-comm[class*='ico-introduce'] {background-image: url(/images/ico_introduce.png); background-size: 900px 600px;}
+.ico-introduce1 {width: 770px;height: 140px;background-position: 0 0;}
+.ico-introduce2 {width: 500px;height: 96px;background-position: 0 -160px;}
+.ico-introduce3 {width: 500px;height: 96px;background-position: 0 -270px;}
+.ico-introduce4 {width: 388px;height: 40px;background-position: 0 -380px;}
+
+@media
+only screen and (-webkit-min-device-pixel-ratio: 1.5),
+only screen and (min-device-pixel-ratio: 1.5),
+only screen and (min-resolution: 144dpi),
+only screen and (min-resolution: 1.5dppx) {
+  .ico-comm {
+    &:not([class*='ico-thumb']) {background-image: url(/images/ico_comm@2x.png);}
+    &[class*='ico-illust'] {background-image: url(/images/ico_illust@2x.png);}
+    &[class*='ico-profile'] {background-image: url(/images/ico_profile@2x.png);}
+    &[class*='ico-introduce'] {background-image: url(/images/ico_introduce@2x.png);}
+  }
+}
+
+/* icon svg - introduce floatingIcon */
+.ico-comm-floating { background-size: 36px; width: 36px; height: 36px; }
+
+.ico-comm-floating {
+  &.ico-comm-playing-plan { background-image: url(/images/svg/ico_playing_plan.svg); }
+  &.ico-comm-playing-report { background-image: url(/images/svg/ico_playing_report.svg); }
+  &.ico-comm-student-record { background-image: url(/images/svg/ico_student_record.svg); }
+  &.ico-comm-image-sort { background-image: url(/images/svg/ico_image_sort.svg); }
+  &.ico-comm-image-merge { background-image: url(/images/svg/ico_image_merge.svg); }
+  &.ico-comm-image-face-privacy { background-image: url(/images/svg/ico_image_face_privacy.svg); }
+  &.ico-comm-exclusive-app-for-teachers { background-image: url(/images/svg/ico_exclusive_app_for_teachers.svg); }
+}

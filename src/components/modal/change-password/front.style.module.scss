@@ -1,0 +1,51 @@
+// front.style.module.scss
+.wrapPasswordModal {
+  :global {
+    .fieldset-form {
+      margin-top: 0 !important;
+
+      & + .fieldset-form {
+        margin-top: 10px !important;
+      }
+    }
+
+    .btn {
+      margin-top: 0 !important;
+    }
+
+    .wrap-form {
+      align-items: end;
+    }
+
+    // Form 컴포넌트가 생성하는 실제 클래스에 맞게 조정
+    .group-form {
+      .fieldset-form,
+      .btn {
+        margin-top: 0 !important;
+      }
+    }
+  }
+
+  :global {
+    .form_phoneNumber {
+      flex-wrap: wrap;
+    }
+  }
+}
+
+.rowForm {
+  margin-top: 30px;
+  flex-direction: column;
+  align-items: start !important;
+
+  :global {
+    .fieldset-form {
+      width: 100%;
+    }
+
+    .FieldClassifyNumber {
+      width: 100%;
+      flex: none;
+    }
+  }
+}

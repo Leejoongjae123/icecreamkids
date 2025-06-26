@@ -1,0 +1,202 @@
+/* memo */
+.item-memo {
+  // overflow: hidden;
+  display: block;
+  position: relative;
+  width: 100%;
+  border: 1px solid $gray-85;
+  border-radius: 8px;
+  background-color: $primary-09;
+  box-shadow: 2px 4px 10px 0 rgba($gray-0, 6%);
+  box-sizing: border-box;
+  .head-memo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    padding: 19px 19px 20px;
+    &::after {
+      position: absolute;
+      left: 19px;
+      right: 19px;
+      bottom: -1px;
+      height: 1px;
+      background-color: $gray-80;
+      content: '';
+    }
+    .profile-head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .thumb-profile {
+      flex-shrink: 0;
+      overflow: hidden;
+      display: block;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: cover;
+      .ico-profile-32 {
+        display: block;
+      }
+    }
+    .wrap-name {
+      position: relative;
+      &:hover,
+      &.focus {
+        .tooltip-layer {
+          display: block;
+        }
+      }
+    }
+    .name-profile {
+      display: block;
+      font-weight: 700;
+      font-size: 13px;
+      line-height: 26px;
+      color: $gray-10;
+      cursor: default;
+    }
+    .tooltip-layer {
+      display: none;
+      position: absolute;
+      left: 50%;
+      top: 100%;
+      margin-top: 8px;
+      transform: translateX(-50%);
+    }
+    .more-head {
+      flex-shrink: 0;
+      position: relative;
+    }
+    .btn-more {
+      display: block;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 14px;
+      line-height: 32px;
+      text-align: center;
+      white-space: nowrap;
+      color: $primary-09;
+      background-color: $primary-01;
+      &:after {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: 6px;
+        height: 6px;
+        border: 2px solid $primary-09;
+        border-radius: 50%;
+        background-color: $state-r-02;
+        content: '';
+      }
+    }
+  }
+  .content-memo {
+    overflow-y: auto;
+    height: 130px;
+    padding: 20px 19px 18px;
+    box-sizing: border-box;
+    .text-content {
+      font-weight: 400;
+      font-size: 14px;
+      line-height: 21px;
+      color: $gray-10;
+
+      &.err_memo {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        text-align: center;
+      }
+    }
+  }
+  .info-memo {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: -1px;
+    padding: 12px 23px 20px;
+    .date-info {
+      font-size: 13px;
+      line-height: 20px;
+      color: $gray-60;
+    }
+    .util-info {
+      display: flex;
+      align-items: center;
+      margin-left: auto;
+    }
+    .btn-audio,
+    .btn-modify {
+      margin: -5px 0;
+      padding: 5px;
+    }
+  }
+  .audio-memo {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 46px;
+    margin-top: 14px;
+    border-top: 1px solid $gray-85;
+    padding: 9px;
+    .item-audio {
+      flex: 1;
+      display: block;
+      &::-webkit-media-controls-enclosure,
+      &::-webkit-media-controls-panel {
+        background-color: transparent;
+      }
+    }
+  }
+  &.type-small {
+    display: flex;
+    flex-direction: column;
+    border-radius: 12px;
+    .content-memo {
+      flex: 1;
+      overflow-y: visible;
+      height: auto;
+      min-height: 89px;
+      padding: 15px 15px 8px;
+      .title-content {
+        display: block;
+        overflow: hidden;
+        margin-bottom: 4px;
+        font-weight: 700;
+        font-size: 12px;
+        line-height: 16px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-align: left;
+      }
+      .text-content {
+        display: block;
+        display: -webkit-box;
+        overflow: hidden;
+        max-height: 40px;
+        font-size: 12px;
+        line-height: 18px;
+        white-space: normal;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        word-break: break-all;
+      }
+    }
+    .info-memo {
+      padding: 4px 10px 5px 15px;
+      .date-info {
+        font-size: 12px;
+        line-height: 18px;
+      }
+    }
+  }
+}

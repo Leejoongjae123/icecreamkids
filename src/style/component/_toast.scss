@@ -1,0 +1,49 @@
+/* layer - toast */
+.toast-layer {
+  display: table;
+  position: fixed;
+  bottom: 144px;
+  left: 50%;
+  z-index: 1000;
+  width: 400px;
+  min-height: 44px;
+  padding: 8px 24px;
+  border-radius: 8px;
+  background: $gray-30;
+  box-sizing: border-box;
+  table-layout: fixed;
+  transform: translateX(-50%);
+  animation: toast_on 0.5s ease-in-out forwards;
+  &.off {
+    animation: toast_off 0.5s ease-in-out forwards;
+  }
+  .txt-toast {
+    display: table-cell;
+    font-size: 13px;
+    line-height: 20px;
+    color: $primary-09;
+    text-align: center;
+    word-break: keep-all;
+    vertical-align: middle;
+  }
+}
+@keyframes toast_on {
+  0% {
+    transform: translateX(-50%) translateY(100px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes toast_off {
+  0% {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) translateY(20px);
+    opacity: 0;
+  }
+}

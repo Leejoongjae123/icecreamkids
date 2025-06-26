@@ -1,0 +1,29 @@
+/* badge */
+.badge {
+  display: inline-block;
+  padding: 0 8px;
+  border-radius: 16px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 20px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  color: $primary-09;
+  background-color: $primary-02;
+  vertical-align: top;
+}
+.badge-line {
+  padding: 0 7px;
+  border: 1px solid $gray-10;
+  line-height: 18px;
+  color: $gray-10;
+  background-color: $primary-09;
+}
+.badge-red {
+  color: #BA3232;
+  background-color: #FCE6E4;
+}
+.badge-green {
+  color: #179977;
+  background-color: #CEF3EA;
+}

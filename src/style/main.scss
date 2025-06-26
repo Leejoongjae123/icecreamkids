@@ -1,0 +1,7 @@
+@charset "UTF-8";
+@import 'abstracts'; // 변수, 믹스인, 함수 등을 정의
+@import 'base'; // Reset, Normalize, 기본 스타일 정의
+@import 'layout'; // 레이아웃 관련 스타일 정의
+@import 'component'; // 컴포넌트별 스타일 정의
+@import 'pages'; // 페이지별 스타일 정의
+@import 'lib'; // 라이브러리 스타일 정의

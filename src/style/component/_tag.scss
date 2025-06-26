@@ -1,0 +1,29 @@
+/* tag */
+.tag {
+  position: relative;
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 19px;
+  letter-spacing: -0.5px;
+  white-space: nowrap;
+  color: $gray-30;
+  background-color: $bgray-50;
+  vertical-align: top;
+  &:before{
+    display: inline-block;
+    content: '#';
+  }
+}
+.tag-delete {
+  padding: 0 0 0 12px;
+  line-height: 31px;
+  background-color: $bgray-40;
+  .btn-delete{
+    display: inline-flex;
+    margin-top: -3px;
+    padding: 10px 12px 10px 10px;
+  }
+}

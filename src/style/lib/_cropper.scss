@@ -1,0 +1,63 @@
+@import 'cropperjs/dist/cropper.css';
+
+.box {
+  display: inline-block;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.img-preview {
+  overflow: hidden;
+}
+.cropper-wrap-box,
+.cropper-crop {
+  border-radius: 10px;
+}
+.cropper-canvas .cropper-container,
+.cropper-crop-box,
+.cropper-view-box {
+  outline: 0;
+  border-radius: 50%;
+}
+
+.story-board-image-editor {
+  .cropper-canvas .cropper-container,
+  .cropper-crop-box,
+  .cropper-view-box {
+    outline: 0;
+    border-radius: 10px;
+    min-height: 100%;
+  }
+  .cropper-modal {
+    border-radius: 12px;
+  }
+  .cropper-container {
+    width: 100% !important;
+    height: 100% !important;
+  }
+}
+
+.cropper-face {
+  background-color: transparent;
+}
+
+.cropper-center {
+  display: none;
+}
+
+.cropper-line,
+.cropper-point {
+  background-color: transparent;
+}
+
+.cropper-point {
+  opacity: 0;
+}
+
+.cropper-view-box {
+  outline: none;
+}
+
+.cropper-line {
+  display: none;
+}

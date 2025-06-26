@@ -1,0 +1,234 @@
+/* input - choice */
+.group-choice {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.item-choice {
+  display: inline-block;
+  position: relative;
+  vertical-align: top;
+
+  // FE제어용 (체크박스 컴포넌트 수정 최소화)
+  &.type-num {
+    .inp-comm:checked ~ .lab-check {
+      .txt-item {
+        display: block;
+        z-index: 10;
+      }
+    }
+  }
+
+  .inp-comm {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+  &:hover {
+    .tooltip-layer {
+      display: block;
+    }
+  }
+  .tooltip-layer {
+    left: 50%;
+    z-index: 1;
+    transform: translateX(-50%);
+    &.type-bottom {
+      bottom: 100%;
+      margin-bottom: 5px;
+    }
+    &.type-top {
+      top: 100%;
+      margin-top: 5px;
+    }
+  }
+}
+/* checkbox */
+.item-choice {
+  .inp-comm {
+    &:checked {
+      & + .lab-check {
+        .ico-inp-check {
+          width: 20px;
+          height: 20px;
+          background-position: -30px -30px;
+        }
+        .screen_out + .num-check {
+          display: block;
+        }
+      }
+    }
+    &:disabled {
+      & + .lab-check {
+        cursor: default;
+        .ico-inp-check {
+          width: 20px;
+          height: 20px;
+          background-position: -60px -30px;
+        }
+      }
+    }
+    &:checked:disabled {
+      & + .lab-check {
+        .ico-inp-check {
+          width: 20px;
+          height: 20px;
+          background-position: -90px -30px;
+        }
+      }
+    }
+    &[readonly] {
+      & + .lab-check {
+        cursor: default;
+      }
+    }
+  }
+  .lab-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    position: relative;
+    cursor: pointer;
+    .ico-inp-check {
+      flex-shrink: 0;
+      margin: 2px 0;
+    }
+    .txt-check {
+      display: block;
+      font-size: 16px;
+      line-height: 24px;
+      color: #4c4c4c;
+    }
+    .txt-item,
+    .num-check {
+      display: none;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      margin: -10px 0 0 -10px;
+      font-weight: 700;
+      font-size: 13px;
+      line-height: 20px;
+      text-align: center;
+      color: $gray-100;
+      background-color: $primary-01;
+    }
+  }
+}
+/* radio */
+.item-choice {
+  .inp-comm {
+    &:checked {
+      & + .lab-radio {
+        color: red;
+        .ico-inp-radio {
+          width: 16px;
+          height: 16px;
+          background-position: -170px -30px;
+        }
+      }
+    }
+    &:disabled {
+      & + .lab-radio {
+        cursor: default;
+        .ico-inp-radio {
+          width: 16px;
+          height: 16px;
+          background-position: -190px -30px;
+        }
+      }
+    }
+    &:checked:disabled {
+      & + .lab-radio {
+        .ico-inp-radio {
+          width: 16px;
+          height: 16px;
+          background-position: -210px -30px;
+        }
+      }
+    }
+    &[readonly] {
+      & + .lab-radio {
+        cursor: default;
+      }
+    }
+  }
+  .lab-radio {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    position: relative;
+    cursor: pointer;
+    .ico-inp-radio {
+      flex-shrink: 0;
+      margin: 2.5px 0;
+    }
+    .txt-radio {
+      display: block;
+      font-size: 14px;
+      line-height: 21px;
+      color: $gray-30;
+    }
+  }
+}
+/* switch */
+.item-choice {
+  .inp-comm {
+    &:checked {
+      & + .lab-switch {
+        color: red;
+        .ico-inp-switch {
+          width: 36px;
+          height: 20px;
+          background-position: -270px -30px;
+        }
+        .ico-inp-switch-large {
+          width: 52px;
+          height: 28px;
+          background-position: -450px -30px;
+        }
+      }
+    }
+    &:disabled {
+      & + .lab-switch {
+        .ico-inp-switch {
+          width: 36px;
+          height: 20px;
+          background-position: -310px -30px;
+        }
+        .ico-inp-switch-large {
+          width: 52px;
+          height: 28px;
+          background-position: -510px -30px;
+        }
+      }
+    }
+    &:checked:disabled {
+      & + .lab-switch {
+        .ico-inp-switch {
+          width: 36px;
+          height: 20px;
+          background-position: -350px -30px;
+        }
+        .ico-inp-switch-large {
+          width: 52px;
+          height: 28px;
+          background-position: -570px -30px;
+        }
+      }
+    }
+  }
+  .lab-switch {
+    display: block;
+    position: relative;
+    cursor: pointer;
+    .ico-comm {
+      display: block;
+    }
+  }
+}

@@ -1,0 +1,86 @@
+/* common */
+.inp-comm {
+  border: 0;
+  background: none;
+  border-radius: 0;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  outline: 0;
+  opacity: 0.001;
+}
+.align-left {
+  text-align: left !important;
+}
+.align-right {
+  text-align: right !important;
+}
+.align-center {
+  text-align: center !important;
+}
+.txt-ellipsis {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.txt-clamp {
+  display: block;
+  display: -webkit-box;
+  overflow: hidden;
+  max-height: 40px;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.font-regular {
+  font-weight: 400 !important; /* 레귤러 굵기 */
+}
+.font-medium {
+  font-weight: 500 !important; /* 미디움 굵기 */
+}
+.font-semibold {
+  font-weight: 600 !important; /* 세미볼드 굵기 */
+}
+.font-bold {
+  font-weight: 700 !important; /* 볼드 굵기 */
+}
+.link-g {
+  text-decoration: underline;
+  &:hover, &:focus {
+    text-decoration: underline;
+  }
+}
+.txt-red {
+  color: $state-negative !important;
+}
+.txt-blue {
+  color: $state-positive !important;
+}
+.bg-type1 {
+  background-color: $bgray-60;
+}
+.bg-type2 {
+  background-color: #DEF3F4;
+}
+.bg-type3 {
+  background-color: #FDF1DC;
+}
+.w-80 {
+  width: 80px;
+}
+.w-100 {
+  width: 100px;
+}
+.w-120 {
+  width: 120px;
+}
+.w-160 {
+  width: 160px;
+}
+.w-200 {
+  width: 200px;
+}
+.w-465 {
+  width: 465px;
+}

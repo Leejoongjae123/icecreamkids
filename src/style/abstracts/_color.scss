@@ -1,0 +1,60 @@
+/* color variable - Primary */
+$primary-01: #fbb347;
+$primary-02: #1a1a1a;
+$primary-03: #999999;
+$primary-04: #b3b3b3;
+$primary-05: #d2d2d2;
+$primary-06: #eaeaea;
+$primary-07: #f6f6f6;
+$primary-08: #fafafa;
+$primary-09: #ffffff;
+
+/* color variable - Grayscale */
+$gray-0: #000000;
+$gray-10: #222222;
+$gray-25: #3f3f3f;
+$gray-30: #444444;
+$gray-40: #666666;
+$gray-55: #8f8f8f;
+$gray-60: #a0a0a0;
+$gray-70: #b3b3b3;
+$gray-80: #cccccc;
+$gray-85: #dcdcdc;
+$gray-90: #eaeaea;
+$gray-95: #f5f5f5;
+$gray-98: #fafafa;
+$gray-100: #ffffff;
+
+/* color variable - Blue Gray */
+$bgray-10: #646a78;
+$bgray-20: #aaacb4;
+$bgray-30: #d0d3d8;
+$bgray-40: #e5e7ec;
+$bgray-50: #f1f4f6;
+$bgray-60: #f5f8fa;
+$bgray-70: #fafbfd;
+/* 25/04/24 수정 썸네일 배경 색상 변경 */
+$bgray-thumbnail: #EEF1F3;
+
+/* color variable - Background Color - Dim */
+$bg-dim: rgba(0, 0, 0, 70%);
+$bg-dim2: rgba(0, 0, 0, 60%);
+
+/* color variable - State Color */
+$state-negative: #fd5151;
+$state-negative-light: #ffe5e5;
+$state-positive: #3377ff;
+$state-positive-light: #ccddff;
+
+$state-r-01: linear-gradient(180deg, #f04579 0%, #ffe031 100%);
+$state-r-02: #f04579;
+$state-r-03: #f78a5a;
+$state-r-04: #ffe031;
+$state-g-01: linear-gradient(180deg, #00a9a6 0%, #eff404 100%);
+$state-g-02: #00a9a6;
+$state-g-03: #6dcc5d;
+$state-g-04: #eff404;
+$state-b-01: linear-gradient(180deg, #007de2 0%, #00e4bf 100%);
+$state-b-02: #007de2;
+$state-b-03: #01bace;
+$state-b-04: #00e4bf;

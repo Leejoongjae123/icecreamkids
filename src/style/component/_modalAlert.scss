@@ -1,0 +1,66 @@
+/* modal - alert */
+.modal-alert {
+  background: transparent;
+  z-index: 3000;
+  .inner-modal {
+    overflow: hidden;
+    width: 480px;
+    padding: 0;
+    text-align: center;
+    box-shadow: 2px 4px 10px rgba($gray-0, 6%);
+    border: none;
+  }
+  .modal-body {
+    display: table;
+    table-layout: fixed;
+    width: 100%;
+    min-height: 128px;
+    padding: 40px 24px;
+    box-sizing: border-box;
+  }
+  .wrap-txt {
+    display: table-cell;
+    vertical-align: middle;
+  }
+  .tit-alert {
+    display: block;
+    font-weight: normal;
+    font-size: 16px;
+    line-height: 24px;
+    color: $primary-02;
+  }
+  .modal-foot {
+    display: flex;
+    padding: 0;
+  }
+  .btn-alert {
+    flex: 1;
+    height: 48px;
+    font-weight: 500;
+    font-size: 16px;
+    background-color: $bgray-40;
+    color: $gray-10;
+    &:hover,
+    &:active {
+      background-color: $gray-80;
+    }
+    &:disabled,
+    &[disabled] {
+      background-color: $gray-98;
+      color: $gray-85;
+    }
+  }
+  .btn-complete {
+    background-color: $primary-01;
+    color: $primary-09;
+    &:hover,
+    &:active {
+      background-color: lighten($color: #c1921a, $amount: 10);
+    }
+    &:disabled,
+    &[disabled] {
+      background-color: $primary-06;
+      color: $primary-04;
+    }
+  }
+}

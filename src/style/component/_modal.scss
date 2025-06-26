@@ -1,0 +1,143 @@
+/* modal */
+.modal-layer {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  width: 100%;
+  min-width: 1440px;
+  height: 100%;
+  background: $bg-dim2;
+  &.type-small {
+    .modal-foot {
+      padding-top: 30px;
+    }
+  }
+  &.type-medium {
+    .inner-modal {
+      width: 800px;
+      padding: 39px;
+    }
+    .modal-head {
+      .tit-txt {
+        font-size: 28px;
+      }
+    }
+    .modal-body {
+      .content-area {
+        min-height: 312px;
+      }
+    }
+  }
+  &.type-large {
+    .inner-modal {
+      width: 1400px;
+      max-height: 880px;
+      padding: 47px 39px 39px;
+    }
+    .modal-head {
+      .tit-txt {
+        font-size: 28px;
+      }
+    }
+  }
+  &.type-clear {
+    background: transparent;
+  }
+  .type-dimmed {
+    background: $bg-dim;
+  }
+  .inner-modal {
+    flex: none;
+    position: relative;
+    width: 420px;
+    margin: auto;
+    padding: 29px;
+    border: 1px solid #e5e5e5;
+    border-radius: 20px;
+    text-align: left;
+    background-color: $primary-09;
+    box-shadow: 6px 6px 20px -10px rgba(#181d24, 16%);
+    box-sizing: border-box;
+  }
+  .modal-head {
+    .tit-txt {
+      display: block;
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: -0.5px;
+      color: $gray-10;
+    }
+  }
+  .modal-body {
+    padding-top: 24px;
+    box-sizing: border-box;
+    .content-area {
+      min-height: 289px;
+    }
+  }
+  .modal-foot {
+    padding-top: 40px;
+    .group-btn {
+      justify-content: center;
+    }
+    .btn {
+      + .btn {
+        margin-left: 0;
+      }
+    }
+  }
+  .btn-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 16px;
+  }
+  .ico-close {
+    display: block;
+  }
+}
+
+/* modal - 공통 inner */
+.item-modal {
+  & + .item-modal {
+    margin-top: 30px;
+  }
+  .tit-info {
+    display: block;
+    font-size: 18px;
+    line-height: 28px;
+    color: $gray-0;
+    & + .cont-info {
+      margin-top: 10px;
+    }
+  }
+  .txt-info {
+    display: block;
+    color: $gray-30;
+    &.txt-nodata {
+      color: $gray-55;
+    }
+  }
+  .txt-tip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    color: $gray-55;
+    font-size: 13px;
+    background-color: $gray-95;
+    border-radius: 8px;
+  }
+  .item-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    & + .cont-info {
+      margin-top: 10px;
+    }
+  }
+}

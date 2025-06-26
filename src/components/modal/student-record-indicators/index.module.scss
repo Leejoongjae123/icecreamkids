@@ -1,0 +1,71 @@
+/* 편집 모달 dimmed 배경 */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5); /* 배경 dimmed 효과 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* 모달 컨텐츠 */
+.modalContent {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  width: 90%;
+  max-width: 800px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* 텍스트 편집 영역 */
+.editTitleArea {
+  width: 100%;
+  height: 10px;
+  resize: vertical;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+.editTextArea {
+  width: 100%;
+  height: 120px;
+  resize: vertical;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+/* 모달 액션 버튼 영역 */
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.modalActions button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.modalActions button:first-child {
+  background: #eee;
+  margin-right: 8px;
+}
+
+.modalActions button:last-child {
+  background: #007bff;
+  color: #fff;
+}

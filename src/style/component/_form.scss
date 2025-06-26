@@ -1,0 +1,144 @@
+/* form */
+.group_form {
+  font-size: 0;
+  line-height: 0;
+}
+.group_form + .group_form {
+  margin-top: 8px;
+}
+.group_form .group_chip {
+  margin-bottom: -16px;
+}
+.group_form .txt_colon {
+  font-size: 13px;
+  line-height: 34px;
+  margin: 0 2px;
+}
+.group_form .txt_colon2 {
+  margin: 0 9px 0 8px;
+  color: $primary-03;
+}
+.group_form .txt_bar2 {
+  margin: 0 7px;
+  font-size: 13px;
+  line-height: 34px;
+  color: #e5e5e5;
+}
+.group_form .txt_subguide {
+  display: inline-block;
+  font-size: 13px;
+  line-height: 34px;
+  margin-left: 16px;
+}
+.group_form.type_autosize {
+  display: flex;
+}
+.group_form.type_autosize .item_form:first-child {
+  flex: 1;
+}
+.item_form {
+  display: inline-block;
+  width: 100%;
+  vertical-align: top;
+}
+.form_xsmall {
+  width: 76px;
+}
+.form_small {
+  width: 90px;
+}
+.form_xxmedium {
+  width: 128px;
+}
+.form_xmedium {
+  width: 184px;
+}
+.form_medium {
+  width: 240px;
+}
+.form_large {
+  width: 300px;
+}
+.group_form > .txt_bar {
+  display: inline-block;
+  width: 24px;
+  height: 34px;
+  font-size: 13px;
+  line-height: 34px;
+  color: $primary-03;
+  text-align: center;
+  vertical-align: top;
+}
+.group_form .txt_form {
+  display: inline-block;
+  margin: 0 8px;
+  font-size: 13px;
+  line-height: 34px;
+  color: $primary-03;
+  vertical-align: top;
+}
+.group_form > .txt_form:first-child {
+  margin-left: 0;
+}
+.group_form .txt_form + .item_choice {
+  margin-left: 8px;
+}
+.group_form .txt_form:last-child {
+  margin-right: 0;
+}
+.group_form .subtit_color {
+  color: #4c4c4c;
+}
+.type_ratio2 {
+  display: inline-flex;
+  width: 100%;
+  flex-wrap: wrap;
+}
+.type_ratio2 .item_form {
+  width: 102px;
+}
+.type_ratio2 .item_form + .item_form {
+  width: auto;
+  margin-left: 4px;
+  flex: 1;
+}
+.type_ratio2 .txt_sub {
+  width: 100%;
+}
+.type_range {
+  display: flex;
+  font-size: 0;
+  line-height: 0;
+}
+.type_range .item_form {
+  flex: 1;
+}
+.type_range .txt_bar {
+  flex: none;
+  width: 24px;
+  height: 34px;
+  font-size: 13px;
+  line-height: 34px;
+  color: $primary-03;
+  text-align: center;
+}
+.group_form .type_range {
+  display: inline-block;
+  vertical-align: top;
+}
+/* 폼요소 조합 */
+.group_form > div + div,
+.group_form > div + button,
+.group_form > button + div {
+  margin-left: 8px;
+}
+.group_form > .item_choice + div,
+.group_form > .item_choice + button,
+.group_form > div + .item_choice,
+.group_form > button + .item_choice,
+.group_form > .item_choice + .txt_form {
+  margin-left: 16px;
+}
+.group_form > .txt_form + .item_choic {
+  margin-left: 8px;
+}
