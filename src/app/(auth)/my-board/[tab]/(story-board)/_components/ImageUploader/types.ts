@@ -1,12 +1,8 @@
-import { IBlockData } from '@/app/(auth)/my-board/[tab]/(story-board)/_components/StoryBoardForm/types';
-// import { StoryBoardAddRequest } from '@/service/file/schemas';
-// import { Control } from 'react-hook-form';
+import { ITypeBlock } from '@/app/(auth)/my-board/[tab]/(story-board)/_components/TypeBlock/types';
 
-export interface ITypeBlock {
-    data: IBlockData;
-    onChange: (newData: Partial<IBlockData>) => void;
-    control: any;
-    isEdit?: boolean;
-    setIsModalOpen?: (state: boolean) => void;
-    previewMode?: boolean; // 상세보기 모드 타입
+export interface IImageUploader extends ITypeBlock {
+    index: number;
+    onOpenModal: () => void;
+    onCloseModal: () => void;
+    isUploadModalOpen: boolean;
 }

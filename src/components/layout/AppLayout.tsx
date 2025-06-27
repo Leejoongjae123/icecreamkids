@@ -20,7 +20,7 @@ interface PropsWithChildren {
   isSnb?: boolean; // 놀이보고서 SNB 불필요
   customDocClass?: string; // 업무보드는 화면별 Class가 다름....
   customContainerClass?: string | null; // 업무보드때문에...
-  showFooter : boolean | true;
+  showFooter? : boolean | null;
   // docClass?: string;
 }
 export default function AppLayout({
@@ -242,7 +242,7 @@ export default function AppLayout({
           </section>
         </main>
       )}
-      { showFooter && (
+      { ( showFooter == null || showFooter ) && (
           <AppFooter />
       )}
     </div>
