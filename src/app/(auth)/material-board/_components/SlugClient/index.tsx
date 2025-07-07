@@ -49,7 +49,7 @@ import { getFlattenedData, isEmpty } from '@/utils';
 import { useHandleFile } from '@/hooks/useHandleFile';
 import { DownloadModal, TagModal } from '@/components/modal';
 import { useToast } from '@/hooks/store/useToastStore';
-import { EducationalClassResult } from '@/service/member/schemas';
+import { EducationalClassResult, StudentResult } from '@/service/member/schemas';
 import Image from 'next/image';
 import dayjs, { dateFormat } from '@/lib/dayjs';
 import { useAlertStore } from '@/hooks/store/useAlertStore';
@@ -58,18 +58,23 @@ import Selecto, { OnSelect, OnSelectEnd } from 'react-selecto';
 
 const LIMIT = 30;
 
+// 학생 클래스 id 선언
+interface StudentResultItem extends StudentResult {
+  classId?: number;
+}
+
 const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) => {
   const { userInfo } = useUserStore();
   const isMine = userInfo?.id.toString();
   // 반 정보 리스트
   const { data: classes, refetch: classesRefetch } = useGetEducationalClasses(
-    isMine || '0',
-    {
-      includes: 'students',
-    },
-    {
-      query: { enabled: category === 'photo' },
-    },
+      isMine || '0',
+      {
+        includes: 'students',
+      },
+      {
+        query: { enabled: category === 'photo' },
+      },
   );
 
   const classList = useMemo(() => {
@@ -131,10 +136,10 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
 
   const isClassStudent = useMemo(() => {
     return (
-      activeFolder?.rootType === 'EDUCATIONAL_CLASS_STUDENT_PHOTO' &&
-      !activeFolder.userEditable &&
-      activeFolder?.depth > 2 &&
-      activeFolder.name !== '기타'
+        activeFolder?.rootType === 'EDUCATIONAL_CLASS_STUDENT_PHOTO' &&
+        !activeFolder.userEditable &&
+        activeFolder?.depth > 2 &&
+        activeFolder.name !== '기타'
     );
   }, [activeFolder]);
 
@@ -162,9 +167,9 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
       name: '',
       smartFolderApiType: 'Photo',
       parentSmartFolderItemId:
-        photoHomeList.find(
-          (photoHomes) => photoHomes.rootType === (sectionRootType[sectionType] as SmartFolderResultRootType),
-        )?.parentSmartFolderItemId ?? 0,
+          photoHomeList.find(
+              (photoHomes) => photoHomes.rootType === (sectionRootType[sectionType] as SmartFolderResultRootType),
+          )?.parentSmartFolderItemId ?? 0,
       depth: (activeFolder?.depth ?? 0) + 1,
       rootType: sectionRootType[sectionType] as SmartFolderResultRootType,
       userEditable: true,
@@ -210,16 +215,16 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
   } = useInfiniteQueryWithLimit({
     queryKey: ['itemLists', getApiTypeForSlug[category as keyof typeof getApiTypeForSlug], parentSmartFolderId],
     queryFn: (pageParam) =>
-      getItemList({
-        smartFolderApiType: getApiTypeForSlug[category as keyof typeof getApiTypeForSlug],
-        parentSmartFolderId,
-        offsetWithLimit: `${pageParam},${LIMIT}`,
-        ...(targetDate !== '' && {
-          startsAt: dayjs(targetDate).startOf('month').format(dateFormat.kekaba),
-          endsAt: dayjs(targetDate).endOf('month').format(dateFormat.kekaba),
+        getItemList({
+          smartFolderApiType: getApiTypeForSlug[category as keyof typeof getApiTypeForSlug],
+          parentSmartFolderId,
+          offsetWithLimit: `${pageParam},${LIMIT}`,
+          ...(targetDate !== '' && {
+            startsAt: dayjs(targetDate).startOf('month').format(dateFormat.kekaba),
+            endsAt: dayjs(targetDate).endOf('month').format(dateFormat.kekaba),
+          }),
+          ...(targetFileType !== 'ALL' && { targetFileType }), // ALL이면 키 제거
         }),
-        ...(targetFileType !== 'ALL' && { targetFileType }), // ALL이면 키 제거
-      }),
     limit: LIMIT,
     enabled: (category === 'folder' || category === 'docs' || category === 'photo') && !isPhotoHome,
   });
@@ -257,16 +262,33 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
     if (!isClassStudent) {
       return null;
     }
-    const findSelectClass: EducationalClassResult | undefined = classList.find(
-      (studentClass) => studentClass.teacherProfileId === (userInfo?.id || 0),
-    );
-    const studentList = findSelectClass?.students || [];
 
-    if (studentList.length <= 0) {
+    // const findSelectClass: EducationalClassResult | undefined = classList.find(
+    //   (studentClass) => studentClass.teacherProfileId === (userInfo?.id || 0),
+    // );
+    // const studentList = findSelectClass?.students || [];
+    // return { classId: findSelectClass?.id, ...studentList.find((student) => student.name === activeFolder?.name) };
+
+    let studentItem: StudentResultItem | undefined;
+    classList.some((studentClass) => {
+      if (
+          studentClass.teacherProfileId === (userInfo?.id || 0) &&
+          studentClass?.students &&
+          studentClass?.students.length > 0
+      ) {
+        const result = studentClass.students.find((student) => student.name === activeFolder?.name);
+        if (result !== undefined) {
+          const studentClassId = studentClass.id;
+          studentItem = { classId: studentClassId, ...result };
+          return true;
+        }
+      }
+      return false;
+    });
+    if (studentItem === undefined) {
       return null;
     }
-
-    return { classId: findSelectClass?.id, ...studentList.find((student) => student.name === activeFolder?.name) };
+    return studentItem;
   }, [activeFolder, classList, isClassStudent, userInfo]);
 
   // 각 function refetch
@@ -398,10 +420,10 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
   };
 
   const makeRenameFile = async ({
-    name,
-    type,
-    id,
-  }: {
+                                  name,
+                                  type,
+                                  id,
+                                }: {
     name: string;
     type: 'make' | 'rename' | 'cancel';
     id?: number;
@@ -507,10 +529,10 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
   };
 
   const handleThumbnail = ({
-    fileType,
-    id,
-    apiType,
-  }: {
+                             fileType,
+                             id,
+                             apiType,
+                           }: {
     id: number;
     fileType: SmartFolderItemResultFileType;
     apiType: SmartFolderItemResultSmartFolderApiType;
@@ -577,17 +599,17 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
 
   // 초기화 및 진입 시 실행
   const initCurrentAction = useCallback(
-    (isActions: boolean = true) => {
-      setCurrentAction(null);
-      setCurrentActionItem(null);
-      setItemData([]);
-      if (isActions) {
-        setSelectedIds({});
-        setIsAllSelected(false);
-        refetch();
-      }
-    },
-    [refetch],
+      (isActions: boolean = true) => {
+        setCurrentAction(null);
+        setCurrentActionItem(null);
+        setItemData([]);
+        if (isActions) {
+          setSelectedIds({});
+          setIsAllSelected(false);
+          refetch();
+        }
+      },
+      [refetch],
   );
 
   /*
@@ -606,76 +628,76 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
   };
 
   const handleFileData = useCallback(
-    async (selectFolder: SmartFolderItemResult | null, path?: string) => {
-      if (!selectFolder) return;
-      const selectIdsNumber = Object.entries(selectedIds)
-        .filter(([_, value]) => value)
-        .map(([key]) => Number(key));
+      async (selectFolder: SmartFolderItemResult | null, path?: string) => {
+        if (!selectFolder) return;
+        const selectIdsNumber = Object.entries(selectedIds)
+            .filter(([_, value]) => value)
+            .map(([key]) => Number(key));
 
-      if (currentAction === 'SAVE') {
-        let driveItemKey: string[] = [];
+        if (currentAction === 'SAVE') {
+          let driveItemKey: string[] = [];
 
-        if (currentActionItem) {
-          driveItemKey = [currentActionItem.driveItemKey];
-          if (currentActionItem.fileType === 'FOLDER') {
-            // 폴더는 무조건 1개임
-            const keyList = await getItemKeyList({
-              parentSmartFolderId: currentActionItem.id.toString(),
-              smartFolderApiType: currentActionItem.smartFolderApiType,
-            });
-            if (keyList.result) {
-              driveItemKey = keyList.result;
+          if (currentActionItem) {
+            driveItemKey = [currentActionItem.driveItemKey];
+            if (currentActionItem.fileType === 'FOLDER') {
+              // 폴더는 무조건 1개임
+              const keyList = await getItemKeyList({
+                parentSmartFolderId: currentActionItem.id.toString(),
+                smartFolderApiType: currentActionItem.smartFolderApiType,
+              });
+              if (keyList.result) {
+                driveItemKey = keyList.result;
+              }
+              if (driveItemKey.length <= 0) {
+                showAlert({ message: '폴더 내 파일이 없습니다.' });
+                return;
+              }
             }
-            if (driveItemKey.length <= 0) {
-              showAlert({ message: '폴더 내 파일이 없습니다.' });
-              return;
-            }
+          } else {
+            driveItemKey = itemData.map((item) => item.driveItemKey);
           }
-        } else {
-          driveItemKey = itemData.map((item) => item.driveItemKey);
+
+          handleSave(selectFolder, driveItemKey, path).then(() => {
+            initCurrentAction();
+          });
+          return;
         }
 
-        handleSave(selectFolder, driveItemKey, path).then(() => {
-          initCurrentAction();
-        });
-        return;
-      }
+        if (currentAction === 'MOVE') {
+          handleMove(
+              selectFolder,
+              currentActionItem ? currentActionItem.id : selectIdsNumber,
+              activeFolder?.smartFolderApiType,
+              path,
+          ).then(() => {
+            initCurrentAction();
+          });
+          return;
+        }
 
-      if (currentAction === 'MOVE') {
-        handleMove(
-          selectFolder,
-          currentActionItem ? currentActionItem.id : selectIdsNumber,
-          activeFolder?.smartFolderApiType,
-          path,
-        ).then(() => {
-          initCurrentAction();
-        });
-        return;
-      }
-
-      if (currentAction === 'COPY') {
-        handleCopy(
-          selectFolder,
-          currentActionItem ? currentActionItem.id : selectIdsNumber,
-          activeFolder?.smartFolderApiType,
-          path,
-        ).then(() => {
-          initCurrentAction();
-        });
-      }
-    },
-    [
-      currentAction,
-      currentActionItem,
-      handleCopy,
-      handleMove,
-      handleSave,
-      initCurrentAction,
-      itemData,
-      selectedIds,
-      activeFolder,
-      showAlert,
-    ],
+        if (currentAction === 'COPY') {
+          handleCopy(
+              selectFolder,
+              currentActionItem ? currentActionItem.id : selectIdsNumber,
+              activeFolder?.smartFolderApiType,
+              path,
+          ).then(() => {
+            initCurrentAction();
+          });
+        }
+      },
+      [
+        currentAction,
+        currentActionItem,
+        handleCopy,
+        handleMove,
+        handleSave,
+        initCurrentAction,
+        itemData,
+        selectedIds,
+        activeFolder,
+        showAlert,
+      ],
   );
 
   /*
@@ -709,26 +731,26 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
         })),
       },
     })
-      .then(async (result) => {
-        if (result.status === 200) {
-          addToast({
-            message: '삭제되었습니다',
-          });
-          if (findFolderItem) {
-            // 폴더가 있을 시 트리구조 업데이트
-            const folderListKey = getScanMyFoldersQueryKey();
-            const smartfolderListKey = getGetFolderTreeFromRootQueryKey();
-            await queryClient.refetchQueries({
-              queryKey: findFolderItem.smartFolderApiType === 'UserFolder' ? folderListKey : smartfolderListKey,
-              type: 'active',
+        .then(async (result) => {
+          if (result.status === 200) {
+            addToast({
+              message: '삭제되었습니다',
             });
+            if (findFolderItem) {
+              // 폴더가 있을 시 트리구조 업데이트
+              const folderListKey = getScanMyFoldersQueryKey();
+              const smartfolderListKey = getGetFolderTreeFromRootQueryKey();
+              await queryClient.refetchQueries({
+                queryKey: findFolderItem.smartFolderApiType === 'UserFolder' ? folderListKey : smartfolderListKey,
+                type: 'active',
+              });
+            }
+            return;
           }
-          return;
-        }
-        addToast({ message: '삭제에 실패하였습니다.' });
-      })
-      .catch(() => addToast({ message: '삭제에 실패하였습니다.' }))
-      .finally(() => initCurrentAction());
+          addToast({ message: '삭제에 실패하였습니다.' });
+        })
+        .catch(() => addToast({ message: '삭제에 실패하였습니다.' }))
+        .finally(() => initCurrentAction());
   };
 
   // 복원 및 삭제
@@ -737,18 +759,18 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
   const { mutateAsync: hideItems } = useHideItems();
 
   const handleTrashButtons = async (
-    action: 'restore' | 'remove' | 'removeFromService',
-    items?: SmartFolderItemResult,
+      action: 'restore' | 'remove' | 'removeFromService',
+      items?: SmartFolderItemResult,
   ) => {
     const selectedFiles = fileList.filter((file) => selectedIds[file.id]);
     const postFiles = items
-      ? [
+        ? [
           {
             smartFolderApiType: items.smartFolderApiType,
             itemId: items.id,
           },
         ]
-      : selectedFiles.map((restoreItem) => ({
+        : selectedFiles.map((restoreItem) => ({
           smartFolderApiType: restoreItem.smartFolderApiType,
           itemId: restoreItem.id,
         }));
@@ -801,8 +823,8 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
   const [tagDriveItemKey, setTagDriveItemKey] = useState<string>('');
 
   const handleActionItems = (
-    action: 'COPY' | 'MOVE' | 'SAVE' | 'DELETE' | 'RENAME' | 'TAG',
-    item?: SmartFolderItemResult,
+      action: 'COPY' | 'MOVE' | 'SAVE' | 'DELETE' | 'RENAME' | 'TAG',
+      item?: SmartFolderItemResult,
   ) => {
     if (action === 'RENAME') {
       if (!item?.userEditable) {
@@ -862,8 +884,8 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
 
   if (hasFile) {
     actionButtonList = isMine
-      ? [...baseActionButtonList] // 내 파일이면 기본 버튼 리스트 유지
-      : [{ key: 'save', label: '저장', action: () => handleActionItems('SAVE') }]; // 내 파일이 아니면 `save` 버튼만 표시
+        ? [...baseActionButtonList] // 내 파일이면 기본 버튼 리스트 유지
+        : [{ key: 'save', label: '저장', action: () => handleActionItems('SAVE') }]; // 내 파일이 아니면 `save` 버튼만 표시
   }
 
   if (category === 'trash') {
@@ -912,87 +934,87 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
     if (category === 'photo') {
       if (isPhotoHome) {
         return (
-          <PhotoHomeList
-            category={category}
-            fileList={photoHomeListState}
-            dropDown={(id) => openDropDown[id]}
-            selectClass={resolvedClassId}
-            onChange={handleSelectChange}
-            onDropDown={onDropDown}
-            onClick={({ id, fileType, apiType }) => {
-              handleThumbnail({
-                id,
-                fileType,
-                apiType,
-              });
-            }}
-            classOptions={classOptions()}
-            dropDownActions={handleActionItems}
-            nameEditableInfo={nameEditable}
-            makeRenameFile={makeRenameFile}
-            setNameEditableInfo={setNameEditable}
-            handleCreatePhotoFolder={handleCreatePhotoFolder}
-            photoHomeLoading={photoHomeLoading}
-            classModalCallback={classModalCallback}
-          />
+            <PhotoHomeList
+                category={category}
+                fileList={photoHomeListState}
+                dropDown={(id) => openDropDown[id]}
+                selectClass={resolvedClassId}
+                onChange={handleSelectChange}
+                onDropDown={onDropDown}
+                onClick={({ id, fileType, apiType }) => {
+                  handleThumbnail({
+                    id,
+                    fileType,
+                    apiType,
+                  });
+                }}
+                classOptions={classOptions()}
+                dropDownActions={handleActionItems}
+                nameEditableInfo={nameEditable}
+                makeRenameFile={makeRenameFile}
+                setNameEditableInfo={setNameEditable}
+                handleCreatePhotoFolder={handleCreatePhotoFolder}
+                photoHomeLoading={photoHomeLoading}
+                classModalCallback={classModalCallback}
+            />
         );
       }
 
       return (
-        <PhotoDateList
-          category={category}
-          fileList={fileList}
-          currentViewMode={currentViewMode}
-          onEditToggle={(id) => handleEditToggle(id)} // 개별 상태 토글 함수 전달
-          dropDown={(id) => openDropDown[id]}
-          onDropDown={onDropDown}
-          selectedIds={selectedIds}
-          setSelectedIds={setSelectedIds}
-          onClickShareLinkButton={handleClickShareLinkButton}
-          onClick={({ id, fileType, apiType }) => {
-            handleThumbnail({
-              id,
-              fileType,
-              apiType,
-            });
-          }}
-          dropDownActions={handleActionItems}
-          handleFavorite={handleFavorite}
-          nameEditableInfo={nameEditable}
-          makeRenameFile={makeRenameFile}
-          setNameEditableInfo={setNameEditable}
-        />
+          <PhotoDateList
+              category={category}
+              fileList={fileList}
+              currentViewMode={currentViewMode}
+              onEditToggle={(id) => handleEditToggle(id)} // 개별 상태 토글 함수 전달
+              dropDown={(id) => openDropDown[id]}
+              onDropDown={onDropDown}
+              selectedIds={selectedIds}
+              setSelectedIds={setSelectedIds}
+              onClickShareLinkButton={handleClickShareLinkButton}
+              onClick={({ id, fileType, apiType }) => {
+                handleThumbnail({
+                  id,
+                  fileType,
+                  apiType,
+                });
+              }}
+              dropDownActions={handleActionItems}
+              handleFavorite={handleFavorite}
+              nameEditableInfo={nameEditable}
+              makeRenameFile={makeRenameFile}
+              setNameEditableInfo={setNameEditable}
+          />
       );
     }
 
     return (
-      <MaterialBoardList
-        hasFile={hasFile}
-        category={category}
-        fileList={fileList}
-        currentViewMode={currentViewMode}
-        onEditToggle={(id) => handleEditToggle(id)} // 개별 상태 토글 함수 전달
-        dropDown={(id) => openDropDown[id]}
-        onDropDown={onDropDown}
-        selectedIds={selectedIds}
-        onClickShareLinkButton={handleClickShareLinkButton}
-        onClick={({ id, fileType, apiType }) => {
-          if (category !== 'trash') {
-            handleThumbnail({
-              id,
-              fileType,
-              apiType,
-            });
-          }
-        }}
-        dropDownActions={handleActionItems}
-        handleFavorite={handleFavorite}
-        nameEditableInfo={nameEditable}
-        makeRenameFile={makeRenameFile}
-        setNameEditableInfo={setNameEditable}
-        deleteActions={handleTrashButtons}
-        isFavoriteFolder={isFavoriteFolder}
-      />
+        <MaterialBoardList
+            hasFile={hasFile}
+            category={category}
+            fileList={fileList}
+            currentViewMode={currentViewMode}
+            onEditToggle={(id) => handleEditToggle(id)} // 개별 상태 토글 함수 전달
+            dropDown={(id) => openDropDown[id]}
+            onDropDown={onDropDown}
+            selectedIds={selectedIds}
+            onClickShareLinkButton={handleClickShareLinkButton}
+            onClick={({ id, fileType, apiType }) => {
+              if (category !== 'trash') {
+                handleThumbnail({
+                  id,
+                  fileType,
+                  apiType,
+                });
+              }
+            }}
+            dropDownActions={handleActionItems}
+            handleFavorite={handleFavorite}
+            nameEditableInfo={nameEditable}
+            makeRenameFile={makeRenameFile}
+            setNameEditableInfo={setNameEditable}
+            deleteActions={handleTrashButtons}
+            isFavoriteFolder={isFavoriteFolder}
+        />
     );
   };
 
@@ -1014,9 +1036,9 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
   };
 
   const makeBreadcrumbs = (
-    data: SmartFolderTreeResult[],
-    targetFolder: SmartFolderTreeResult | null,
-    path: IBreadcrumbProps['items'] = [],
+      data: SmartFolderTreeResult[],
+      targetFolder: SmartFolderTreeResult | null,
+      path: IBreadcrumbProps['items'] = [],
   ): IBreadcrumbProps['items'] | null => {
     if (category === 'public' || category === 'trash') {
       return [
@@ -1033,7 +1055,7 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
     // 우리반 전체 사진을 위한 분기처리
     if (category === 'photo' && targetFolder?.rootType === 'EDUCATIONAL_CLASS_TOTAL_PHOTO') {
       const photoRoot = data[0]?.subFolders?.find(
-        (photoFolder) => photoFolder?.rootType === 'NONE' && photoFolder.smartFolderApiType === 'Photo',
+          (photoFolder) => photoFolder?.rootType === 'NONE' && photoFolder.smartFolderApiType === 'Photo',
       );
 
       return [
@@ -1052,21 +1074,21 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
       ];
     }
     const breadcrumbs =
-      data
-        .map((folder) => {
-          if (folder?.id === targetFolder?.id) {
-            return [...path, { label: folder?.name || '', href: `${prefix.materialBoard}/${category}/${folder?.id}` }]; // 해당하는 뎁스에 있을 경우 추가
-          }
-          if (folder?.subFolders && folder.subFolders.length > 0) {
-            const subPath = makeBreadcrumbs(folder.subFolders, targetFolder, [
-              ...path,
-              { label: folder?.name || '', href: `${prefix.materialBoard}/${category}/${folder?.id}` },
-            ]);
-            return subPath;
-          }
-          return null;
-        })
-        .find((result) => result !== null) || null;
+        data
+            .map((folder) => {
+              if (folder?.id === targetFolder?.id) {
+                return [...path, { label: folder?.name || '', href: `${prefix.materialBoard}/${category}/${folder?.id}` }]; // 해당하는 뎁스에 있을 경우 추가
+              }
+              if (folder?.subFolders && folder.subFolders.length > 0) {
+                const subPath = makeBreadcrumbs(folder.subFolders, targetFolder, [
+                  ...path,
+                  { label: folder?.name || '', href: `${prefix.materialBoard}/${category}/${folder?.id}` },
+                ]);
+                return subPath;
+              }
+              return null;
+            })
+            .find((result) => result !== null) || null;
     return breadcrumbs;
   };
 
@@ -1098,10 +1120,10 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
 
     // 공통 불가 조건
     if (
-      category === 'trash' ||
-      category === 'public' ||
-      category === 'docs' ||
-      activeFolder.rootType === 'EDUCATIONAL_CLASS_TOTAL_PHOTO'
+        category === 'trash' ||
+        category === 'public' ||
+        category === 'docs' ||
+        activeFolder.rootType === 'EDUCATIONAL_CLASS_TOTAL_PHOTO'
     ) {
       return false;
     }
@@ -1142,55 +1164,55 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
   const renderFilter = () => {
     if (activeFolder?.rootType === 'EDUCATIONAL_CLASS_TOTAL_PHOTO') {
       return (
-        <Select
-          className="w-160"
-          size="small"
-          value={targetDate}
-          onChange={(value) => setTargetDate(value as string)}
-          options={makeDateFilter()}
-        />
+          <Select
+              className="w-160"
+              size="small"
+              value={targetDate}
+              onChange={(value) => setTargetDate(value as string)}
+              options={makeDateFilter()}
+          />
       );
     }
     if (!isDocsHome && category === 'docs') {
       return (
-        <>
-          <Select
-            className="w-160"
-            size="small"
-            value={targetDate}
-            onChange={(value) => setTargetDate(value as string)}
-            options={makeDateFilter()}
-          />
-          <Select
-            className="w-120"
-            size="small"
-            value={targetFileType}
-            onChange={(value) => setTargetFileType(value as string)}
-            options={DRIVE_ITEM_OPTIONS}
-          />
-        </>
+          <>
+            <Select
+                className="w-160"
+                size="small"
+                value={targetDate}
+                onChange={(value) => setTargetDate(value as string)}
+                options={makeDateFilter()}
+            />
+            <Select
+                className="w-120"
+                size="small"
+                value={targetFileType}
+                onChange={(value) => setTargetFileType(value as string)}
+                options={DRIVE_ITEM_OPTIONS}
+            />
+          </>
       );
     }
     if (category !== 'trash' && !isDocsHome && category !== 'public') {
       return (
-        <Select
-          className="w-120"
-          size="small"
-          value={targetFileType}
-          onChange={(value) => setTargetFileType(value as string)}
-          options={DRIVE_ITEM_OPTIONS}
-        />
+          <Select
+              className="w-120"
+              size="small"
+              value={targetFileType}
+              onChange={(value) => setTargetFileType(value as string)}
+              options={DRIVE_ITEM_OPTIONS}
+          />
       );
     }
     if (category === 'photo' && !isPhotoHome) {
       return (
-        <Select
-          className="w-160"
-          size="small"
-          value={targetDate}
-          onChange={(value) => setTargetDate(value as string)}
-          options={makeDateFilter()}
-        />
+          <Select
+              className="w-160"
+              size="small"
+              value={targetDate}
+              onChange={(value) => setTargetDate(value as string)}
+              options={makeDateFilter()}
+          />
       );
     }
     return null;
@@ -1198,12 +1220,12 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
 
   const handleSelect = (e: OnSelect) => {
     const dragSelected = e.selected
-      .map((el) => {
-        const { id } = (el as HTMLElement).dataset;
-        return fileList.find((item) => item.id.toString() === id);
-      })
-      .filter((item): item is SmartFolderItemResult => !!item)
-      .filter((item) => category === 'trash' || item.fileType !== 'FOLDER');
+        .map((el) => {
+          const { id } = (el as HTMLElement).dataset;
+          return fileList.find((item) => item.id.toString() === id);
+        })
+        .filter((item): item is SmartFolderItemResult => !!item)
+        .filter((item) => category === 'trash' || item.fileType !== 'FOLDER');
 
     if (dragSelected.length === 0) {
       setSelectedIds(prevSelectedIds); // 이전 상태 복원
@@ -1229,12 +1251,12 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
 
   const handleSelectEnd = (e: OnSelectEnd) => {
     const dragSelected = e.selected
-      .map((el) => {
-        const { id } = (el as HTMLElement).dataset;
-        return fileList.find((item) => item.id.toString() === id);
-      })
-      .filter((item): item is SmartFolderItemResult => !!item)
-      .filter((item) => category === 'trash' || item.fileType !== 'FOLDER');
+        .map((el) => {
+          const { id } = (el as HTMLElement).dataset;
+          return fileList.find((item) => item.id.toString() === id);
+        })
+        .filter((item): item is SmartFolderItemResult => !!item)
+        .filter((item) => category === 'trash' || item.fileType !== 'FOLDER');
 
     const dragSelectedIds = new Set(dragSelected.map((item) => item.id));
 
@@ -1281,228 +1303,228 @@ const SlugClient: React.FC<ISlugClient> = ({ category, parentSmartFolderId }) =>
   };
 
   return (
-    <>
-      <div className="group-top">
-        <BreadCrumb
-          items={breadcrumbItem}
-          onNavigate={(item) => {
-            if (item.label !== '스마트 폴더') {
-              router.push(item.href || '');
-            }
-          }}
-        />
-        <SearchBar
-          title="자료보드 검색"
-          searchValue=""
-          handleSearch={handleSearch}
-          handleSelectOption={handleSelectOption}
-        />
-      </div>
-      {isClassStudent && (
-        <div className="group-profile">
-          <div className="thumb-profile">
-            {studentInfo?.thumbUrl ? (
-              <Image
-                width={32}
-                height={32}
-                alt="반 아이 프로필"
-                className="img-profile"
-                src={studentInfo.thumbUrl}
-                style={{
-                  borderRadius: '50%',
-                }}
-                priority
-              />
-            ) : (
-              <span className="ico-comm ico-user-16-w" />
-            )}
-          </div>
-          <div className="info-profile">
-            <strong className="txt-profile">{title[category]}</strong>
-          </div>
-          {studentInfo && (
-            <Button
-              type="button"
-              size="small"
-              color="black"
-              className="btn-record"
-              onClick={() => router.push(`/work-board/student-record/${studentInfo.classId}/${studentInfo.id}`)}
-            >
-              아이 관찰 기록
-            </Button>
-          )}
-        </div>
-      )}
-      <div
-        className={cx('group-content', hasFile && 'group-empty')}
-        style={{
-          userSelect: 'none',
-          WebkitUserSelect: 'none',
-        }}
-      >
-        <div
-          className={cx('head-content', {
-            type3: category === 'photo' && isPhotoHome,
-            type4: (category === 'photo' && !isPhotoHome) || (category === 'docs' && !isDocsHome),
-          })}
-        >
-          {!isClassStudent && (
-            <h4 className="title-type3">
-              {category === 'trash' || category === 'public' ? title[category] : activeFolder?.name}
-            </h4>
-          )}
-
-          <div className="util-head type-tab">
-            {category === 'photo' && (isPhotoHome || isClassTotal) && (
-              <>
-                <Button
-                  type="button"
-                  size="small"
-                  color="line"
-                  className={cx('btn-manage', activeFolder?.rootType === 'NONE' && 'selected')}
-                  disabled={activeFolder?.rootType === 'NONE'}
-                  onClick={() => {
-                    const photoHomeFolder = folderList?.smartFolders[0]?.subFolders?.find(
-                      (classStudent) =>
-                        classStudent?.smartFolderApiType === 'Photo' && classStudent?.rootType === 'NONE',
-                    );
-
-                    router.push(`${prefix.materialBoard}/photo/${photoHomeFolder?.id}`);
-                  }}
-                >
-                  그룹별 보기
-                </Button>
-                <Button
-                  type="button"
-                  size="small"
-                  color="line"
-                  className={cx('btn-manage', activeFolder?.rootType === 'EDUCATIONAL_CLASS_TOTAL_PHOTO' && 'selected')}
-                  disabled={activeFolder?.rootType === 'EDUCATIONAL_CLASS_TOTAL_PHOTO'}
-                  onClick={() => {
-                    const classTotal = photoHomeList.find(
-                      (classTotalPhoto) =>
-                        classTotalPhoto.smartFolderApiType === 'Photo' &&
-                        classTotalPhoto.rootType === 'EDUCATIONAL_CLASS_TOTAL_PHOTO',
-                    );
-
-                    router.push(`${prefix.materialBoard}/photo/${classTotal?.id}`);
-                  }}
-                >
-                  전체보기
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-        {!isPhotoHome && !isDocsHome && (
-          <FloatingMenu
-            isChecked={hasFile}
-            isAllSelected={isAllSelected}
-            setIsAllSelected={setIsAllSelected}
-            handleAllSelected={handleAllSelected}
-            floatingActionButton={Object.entries(selectedIds).find((state) => state[1]) !== undefined}
-            actionButton={actionButtonList}
-            buttonLabel="폴더 생성"
-            renderButton={renderMakeFolderButton()}
-            currentViewMode={currentViewMode}
-            setCurrentViewMode={setCurrentViewMode}
-            handleButton={handleCreateDummyFolder}
-            filter={renderFilter()}
+      <>
+        <div className="group-top">
+          <BreadCrumb
+              items={breadcrumbItem}
+              onNavigate={(item) => {
+                if (item.label !== '스마트 폴더') {
+                  router.push(item.href || '');
+                }
+              }}
           />
+          <SearchBar
+              title="자료보드 검색"
+              searchValue=""
+              handleSearch={handleSearch}
+              handleSelectOption={handleSelectOption}
+          />
+        </div>
+        {isClassStudent && (
+            <div className="group-profile">
+              <div className="thumb-profile">
+                {studentInfo?.thumbUrl ? (
+                    <Image
+                        width={32}
+                        height={32}
+                        alt="반 아이 프로필"
+                        className="img-profile"
+                        src={studentInfo.thumbUrl}
+                        style={{
+                          borderRadius: '50%',
+                        }}
+                        priority
+                    />
+                ) : (
+                    <span className="ico-comm ico-user-16-w" />
+                )}
+              </div>
+              <div className="info-profile">
+                <strong className="txt-profile">{title[category]}</strong>
+              </div>
+              {studentInfo && (
+                  <Button
+                      type="button"
+                      size="small"
+                      color="black"
+                      className="btn-record"
+                      onClick={() => router.push(`/work-board/student-record/${studentInfo.classId}/${studentInfo.id}`)}
+                  >
+                    아이 관찰 기록
+                  </Button>
+              )}
+            </div>
         )}
-        {renderContent()}
-        {/* 무한 스크롤 감지 div */}
-        {!isPhotoHome && <div ref={loadMoreRef} style={{ height: '10px', background: 'transparent' }} />}
-      </div>
-      {isSelectoReady && (
-        <Selecto
-          ref={selectoRef}
-          dragContainer={document.querySelector('.main-content') as HTMLDivElement}
-          container={document.querySelector('.main-content') as HTMLDivElement}
-          selectableTargets={['#fileItem', '#fileTableItem']}
-          selectByClick={false}
-          clickBySelectEnd={false}
-          continueSelect={false}
-          selectFromInside
-          preventClickEventOnDrag
-          hitRate={0}
-          dragCondition={(e) => {
-            const blockedSelectors = [
-              '.btn-download', // 다운로드
-              '.badge-util', // 대표 뱃지
-              '.btn-menu', // 드롭다운 메뉴
-              '.btn-favorite', // 즐겨찾기 버튼
-              '.btn-delete', // 닫기 버튼
-              '.btn-memo', // 수정 버튼
-              '#fileName', // 이름 수정
-              '.thumb-profile', // 썸네일 이미지
-              '.modal-layer', // 모달 레이어
-              '.item-choice', // 썸네일 체크박스
-            ];
-            const target = e.inputEvent?.target as HTMLElement;
-            if (blockedSelectors.some((selector) => target.closest(selector))) return false;
+        <div
+            className={cx('group-content', hasFile && 'group-empty')}
+            style={{
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+            }}
+        >
+          <div
+              className={cx('head-content', {
+                type3: category === 'photo' && isPhotoHome,
+                type4: (category === 'photo' && !isPhotoHome) || (category === 'docs' && !isDocsHome),
+              })}
+          >
+            {!isClassStudent && (
+                <h4 className="title-type3">
+                  {category === 'trash' || category === 'public' ? title[category] : activeFolder?.name}
+                </h4>
+            )}
 
-            const clientX = e.inputEvent?.clientX;
-            const clientY = e.inputEvent?.clientY;
+            <div className="util-head type-tab">
+              {category === 'photo' && (isPhotoHome || isClassTotal) && (
+                  <>
+                    <Button
+                        type="button"
+                        size="small"
+                        color="line"
+                        className={cx('btn-manage', activeFolder?.rootType === 'NONE' && 'selected')}
+                        disabled={activeFolder?.rootType === 'NONE'}
+                        onClick={() => {
+                          const photoHomeFolder = folderList?.smartFolders[0]?.subFolders?.find(
+                              (classStudent) =>
+                                  classStudent?.smartFolderApiType === 'Photo' && classStudent?.rootType === 'NONE',
+                          );
 
-            const mainContent = document.querySelector('.main-content') as HTMLElement;
-            const bodyContent = document.querySelector('.body-content') as HTMLElement;
+                          router.push(`${prefix.materialBoard}/photo/${photoHomeFolder?.id}`);
+                        }}
+                    >
+                      그룹별 보기
+                    </Button>
+                    <Button
+                        type="button"
+                        size="small"
+                        color="line"
+                        className={cx('btn-manage', activeFolder?.rootType === 'EDUCATIONAL_CLASS_TOTAL_PHOTO' && 'selected')}
+                        disabled={activeFolder?.rootType === 'EDUCATIONAL_CLASS_TOTAL_PHOTO'}
+                        onClick={() => {
+                          const classTotal = photoHomeList.find(
+                              (classTotalPhoto) =>
+                                  classTotalPhoto.smartFolderApiType === 'Photo' &&
+                                  classTotalPhoto.rootType === 'EDUCATIONAL_CLASS_TOTAL_PHOTO',
+                          );
 
-            const rectX = mainContent?.getBoundingClientRect();
-            const rectY = bodyContent?.getBoundingClientRect();
+                          router.push(`${prefix.materialBoard}/photo/${classTotal?.id}`);
+                        }}
+                    >
+                      전체보기
+                    </Button>
+                  </>
+              )}
+            </div>
+          </div>
+          {!isPhotoHome && !isDocsHome && (
+              <FloatingMenu
+                  isChecked={hasFile}
+                  isAllSelected={isAllSelected}
+                  setIsAllSelected={setIsAllSelected}
+                  handleAllSelected={handleAllSelected}
+                  floatingActionButton={Object.entries(selectedIds).find((state) => state[1]) !== undefined}
+                  actionButton={actionButtonList}
+                  buttonLabel="폴더 생성"
+                  renderButton={renderMakeFolderButton()}
+                  currentViewMode={currentViewMode}
+                  setCurrentViewMode={setCurrentViewMode}
+                  handleButton={handleCreateDummyFolder}
+                  filter={renderFilter()}
+              />
+          )}
+          {renderContent()}
+          {/* 무한 스크롤 감지 div */}
+          {!isPhotoHome && <div ref={loadMoreRef} style={{ height: '10px', background: 'transparent' }} />}
+        </div>
+        {isSelectoReady && (
+            <Selecto
+                ref={selectoRef}
+                dragContainer={document.querySelector('.main-content') as HTMLDivElement}
+                container={document.querySelector('.main-content') as HTMLDivElement}
+                selectableTargets={['#fileItem', '#fileTableItem']}
+                selectByClick={false}
+                clickBySelectEnd={false}
+                continueSelect={false}
+                selectFromInside
+                preventClickEventOnDrag
+                hitRate={0}
+                dragCondition={(e) => {
+                  const blockedSelectors = [
+                    '.btn-download', // 다운로드
+                    '.badge-util', // 대표 뱃지
+                    '.btn-menu', // 드롭다운 메뉴
+                    '.btn-favorite', // 즐겨찾기 버튼
+                    '.btn-delete', // 닫기 버튼
+                    '.btn-memo', // 수정 버튼
+                    '#fileName', // 이름 수정
+                    '.thumb-profile', // 썸네일 이미지
+                    '.modal-layer', // 모달 레이어
+                    '.item-choice', // 썸네일 체크박스
+                  ];
+                  const target = e.inputEvent?.target as HTMLElement;
+                  if (blockedSelectors.some((selector) => target.closest(selector))) return false;
 
-            // 가로: main-content, 세로: body-content 범위 안에서만 드래그 시작 허용
-            const withinX = rectX && clientX >= rectX.left && clientX <= rectX.right;
-            const withinY = rectY && clientY >= rectY.top && clientY <= rectY.bottom;
+                  const clientX = e.inputEvent?.clientX;
+                  const clientY = e.inputEvent?.clientY;
 
-            return withinX && withinY;
-          }}
-          scrollOptions={{
-            container: document.documentElement,
-            threshold: 10,
-            throttleTime: 10,
-            useScroll: false,
-            requestScroll: ({ container, direction }: { container: HTMLElement; direction: number[] }) => {
-              // eslint-disable-next-line no-param-reassign
-              container.scrollTop += direction[1] * 10;
-            },
-            checkScrollEvent: true,
-          }}
-          toggleContinueSelect={['shift']}
-          // onSelect={handleSelect}
-          // onSelectEnd={handleSelectEvent}
-          onDragStart={() => {
-            setPrevSelectedIds({ ...selectedIds });
-          }}
-          onSelect={handleSelect}
-          onSelectEnd={handleSelectEnd}
-        />
-      )}
+                  const mainContent = document.querySelector('.main-content') as HTMLElement;
+                  const bodyContent = document.querySelector('.body-content') as HTMLElement;
 
-      {isShareLinkModalOpen && (
-        <ShareLinkModal item={shareLinkModalItem} onCloseRefetch={refetch} onCancel={handleCloseShareLinkModal} />
-      )}
-      {isDownloadModalOpen && (
-        <DownloadModal
-          isOpen={isDownloadModalOpen}
-          itemData={currentActionItem ? [currentActionItem] : itemData}
-          onCancel={handleCloseDownloadModal}
-          onConfirm={handleConfirmDownloadModal}
-          action={currentAction}
-        />
-      )}
-      {isTagModal && (
-        <TagModal
-          isOpen={isTagModal}
-          driveItemKey={tagDriveItemKey}
-          onSave={async () => {
-            setTagDriveItemKey('');
-            setTagModal(false);
-          }}
-          onCancel={() => setTagModal(false)}
-        />
-      )}
-    </>
+                  const rectX = mainContent?.getBoundingClientRect();
+                  const rectY = bodyContent?.getBoundingClientRect();
+
+                  // 가로: main-content, 세로: body-content 범위 안에서만 드래그 시작 허용
+                  const withinX = rectX && clientX >= rectX.left && clientX <= rectX.right;
+                  const withinY = rectY && clientY >= rectY.top && clientY <= rectY.bottom;
+
+                  return withinX && withinY;
+                }}
+                scrollOptions={{
+                  container: document.documentElement,
+                  threshold: 10,
+                  throttleTime: 10,
+                  useScroll: false,
+                  requestScroll: ({ container, direction }: { container: HTMLElement; direction: number[] }) => {
+                    // eslint-disable-next-line no-param-reassign
+                    container.scrollTop += direction[1] * 10;
+                  },
+                  checkScrollEvent: true,
+                }}
+                toggleContinueSelect={['shift']}
+                // onSelect={handleSelect}
+                // onSelectEnd={handleSelectEvent}
+                onDragStart={() => {
+                  setPrevSelectedIds({ ...selectedIds });
+                }}
+                onSelect={handleSelect}
+                onSelectEnd={handleSelectEnd}
+            />
+        )}
+
+        {isShareLinkModalOpen && (
+            <ShareLinkModal item={shareLinkModalItem} onCloseRefetch={refetch} onCancel={handleCloseShareLinkModal} />
+        )}
+        {isDownloadModalOpen && (
+            <DownloadModal
+                isOpen={isDownloadModalOpen}
+                itemData={currentActionItem ? [currentActionItem] : itemData}
+                onCancel={handleCloseDownloadModal}
+                onConfirm={handleConfirmDownloadModal}
+                action={currentAction}
+            />
+        )}
+        {isTagModal && (
+            <TagModal
+                isOpen={isTagModal}
+                driveItemKey={tagDriveItemKey}
+                onSave={async () => {
+                  setTagDriveItemKey('');
+                  setTagModal(false);
+                }}
+                onCancel={() => setTagModal(false)}
+            />
+        )}
+      </>
   );
 };
 

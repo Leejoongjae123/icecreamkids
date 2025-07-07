@@ -42,4 +42,4 @@ export interface IReportModalInfo {
   targetProfileName?: string;
 }
 
-export type IRenderMap = SmartFolderItemResultFileType | 'YOUTUBE' | 'PDF';
+export type IRenderMap = SmartFolderItemResultFileType | 'YOUTUBE' | 'PDF' | 'HWP' | 'DOC';

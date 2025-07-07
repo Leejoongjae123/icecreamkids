@@ -21,18 +21,21 @@ import type { EducationalClassResultCourse } from '@/service/member/schemas';
 import { useReportStore } from '@/hooks/store/useReportStore';
 import PreviewReportClient from '@/app/work-board/(protected)/playing-report/_components/PreviewReport';
 import ActivityCardDetailBody from '@/app/work-board/(protected)/playing-plan/_components/ActivityCardDetailBody';
+import { DocumentViewer } from 'react-documents';
 
 // 동적 로드로 PDF 뷰어 추가
 const PDFViewer = dynamic(() => import('./pdfViewer'), { ssr: false });
 
+//동적 로드로 HWP 뷰어 추가(테스트)
+const HWPViewer = dynamic(() => import('./hwpViewer'))
 const FileViewer: FunctionComponent<IFileViewer> = ({
-  file,
-  style,
-  onClick,
-  cdnFile,
-  isFailCdnFile,
-  handleDownload,
-}) => {
+                                                      file,
+                                                      style,
+                                                      onClick,
+                                                      cdnFile,
+                                                      isFailCdnFile,
+                                                      handleDownload,
+                                                    }) => {
   const [extractedUrl, setExtractedUrl] = useState<string | null>(null);
   const fileExtension = getFileExtension(file.name);
   const [src, setSrc] = useState('');
@@ -96,9 +99,9 @@ const FileViewer: FunctionComponent<IFileViewer> = ({
     if (!cdnFile?.url) return;
     if (fileExtension && EXTENSIONS.URL.includes(fileExtension)) {
       fetch(cdnFile.url)
-        .then((response) => response.text())
-        .then((content) => setExtractedUrl(extractUrlFromContent(content)))
-        .catch((error) => console.error('Error reading .url file:', error));
+          .then((response) => response.text())
+          .then((content) => setExtractedUrl(extractUrlFromContent(content)))
+          .catch((error) => console.error('Error reading .url file:', error));
     } else {
       setExtractedUrl(null);
     }
@@ -128,8 +131,8 @@ const FileViewer: FunctionComponent<IFileViewer> = ({
 
   // 아이 관찰 기록
   const { data: domains } = useGetDomains(
-    { course: file?.studentRecord?.course as EducationalClassResultCourse },
-    { query: { enabled: !!file.studentRecord } },
+      { course: file?.studentRecord?.course as EducationalClassResultCourse },
+      { query: { enabled: !!file.studentRecord } },
   );
 
   const [studentRecord] = useState<StudentRecordResult | undefined>(file?.studentRecord);
@@ -148,135 +151,140 @@ const FileViewer: FunctionComponent<IFileViewer> = ({
   const renderMap: Record<IRenderMap, JSX.Element | null> = {
     [SmartFolderItemResultFileType.IMAGE]: <img src={src} alt={`${file.name} thumbnail`} />,
     [SmartFolderItemResultFileType.AUDIO]: (
-      <>
-        <span className="ico-comm ico-illust-audio2" />
-        <audio controls preload="auto" className="item-audio">
-          <source src={src} type={cdnFile?.mediaType === 'audio/m4a' ? 'audio/mp4' : cdnFile?.mediaType} /> {/**  */}
-          <track kind="captions" src={src} srcLang="ko" label="한글 캡션" default />
-          Your browser does not support the audio element.
-        </audio>
-      </>
+        <>
+          <span className="ico-comm ico-illust-audio2" />
+          <audio controls preload="auto" className="item-audio">
+            <source src={src} type={cdnFile?.mediaType === 'audio/m4a' ? 'audio/mp4' : cdnFile?.mediaType} /> {/**  */}
+            <track kind="captions" src={src} srcLang="ko" label="한글 캡션" default />
+            Your browser does not support the audio element.
+          </audio>
+        </>
     ),
     [SmartFolderItemResultFileType.VIDEO]: (
-      <video ref={videoRef} className="video-js vjs-default-skin item-video">
-        <track kind="captions" src={src} srcLang="ko" label="한글 캡션" default />
-        <source src={src} type={isSafari ? cdnFile?.mediaType : 'video/mp4'} />
-        {/* <source src={src} type={cdnFile?.mediaType} /> * 사파리 이외에는 video/quicktime이 인식이 안됨 */}
-        Your browser does not support the video tag.
-      </video>
+        <video ref={videoRef} className="video-js vjs-default-skin item-video">
+          <track kind="captions" src={src} srcLang="ko" label="한글 캡션" default />
+          <source src={src} type={isSafari ? cdnFile?.mediaType : 'video/mp4'} />
+          {/* <source src={src} type={cdnFile?.mediaType} /> * 사파리 이외에는 video/quicktime이 인식이 안됨 */}
+          Your browser does not support the video tag.
+        </video>
     ),
     PDF: <PDFViewer fileUrl={src} />,
+    HWP: < HWPViewer filePath={src} downloadHandler={handleDownload}/>,
+    DOC: <DocumentViewer
+        url={ String(cdnFile?.url ) }
+        viewer={ "office" }
+    />,
     [SmartFolderItemResultFileType.DOCUMENT]: (
-      <div className="item-content">
-        <em className="tit-item">이 자료 유형은 지원되지 않습니다.</em>
-        <p className="txt-item">
-          이 자료 유형은 미리보기가 지원되지 않아요.
-          <br />
-          다운로드로 확인해 주세요.
-        </p>
-        <Button size="small" color="line" icon="download-14-b" onClick={handleDownload}>
-          다운로드
-        </Button>
-      </div>
+        <div className="item-content">
+          <em className="tit-item">이 자료 유형은 지원되지 않습니다.</em>
+          <p className="txt-item">
+            이 자료 유형은 미리보기가 지원되지 않아요.
+            <br />
+            다운로드로 확인해 주세요.
+          </p>
+          <Button size="small" color="line" icon="download-14-b" onClick={handleDownload}>
+            다운로드
+          </Button>
+        </div>
     ),
     YOUTUBE: (
-      <iframe
-        src={`https://www.youtube.com/embed/${videoId}`}
-        title="YouTube video"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
-      />
+        <iframe
+            src={`https://www.youtube.com/embed/${videoId}`}
+            title="YouTube video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+        />
     ),
     [SmartFolderItemResultFileType.URL]: (
-      <div className="item-content">
-        <em className="tit-item">웹 바로가기 파일입니다.</em>
-        <p
-          className="txt-link"
-          style={{
-            color: '#8f8f8f',
-            textDecoration: 'none',
-          }}
-        >
-          {extractedUrl}
-        </p>
-        <Button
-          size="small"
-          color="line"
-          onClick={() => {
-            if (extractedUrl) {
-              window.open(extractedUrl, '_blank');
-            }
-          }}
-        >
-          사이트로 이동
-        </Button>
-      </div>
+        <div className="item-content">
+          <em className="tit-item">웹 바로가기 파일입니다.</em>
+          <p
+              className="txt-link"
+              style={{
+                color: '#8f8f8f',
+                textDecoration: 'none',
+              }}
+          >
+            {extractedUrl}
+          </p>
+          <Button
+              size="small"
+              color="line"
+              onClick={() => {
+                if (extractedUrl) {
+                  window.open(extractedUrl, '_blank');
+                }
+              }}
+          >
+            사이트로 이동
+          </Button>
+        </div>
     ),
     ARCHIVE: null,
     STORY_BOARD: (
-      <StoryBoardForm
-        data={file.storyBoard}
-        isEdit={false}
-        form={form}
-        onSubmit={async () => {}}
-        blocks={blocks}
-        setBlocks={setBlocks}
-        previewMode
-      />
+        <StoryBoardForm
+            data={file.storyBoard}
+            isEdit={false}
+            form={form}
+            onSubmit={async () => {}}
+            blocks={blocks}
+            setBlocks={setBlocks}
+            previewMode
+        />
     ),
     LECTURE_PLAN_REPORT:
-      reportData && file?.lecturePlanReport ? (
-        <div className="doc-playreport">
-          <PreviewReportClient
-            className="previewLayerReport"
-            previewData={{
-              ...file.lecturePlanReport,
-              cards: file.lecturePlanReport.lectureReportCards?.map((item) => {
-                return {
-                  ...item,
-                  title: item.title ?? '',
-                  contents: item.contents ?? '',
-                };
-              }),
-              objective: file.lecturePlanReport.learningPoint,
-              support: file.lecturePlanReport.teacherSupport,
-            }}
-            showHeader={false}
-            onBackEdit={() => {}}
-          />
-        </div>
-      ) : null,
+        reportData && file?.lecturePlanReport ? (
+            <div className="doc-playreport">
+              <PreviewReportClient
+                  className="previewLayerReport"
+                  previewData={{
+                    ...file.lecturePlanReport,
+                    cards: file.lecturePlanReport.lectureReportCards?.map((item) => {
+                      return {
+                        ...item,
+                        title: item.title ?? '',
+                        contents: item.contents ?? '',
+                      };
+                    }),
+                    objective: file.lecturePlanReport.learningPoint,
+                    support: file.lecturePlanReport.teacherSupport,
+                  }}
+                  showHeader={false}
+                  onBackEdit={() => {}}
+              />
+            </div>
+        ) : null,
     FOLDER: null,
     LECTURE_PLAN: file.lecturePlan ? (
-      <div className="doc-playplan">
-        <ActivityCardDetailBody
-          isEditMode={false}
-          lecturePlanCardSections={file?.lecturePlan}
-          displayTitle={file?.lecturePlan?.subject as string}
-          displayPeriod={`${file?.lecturePlan?.startsAt} ~ ${file?.lecturePlan?.endsAt}`}
-          displayAge={file?.lecturePlan?.studentAge as number}
-          displayTime={file?.lecturePlan?.activityTimeStr as string}
-        />
-      </div>
+        <div className="doc-playplan">
+          <ActivityCardDetailBody
+              isEditMode={false}
+              lecturePlanCardSections={file?.lecturePlan}
+              displayTitle={file?.lecturePlan?.subject as string}
+              displayPeriod={`${file?.lecturePlan?.startsAt} ~ ${file?.lecturePlan?.endsAt}`}
+              displayAge={file?.lecturePlan?.studentAge as number}
+              displayTime={file?.lecturePlan?.activityTimeStr as string}
+          />
+        </div>
     ) : null,
     STUDENT_RECORD: (
-      <div className="doc-observation">
-        <StudentRecordPreview
-          studentName={studentRecord?.studentName}
-          modifiedAt={studentRecord?.modifiedAt}
-          studentThumbnail={studentRecord?.studentThumbnail}
-          educationalClassAge={studentRecord?.educationalClassAge}
-          studentBirthday={studentRecord?.studentBirthday}
-          summaryScores={studentRecord?.summaryScores}
-          domains={domains?.result}
-          observeComments={studentRecord?.observeComments}
-          observeSummary={studentRecord?.observeSummary}
-          teacherComment={studentRecord?.teacherComment}
-          teacherSupport={studentRecord?.teacherSupport}
-          parentSupport={studentRecord?.parentSupport}
-          showUtilButtons={false}
-        />
-      </div>
+        <div className="doc-observation">
+          <StudentRecordPreview
+              studentName={studentRecord?.studentName}
+              modifiedAt={studentRecord?.modifiedAt}
+              studentThumbnail={studentRecord?.studentThumbnail}
+              educationalClassAge={studentRecord?.educationalClassAge}
+              studentBirthday={studentRecord?.studentBirthday}
+              summaryScores={studentRecord?.summaryScores}
+              domains={domains?.result}
+              observeComments={studentRecord?.observeComments}
+              observeSummary={studentRecord?.observeSummary}
+              teacherComment={studentRecord?.teacherComment}
+              teacherSupport={studentRecord?.teacherSupport}
+              parentSupport={studentRecord?.parentSupport}
+              showUtilButtons={false}
+          />
+        </div>
     ),
     STUDENT_CLASSIFICATION: null,
     ACTIVITY_CLASSIFICATION: null,
@@ -296,100 +304,107 @@ const FileViewer: FunctionComponent<IFileViewer> = ({
     if (extractedUrl) return 'URL';
 
     const fileTypeMap = new Map<string, IRenderMap>(
-      Object.entries(EXTENSIONS)
-        .flatMap(
-          ([mappedType, extensions]) =>
-            extensions.map((ext) => [ext, mappedType as IRenderMap] as [string, IRenderMap]), // 명확한 튜플 지정
-        )
-        .concat([['pdf', 'PDF'] as [string, IRenderMap]]),
+        Object.entries(EXTENSIONS)
+            .flatMap(
+                ([mappedType, extensions]) =>
+                    extensions.map((ext) => [ext, mappedType as IRenderMap] as [string, IRenderMap]), // 명확한 튜플 지정
+            )
+            .concat([['pdf', 'PDF'] as [string, IRenderMap]])
+            .concat([['hwp', 'HWP'] as [string, IRenderMap]])
+            .concat([['doc', 'DOC'] as [string, IRenderMap]])
+            .concat([['docx', 'DOC'] as [string, IRenderMap]])
+            .concat([['ppt', 'DOC'] as [string, IRenderMap]])
+            .concat([['pptx', 'DOC'] as [string, IRenderMap]])
+            .concat([['xls', 'DOC'] as [string, IRenderMap]])
+            .concat([['xlsx', 'DOC'] as [string, IRenderMap]]),
     );
 
     return fileExtension ? fileTypeMap.get(fileExtension) || 'ETC' : 'ETC';
   };
 
   return (
-    <>
-      <div
-        ref={fileViewerRef}
-        className={cx(
-          'inner-body',
-          isYouTubeUrl && 'type-youtube',
-          file.fileType === 'VIDEO' && 'type-video',
-          file.fileType === 'AUDIO' && 'type-audio',
-        )}
-        style={style}
-        role="button"
-        tabIndex={0}
-        aria-label="확대"
-        onClick={() => onClick?.()}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') onClick?.();
-        }}
-      >
-        {/* 비디오 태그의 기본 재생 버튼 삭제, 포스터 사이즈 조정 */}
-        <style>
-          {`
+      <>
+        <div
+            ref={fileViewerRef}
+            className={cx(
+                'inner-body',
+                isYouTubeUrl && 'type-youtube',
+                file.fileType === 'VIDEO' && 'type-video',
+                file.fileType === 'AUDIO' && 'type-audio',
+            )}
+            style={style}
+            role="button"
+            tabIndex={0}
+            aria-label="확대"
+            onClick={() => onClick?.()}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') onClick?.();
+            }}
+        >
+          {/* 비디오 태그의 기본 재생 버튼 삭제, 포스터 사이즈 조정 */}
+          <style>
+            {`
           .video-js .vjs-poster picture.vjs-poster img {
             width: 100%;
             height: 100%;
             object-fit: contain;
           }
           ${
-            !file.thumbUrl
-              ? `
+                !file.thumbUrl
+                    ? `
             .vjs-big-play-button {
               display: none !important;
             }
           `
-              : ''
-          }
+                    : ''
+            }
         `}
-        </style>
-        {file.fileType !== 'STORY_BOARD' &&
-        file.fileType !== 'STUDENT_RECORD' &&
-        file.fileType !== 'LECTURE_PLAN' &&
-        file.fileType !== 'LECTURE_PLAN_REPORT' &&
-        !src ? (
-          isFailCdnFile ? (
-            <div className="item-content">
-              <p className="txt-item">자료 조회에 실패하였습니다.</p>
-            </div>
+          </style>
+          {file.fileType !== 'STORY_BOARD' &&
+          file.fileType !== 'STUDENT_RECORD' &&
+          file.fileType !== 'LECTURE_PLAN' &&
+          file.fileType !== 'LECTURE_PLAN_REPORT' &&
+          !src ? (
+              isFailCdnFile ? (
+                  <div className="item-content">
+                    <p className="txt-item">자료 조회에 실패하였습니다.</p>
+                  </div>
+              ) : (
+                  <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                    <Loader />
+                  </div>
+              )
           ) : (
-            <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-              <Loader />
-            </div>
-          )
-        ) : (
-          renderMap[fileType()] || (
-            <div className="item-content">
-              <em className="tit-item">이 자료 유형은 지원되지 않습니다.</em>
-              <p className="txt-item">
-                이 자료 유형은 미리보기가 지원되지 않아요.
-                <br />
-                다운로드로 확인해 주세요.
-              </p>
-              <Button size="small" color="line" icon="download-14-b" onClick={handleDownload}>
-                다운로드
-              </Button>
-            </div>
-          )
-        )}
-      </div>
-      {file.fileType !== 'ETC' &&
-        file.fileType !== 'URL' &&
-        file.fileType !== 'AUDIO' &&
-        file.fileType !== 'VIDEO' &&
-        isShowTooltip &&
-        hasScrollTooltip && (
-          <TooltipContent
-            isShow
-            colorType="dark"
-            sizeType="small"
-            position="left"
-            contents="자료내용을 스크롤을 통해서 더 자세히 확인하세요"
-          />
-        )}
-    </>
+              renderMap[fileType()] || (
+                  <div className="item-content">
+                    <em className="tit-item">이 자료 유형은 지원되지 않습니다.</em>
+                    <p className="txt-item">
+                      이 자료 유형은 미리보기가 지원되지 않아요.
+                      <br />
+                      다운로드로 확인해 주세요.
+                    </p>
+                    <Button size="small" color="line" icon="download-14-b" onClick={handleDownload}>
+                      다운로드
+                    </Button>
+                  </div>
+              )
+          )}
+        </div>
+        {file.fileType !== 'ETC' &&
+            file.fileType !== 'URL' &&
+            file.fileType !== 'AUDIO' &&
+            file.fileType !== 'VIDEO' &&
+            isShowTooltip &&
+            hasScrollTooltip && (
+                <TooltipContent
+                    isShow
+                    colorType="dark"
+                    sizeType="small"
+                    position="left"
+                    contents="자료내용을 스크롤을 통해서 더 자세히 확인하세요"
+                />
+            )}
+      </>
   );
 };
 FileViewer.displayName = 'FileViewer';
