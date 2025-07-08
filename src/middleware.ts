@@ -8,6 +8,7 @@ const NO_AUTH_PATHS = [
   '/login',
   '/introduce',
   '/work-board',
+  '/work-board/report',
   '/signup',
   '/findPassword',
   '/terms',
