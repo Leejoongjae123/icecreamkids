@@ -9,6 +9,7 @@ import NotificationDot from "./Logo/NotificationDot";
 import UserIcon from "./Logo/UserIcon";
 import MenuIcon from "./Logo/MenuIcon";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import Link from "next/link";
 // Icon components
 
 type MenuType = "service" | "work" | "material" | "my" | null;
@@ -126,15 +127,12 @@ function Navbar({
                       <Link
                         key={item.title}
                         className="flex items-center w-full p-2 text-sm rounded-md hover:bg-gray-100 transition-colors text-left"
-                        onClick={() => {
-                          router.push(item.href);
-                          setOpenMenu(null);
-                        }}
+                        href={item.href}
                       >
                         <span className="text-[#444]" style={{ fontFamily: "Noto Sans KR, sans-serif" }}>
                           {item.title}
                         </span>
-                      </button>
+                      </Link>
                     ))}
                   </div>
                 </PopoverContent>
