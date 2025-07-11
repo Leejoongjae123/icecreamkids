@@ -21,10 +21,13 @@ const nextConfig = {
     /**
      * @title removeConsole
      * @see https://nextjs.org/docs/architecture/nextjs-compiler#remove-console
+     * Turbopack과 충돌하므로 production에서만 활성화
      */
-    removeConsole: process.env.NEXT_PUBLIC_APP_ENV === 'production' && {
-      exclude: ['error'],
-    },
+    ...(process.env.NODE_ENV === 'production' && {
+      removeConsole: {
+        exclude: ['error'],
+      },
+    }),
   },
   images: {
     remotePatterns:
@@ -39,9 +42,14 @@ const nextConfig = {
           protocol: 'https',
           hostname: 's3.ap-northeast-2.amazonaws.com',
         },
+        
+        {
+          protocol: 'https',
+          hostname: 'icecreamkids.s3.ap-northeast-2.amazonaws.com',
+        },
       ],
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, dev }) => {
     // 클라이언트 예외처리
     if (!isServer) {
       config.module.rules.push({
@@ -53,6 +61,27 @@ const nextConfig = {
         },
       });
     }
+    
+    // Windows 환경에서 HMR 개선을 위한 설정
+    if (dev && process.platform === 'win32') {
+      config.watchOptions = {
+        poll: 1000, // 1초마다 파일 변경 감지
+        aggregateTimeout: 200, // 변경 감지 후 200ms 대기
+        ignored: [
+          /node_modules/,
+          /.next/,
+          /.git/,
+          /public/,
+          /out/,
+          /dist/,
+          /build/,
+          /coverage/,
+          /tmp/,
+          /temp/,
+        ],
+      };
+    }
+    
     return config;
   },
   async headers() {

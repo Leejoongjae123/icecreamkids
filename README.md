@@ -124,3 +124,53 @@ npm run service
 - danny.yk(김대엽)
 - notus.jung(정상훈)
 - griffin.ku(구영준)
+
+# Ice Cream Kids
+
+## 개발 환경 설정
+
+### Tailwind CSS 설정
+
+이 프로젝트는 Tailwind CSS를 사용하여 스타일링을 구현합니다.
+
+#### 설치된 패키지
+- `tailwindcss`: 메인 Tailwind CSS 프레임워크
+- `postcss`: PostCSS 프로세서
+- `autoprefixer`: 브라우저 호환성을 위한 자동 prefix 추가
+
+#### 설정 파일
+- `tailwind.config.js`: Tailwind CSS 설정 파일
+- `postcss.config.js`: PostCSS 설정 파일
+- `src/app/globals.css`: Tailwind CSS 디렉티브 포함
+
+#### 커스텀 색상 팔레트
+- `primary`: 메인 브랜드 색상 (파란색 계열)
+- `secondary`: 보조 색상 (회색 계열)
+
+#### 사용 방법
+```jsx
+// 기본 Tailwind 클래스 사용
+<div className="bg-primary-500 text-white p-4 rounded-lg">
+  Hello World
+</div>
+
+// 커스텀 컴포넌트 클래스 사용
+<button className="btn-primary">
+  Primary Button
+</button>
+```
+
+#### 기존 SCSS와의 호환성
+기존 SCSS 스타일은 그대로 유지되며, Tailwind CSS와 함께 사용할 수 있습니다. Tailwind CSS는 기존 스타일보다 우선순위가 높게 설정되어 있습니다.
+
+## 개발 서버 실행
+
+```bash
+npm run dev
+```
+
+## 빌드
+
+```bash
+npm run build
+```
