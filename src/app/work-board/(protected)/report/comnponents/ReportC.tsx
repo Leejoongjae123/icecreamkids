@@ -1,6 +1,22 @@
-import React from "react";
+"use client";
+import * as React from "react";
+import { IoClose } from "react-icons/io5";
+import { HiOutlinePrinter, HiOutlineDownload } from "react-icons/hi";
+import { HiOutlineViewColumns } from "react-icons/hi2";
+import Image from "next/image";
+import HomeIcon from "@/components/common/Icons/HomeIcon";
+import { Button } from "@/components/ui/button";
 
-function TypeC() {
+function ReportA() {
+  // 이미지 로드 상태 확인을 위한 핸들러
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    console.log("이미지 로드 실패:", e.currentTarget.src);
+  };
+
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    console.log("이미지 로드 성공:", e.currentTarget.src);
+  };
+
   return (
     <div className="w-full">
       {/* Header with A4 Template */}
@@ -14,27 +30,21 @@ function TypeC() {
             <div className="my-auto">놀이보고서</div>
           </div>
           <div className="flex gap-1.5 text-sm tracking-tight">
-            <div className="flex overflow-hidden gap-1 px-2 py-2.5 bg-gray-50 rounded-lg">
-              <img
-                src="https://cdn.builder.io/api/v1/image/assets/TEMP/9c832fa84362326a4008f38ba63a9196f4de3f2f?placeholderIfAbsent=true&apiKey=304aa4871c104446b0f8164e96d049f4"
-                className="object-contain shrink-0 aspect-square w-[15px]"
-              />
-              <div>인쇄</div>
-            </div>
-            <img
-              src="https://cdn.builder.io/api/v1/image/assets/TEMP/05e4faa4bdb620ecf9ebc98589682e07bd60f0e6?placeholderIfAbsent=true&apiKey=304aa4871c104446b0f8164e96d049f4"
-              className="object-contain shrink-0 rounded-lg aspect-[1.8] w-[61px]"
-            />
-            <div className="flex overflow-hidden gap-1 p-2 bg-gray-50 rounded-lg">
-              <img
-                src="https://cdn.builder.io/api/v1/image/assets/TEMP/eda64a0b600b5259f4e23eb5356ce027f32e3e94?placeholderIfAbsent=true&apiKey=304aa4871c104446b0f8164e96d049f4"
-                className="object-contain shrink-0 aspect-square w-[18px]"
-              />
-              <div className="my-auto">다운로드</div>
-            </div>
-            <div className="flex overflow-hidden flex-col justify-center px-3.5 py-2.5 font-semibold text-white bg-amber-400 rounded-lg">
-              <div>저장</div>
-            </div>
+            <Button size="sm" className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]">
+              <Image src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/print.svg" alt="print" width={16} height={16} />
+              인쇄
+            </Button>
+            <Button size="sm" className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]">
+              <Image src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/share.svg" alt="share" width={16} height={16} />
+              공유
+            </Button>
+            <Button size="sm" className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]">
+              <Image src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/download.svg" alt="download" width={16} height={16} />
+              다운로드
+            </Button>
+            <Button size="sm" className="bg-amber-400 hover:bg-amber-500 text-[14px] text-white font-semibold shadow-none h-[34px]">
+              저장
+            </Button>
           </div>
         </div>
 
@@ -47,14 +57,59 @@ function TypeC() {
               <div className="flex flex-col w-full h-1/2 border-2 border-dashed border-[#B4B4B4] rounded-[15px] "></div>
             </div>
           </div>
-          <div className="flex-1 flex-row w-full">
-
-          </div>
+          <div className="flex-1 flex-row w-full"></div>
           <div className="flex flex-col w-full gap-y-3">
-            <div className="flex flex-col w-full h-[174px] border-2 border-dashed border-[#B4B4B4] rounded-[15px] "></div>
+            <div className="relative flex flex-col w-full h-[174px] border-2 border-dashed border-[#B4B4B4] rounded-[15px] ">
+              <h3 className="text-[12px] font-semibold  p-3 text-primary ">
+                이렇게 놀이 했어요
+              </h3>
+              <button className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center rounded-full bg-[#F0F0F0] hover:bg-gray-300 text-gray-600">
+                <IoClose
+                  className="bg-white border border-gray-200 rounded-full"
+                  size={20}
+                />
+              </button>
+            </div>
             <div className="flex flex-row w-full h-[174px] gap-x-3">
-              <div className="flex flex-col w-full h-full border-2 border-dashed border-[#B4B4B4] rounded-[15px] "></div>
-              <div className="flex flex-col w-full h-full border-2 border-dashed border-[#B4B4B4] rounded-[15px] "></div>
+              <div className="relative flex flex-col w-full h-full border-2 border-dashed border-[#B4B4B4] rounded-[15px] ">
+                <h3 className="text-[12px] font-semibold p-3 text-primary flex items-center gap-1">
+                  <div className="flex items-center gap-2">
+                    <Image
+                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bulb.svg"
+                      alt="home"
+                      width={16}
+                      height={16}
+                    />
+                  </div>
+                  교사지원
+                </h3>
+                <button className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center rounded-full bg-[#F0F0F0] hover:bg-gray-300 text-gray-600">
+                  <IoClose
+                    className="bg-white border border-gray-200 rounded-full"
+                    size={20}
+                  />
+                </button>
+              </div>
+              <div className="relative flex flex-col w-full h-full border-2 border-dashed border-[#B4B4B4] rounded-[15px] ">
+                <h3 className="text-[12px] font-semibold p-3 text-primary flex items-center gap-1">
+                  {/* 다양한 방법으로 이미지 테스트 */}
+                  <div className="flex items-center gap-2">
+                    <Image
+                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/home.svg"
+                      alt="home"
+                      width={16}
+                      height={16}
+                    />
+                  </div>
+                  가정연계
+                </h3>
+                <button className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center rounded-full bg-[#F0F0F0] hover:bg-gray-300 text-gray-600">
+                  <IoClose
+                    className="bg-white border border-gray-200 rounded-full"
+                    size={20}
+                  />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -63,4 +118,4 @@ function TypeC() {
   );
 }
 
-export default TypeC;
+export default ReportA;

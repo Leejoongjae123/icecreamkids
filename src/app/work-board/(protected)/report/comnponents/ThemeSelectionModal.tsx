@@ -248,6 +248,7 @@ function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
                         alt={item.alt}
                         className="w-full h-full object-cover"
                       />
+                      
                       {selectedBgImage === item.id && (
                         <div className="absolute inset-0 bg-primary bg-opacity-20 flex items-center justify-center">
                           
