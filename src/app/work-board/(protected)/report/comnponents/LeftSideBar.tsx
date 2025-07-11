@@ -1,9 +1,12 @@
 "use client";
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
+import ThemeSelectionModal from "./ThemeSelectionModal";
 
 export default function LeftSideBar() {
-  const [selectedTab, setSelectedTab] = useState<"theme" | "background">("theme");
+  const [selectedTab, setSelectedTab] = useState<"theme" | "background">(
+    "theme",
+  );
   const [selectedTheme, setSelectedTheme] = useState<number>(2);
   const [selectedBackground, setSelectedBackground] = useState<number>(0);
 
@@ -60,24 +63,24 @@ export default function LeftSideBar() {
                           : "p-4 border border-gray-200 hover:bg-gray-100"
                       }`}
                     >
-                      
-                        <img
-                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg"
-                          className="w-6 h-6 object-contain aspect-square"
-                          alt="추가 아이콘"
-                        />
-                      
+                      <img
+                        src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg"
+                        className="w-6 h-6 object-contain aspect-square"
+                        alt="추가 아이콘"
+                      />
                     </div>
                   ))}
                 </div>
 
                 <div className="flex justify-center w-full">
-                  <Button 
-                    variant="default" 
-                    className="mt-5 w-[132px] h-[42px] rounded-full self-center text-sm font-semibold font-pretendard text-white"
-                  >
-                    더보기
-                  </Button>
+                  <ThemeSelectionModal>
+                    <Button
+                      variant="default"
+                      className="mt-5 w-[132px] h-[42px] rounded-full self-center text-sm font-semibold font-pretendard text-white"
+                    >
+                      더보기
+                    </Button>
+                  </ThemeSelectionModal>
                 </div>
               </div>
             )}
@@ -88,7 +91,9 @@ export default function LeftSideBar() {
                   <div
                     onClick={() => setSelectedBackground(0)}
                     className={`rounded bg-red-100 flex flex-col overflow-hidden items-center justify-center flex-1 p-[86px_29px] cursor-pointer transition-all duration-200 hover:bg-red-200 ${
-                      selectedBackground === 0 ? "border-2 border-primary" : "border border-gray-200"
+                      selectedBackground === 0
+                        ? "border-2 border-primary"
+                        : "border border-gray-200"
                     }`}
                   >
                     <div className="w-6 h-6 bg-red-500 rounded-full"></div>
@@ -96,7 +101,9 @@ export default function LeftSideBar() {
                   <div
                     onClick={() => setSelectedBackground(1)}
                     className={`rounded bg-blue-100 flex flex-col overflow-hidden items-center justify-center flex-1 p-[86px_29px] cursor-pointer transition-all duration-200 hover:bg-blue-200 ${
-                      selectedBackground === 1 ? "border-2 border-primary" : "border border-gray-200"
+                      selectedBackground === 1
+                        ? "border-2 border-primary"
+                        : "border border-gray-200"
                     }`}
                   >
                     <div className="w-6 h-6 bg-blue-500 rounded-full"></div>
@@ -106,7 +113,9 @@ export default function LeftSideBar() {
                   <div
                     onClick={() => setSelectedBackground(2)}
                     className={`rounded bg-green-100 flex flex-col overflow-hidden items-center justify-center flex-1 p-[86px_29px] cursor-pointer transition-all duration-200 hover:bg-green-200 ${
-                      selectedBackground === 2 ? "border-2 border-primary" : "border border-gray-200"
+                      selectedBackground === 2
+                        ? "border-2 border-primary"
+                        : "border border-gray-200"
                     }`}
                   >
                     <div className="w-6 h-6 bg-green-500 rounded-full"></div>
@@ -114,7 +123,9 @@ export default function LeftSideBar() {
                   <div
                     onClick={() => setSelectedBackground(3)}
                     className={`rounded bg-yellow-100 flex flex-col overflow-hidden items-center justify-center flex-1 p-[86px_29px] cursor-pointer transition-all duration-200 hover:bg-yellow-200 ${
-                      selectedBackground === 3 ? "border-2 border-primary" : "border border-gray-200"
+                      selectedBackground === 3
+                        ? "border-2 border-primary"
+                        : "border border-gray-200"
                     }`}
                   >
                     <div className="w-6 h-6 bg-yellow-500 rounded-full"></div>
