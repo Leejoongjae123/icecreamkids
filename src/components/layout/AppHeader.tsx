@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import KinderboardLogo from "./Logo/KinderboardLogo";
 import BetaBadge from "./Logo/BetaBadge";
 import NotificationIcon from "./Logo/NotificationIcon";
@@ -14,6 +15,7 @@ type MenuType = "service" | "work" | "material" | "my" | null;
 
 function Navbar() {
   const [openMenu, setOpenMenu] = useState<MenuType>(null);
+  const router = useRouter();
 
   const menuItems = [
     {
@@ -115,8 +117,7 @@ function Navbar() {
                         key={item.title}
                         className="flex items-center w-full p-2 text-sm rounded-md hover:bg-gray-100 transition-colors text-left"
                         onClick={() => {
-                          // 여기에 실제 네비게이션 로직 추가
-                          console.log(`Navigate to ${item.href}`);
+                          router.push(item.href);
                           setOpenMenu(null);
                         }}
                       >
