@@ -13,7 +13,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 type MenuType = "service" | "work" | "material" | "my" | null;
 
-function Navbar() {
+interface AppHeaderProps {
+  scrollDirection?: string;
+  clearHideTimeout?: () => Promise<void>;
+  setHideTimeout?: () => Promise<void>;
+}
+
+function Navbar({
+  scrollDirection,
+  clearHideTimeout,
+  setHideTimeout,
+}: AppHeaderProps) {
   const [openMenu, setOpenMenu] = useState<MenuType>(null);
   const router = useRouter();
 
@@ -113,7 +123,7 @@ function Navbar() {
                 >
                   <div className="grid gap-1">
                     {menu.items.map((item) => (
-                      <button
+                      <Link
                         key={item.title}
                         className="flex items-center w-full p-2 text-sm rounded-md hover:bg-gray-100 transition-colors text-left"
                         onClick={() => {
