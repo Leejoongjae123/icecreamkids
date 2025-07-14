@@ -73,11 +73,13 @@ function ReportPageContent() {
         </div>
       </div>
 
-      <TypeSelectionModal
-        isOpen={showTypeSelectionModal}
-        onSelect={handleTypeSelect}
-        onCancel={handleModalCancel}
-      />
+      <Suspense fallback={<div>Loading...</div>}>
+        <TypeSelectionModal
+          isOpen={showTypeSelectionModal}
+          onSelect={handleTypeSelect}
+          onCancel={handleModalCancel}
+        />
+      </Suspense>
     </>
   );
 }

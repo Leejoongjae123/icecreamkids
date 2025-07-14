@@ -1,14 +1,42 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import ThemeSelectionModal from "./ThemeSelectionModal";
 
-export default function LeftSideBar() {
+function LeftSideBarContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
   const [selectedTab, setSelectedTab] = useState<"theme" | "background">(
     "theme",
   );
   const [selectedTheme, setSelectedTheme] = useState<number>(2);
   const [selectedBackground, setSelectedBackground] = useState<number>(0);
+
+  // 초기 렌더링 시 searchParams에서 theme 값 읽어오기
+  useEffect(() => {
+    const themeParam = searchParams.get('theme');
+    if (themeParam) {
+      const themeIndex = parseInt(themeParam);
+      if (!isNaN(themeIndex) && themeIndex >= 0 && themeIndex < 8) {
+        setSelectedTheme(themeIndex);
+      }
+    }
+  }, [searchParams]);
+
+  // 테마 선택 시 URL searchParams 업데이트
+  const handleThemeSelect = (index: number) => {
+    setSelectedTheme(index);
+    
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    current.set('theme', index.toString());
+    
+    const search = current.toString();
+    const query = search ? `?${search}` : "";
+    
+    router.push(`${window.location.pathname}${query}`);
+  };
 
   return (
     <div className="rounded-xl bg-white shadow-custom flex w-full max-w-[480px] flex-col overflow-hidden mx-auto p-[30px_20px] border border-gray-200">
@@ -56,7 +84,7 @@ export default function LeftSideBar() {
                   {Array.from({ length: 8 }, (_, index) => (
                     <div
                       key={index}
-                      onClick={() => setSelectedTheme(index)}
+                      onClick={() => handleThemeSelect(index)}
                       className={`rounded bg-gray-50 flex flex-col overflow-hidden items-center justify-center aspect-[0.75] cursor-pointer transition-all duration-200 ${
                         selectedTheme === index
                           ? "border-2 border-primary p-0 bg-transparent hover:bg-transparent"
@@ -137,5 +165,13 @@ export default function LeftSideBar() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LeftSideBar() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LeftSideBarContent />
+    </Suspense>
   );
 }
