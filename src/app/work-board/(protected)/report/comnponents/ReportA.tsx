@@ -6,15 +6,18 @@ import { HiOutlineViewColumns } from "react-icons/hi2";
 import Image from "next/image";
 import HomeIcon from "@/components/common/Icons/HomeIcon";
 import { Button } from "@/components/ui/button";
+import AddPicture from "./AddPicture";
+import ApplyModal from "./ApplyModal";
+import ConfirmModal from "./ConfirmModal";
 
 function ReportA() {
   // 이미지 로드 상태 확인을 위한 핸들러
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    console.log("이미지 로드 실패:", e.currentTarget.src);
+    // 이미지 로드 실패 처리
   };
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    console.log("이미지 로드 성공:", e.currentTarget.src);
+    // 이미지 로드 성공 처리
   };
 
   return (
@@ -30,19 +33,46 @@ function ReportA() {
             <div className="my-auto">놀이보고서</div>
           </div>
           <div className="flex gap-1.5 text-sm tracking-tight">
-            <Button size="sm" className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]">
-              <Image src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/print.svg" alt="print" width={16} height={16} />
+            <Button
+              size="sm"
+              className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+            >
+              <Image
+                src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/print.svg"
+                alt="print"
+                width={16}
+                height={16}
+              />
               인쇄
             </Button>
-            <Button size="sm" className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]">
-              <Image src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/share.svg" alt="share" width={16} height={16} />
+            <Button
+              size="sm"
+              className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+            >
+              <Image
+                src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/share.svg"
+                alt="share"
+                width={16}
+                height={16}
+              />
               공유
             </Button>
-            <Button size="sm" className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]">
-              <Image src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/download.svg" alt="download" width={16} height={16} />
+            <Button
+              size="sm"
+              className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+            >
+              <Image
+                src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/download.svg"
+                alt="download"
+                width={16}
+                height={16}
+              />
               다운로드
             </Button>
-            <Button size="sm" className="bg-amber-400 hover:bg-amber-500 text-[14px] text-white font-semibold shadow-none h-[34px]">
+            <Button
+              size="sm"
+              className="bg-amber-400 hover:bg-amber-500 text-[14px] text-white font-semibold shadow-none h-[34px]"
+            >
               저장
             </Button>
           </div>
@@ -57,7 +87,77 @@ function ReportA() {
               <div className="flex flex-col w-full h-1/2 border-2 border-dashed border-[#B4B4B4] rounded-[15px] "></div>
             </div>
           </div>
-          <div className="flex-1 flex-row w-full"></div>
+
+          {/* 이미지 추가 버튼 */}
+          <div className="flex-1 flex-col w-full  justify-center items-center">
+            <div className="flex items-center justify-center h-full">
+              <AddPicture>
+                <button className="flex flex-col items-center justify-center w-[300px] h-[200px] border-2 border-dashed border-[#B4B4B4] rounded-[15px] hover:border-blue-400 hover:bg-blue-50 transition-colors group">
+                  <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3 group-hover:bg-blue-100">
+                    <svg
+                      className="w-6 h-6 text-gray-400 group-hover:text-blue-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                      />
+                    </svg>
+                  </div>
+                  <span className="text-gray-500 text-sm font-medium group-hover:text-blue-500">
+                    이미지 추가(테스트)
+                  </span>
+                  <span className="text-gray-400 text-xs mt-1">
+                    클릭하여 이미지를 업로드하세요
+                  </span>
+                </button>
+              </AddPicture>
+            </div>
+
+            {/* 확인 및 적용 버튼 */}
+            <div className="flex gap-3 mt-4 w-full justify-center items-center">
+              <ConfirmModal
+                title="확인"
+                description="작업을 진행하시겠습니까?"
+                confirmText="확인"
+                onConfirm={() => {
+                  // 확인 버튼 클릭 처리
+                }}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="px-6 py-2 text-sm font-medium"
+                >
+                  확인
+                </Button>
+              </ConfirmModal>
+              <ApplyModal
+                description="기존에 작업한 내용이 모두 초기화 됩니다.\n사진 개수를 3개로 변경하시겠습니까?"
+                cancelText="취소"
+                confirmText="적용"
+                onConfirm={() => {
+                  // 적용 버튼 클릭 처리 - 사진 개수를 3개로 변경하고 기존 내용 초기화
+                }}
+                onCancel={() => {
+                  // 취소 버튼 클릭 처리
+                }}
+              >
+                <Button
+                  size="sm"
+                  className="px-6 py-2 text-sm font-medium bg-primary hover:bg-primary/80 text-white"
+                >
+                  적용
+                </Button>
+              </ApplyModal>
+            </div>
+          </div>
+
+          {/* 하단 텍스트 부위 */}
           <div className="flex flex-col w-full gap-y-3">
             <div className="relative flex flex-col w-full h-[174px] border-2 border-dashed border-[#B4B4B4] rounded-[15px] ">
               <h3 className="text-[12px] font-semibold  p-3 text-primary ">
