@@ -48,7 +48,7 @@ function LeftSideBarContent() {
         </div>
 
         <div className="w-full mt-4">
-          <div className="flex w-full border-b border-[#F0F0F0]">
+          {/* <div className="flex w-full border-b border-[#F0F0F0]">
             <button
               onClick={() => setSelectedTab("theme")}
               className={`flex-1 py-3 px-4 text-sm font-medium transition-all relative ${
@@ -75,7 +75,7 @@ function LeftSideBarContent() {
                 <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary"></div>
               )}
             </button>
-          </div>
+          </div> */}
 
           <div className="mt-3">
             {selectedTab === "theme" && (

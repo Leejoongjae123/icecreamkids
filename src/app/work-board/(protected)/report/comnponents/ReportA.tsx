@@ -160,7 +160,15 @@ function ReportA() {
           {/* 하단 텍스트 부위 */}
           <div className="flex flex-col w-full gap-y-3">
             <div className="relative flex flex-col w-full h-[174px] border-2 border-dashed border-[#B4B4B4] rounded-[15px] ">
-              <h3 className="text-[12px] font-semibold  p-3 text-primary ">
+              <h3 className="text-[12px] font-semibold  p-3 text-primary flex items-center gap-1">
+                <div className="flex items-center gap-2">
+                  <Image
+                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/play.svg"
+                    alt="home"
+                    width={16}
+                    height={16}
+                  />
+                </div>
                 이렇게 놀이 했어요
               </h3>
               <button className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center rounded-full bg-[#F0F0F0] hover:bg-gray-300 text-gray-600">

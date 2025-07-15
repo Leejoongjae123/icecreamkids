@@ -30,19 +30,46 @@ function ReportA() {
             <div className="my-auto">놀이보고서</div>
           </div>
           <div className="flex gap-1.5 text-sm tracking-tight">
-            <Button size="sm" className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]">
-              <Image src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/print.svg" alt="print" width={16} height={16} />
+            <Button
+              size="sm"
+              className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+            >
+              <Image
+                src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/print.svg"
+                alt="print"
+                width={16}
+                height={16}
+              />
               인쇄
             </Button>
-            <Button size="sm" className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]">
-              <Image src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/share.svg" alt="share" width={16} height={16} />
+            <Button
+              size="sm"
+              className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+            >
+              <Image
+                src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/share.svg"
+                alt="share"
+                width={16}
+                height={16}
+              />
               공유
             </Button>
-            <Button size="sm" className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]">
-              <Image src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/download.svg" alt="download" width={16} height={16} />
+            <Button
+              size="sm"
+              className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+            >
+              <Image
+                src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/download.svg"
+                alt="download"
+                width={16}
+                height={16}
+              />
               다운로드
             </Button>
-            <Button size="sm" className="bg-amber-400 hover:bg-amber-500 text-[14px] text-white font-semibold shadow-none h-[34px]">
+            <Button
+              size="sm"
+              className="bg-amber-400 hover:bg-amber-500 text-[14px] text-white font-semibold shadow-none h-[34px]"
+            >
               저장
             </Button>
           </div>
@@ -60,6 +87,14 @@ function ReportA() {
           <div className="flex-1 flex-row w-full"></div>
           <div className="flex flex-col w-full gap-y-3">
             <div className="relative flex flex-col w-full h-[174px] border-2 border-dashed border-[#B4B4B4] rounded-[15px] ">
+              <div className="flex items-center gap-2">
+                <Image
+                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/play.svg"
+                  alt="home"
+                  width={16}
+                  height={16}
+                />
+              </div>
               <h3 className="text-[12px] font-semibold  p-3 text-primary ">
                 이렇게 놀이 했어요
               </h3>

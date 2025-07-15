@@ -11,4 +11,21 @@ export interface TypeOption {
   imageUrl: string;
   description: string;
   buttonText: string;
+}
+
+export interface UploadedFile {
+  id: number;
+  file: File;
+  preview: string;
+  name: string;
+}
+
+export interface FileUploadProps {
+  onFilesChange: (files: UploadedFile[]) => void;
+  selectedFiles: Set<number>;
+  onFileSelect: (index: number) => void;
+}
+
+export interface AddPictureProps {
+  children: React.ReactNode;
 } 

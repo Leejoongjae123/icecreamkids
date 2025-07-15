@@ -55,7 +55,7 @@ function ApplyModal({
             </button>
             <button
               onClick={handleConfirm}
-              className="flex overflow-hidden flex-col justify-center items-center px-16 py-4 text-white bg-amber-400 hover:bg-amber-500 transition-colors flex-1"
+              className="flex overflow-hidden flex-col justify-center items-center px-16 py-4 text-white bg-primary hover:bg-primary/80 transition-colors flex-1"
             >
               <div>{confirmText}</div>
             </button>
