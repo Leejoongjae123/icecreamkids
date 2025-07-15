@@ -106,7 +106,7 @@ function FileUpload({ onFilesChange, selectedFiles, onFileSelect }: FileUploadPr
 <Image src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/image_upload.svg" alt="upload" width={48} height={48} />
           </div>
           
-          <div className="text-lg font-medium text-gray-700">
+          <div className="text-medium font-medium text-gray-700">
           사진 파일을  끌어다 놓거나 <br />
           선택하여 업로드하세요. 
           </div>
