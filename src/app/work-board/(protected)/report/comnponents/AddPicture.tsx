@@ -86,8 +86,12 @@ function AddPicture({ children }: AddPictureProps) {
 
   return (
     <Dialog>
-      <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-[1200px] p-0 border-none bg-transparent shadow-none">
+      <DialogTrigger asChild>
+        <div onClick={(e) => e.stopPropagation()}>
+          {children}
+        </div>
+      </DialogTrigger>
+      <DialogContent className="max-w-[1200px] p-0 border-none bg-transparent shadow-none z-[60]" style={{ zIndex: 60 }}>
         <div className="flex overflow-hidden flex-col items-start py-10 pl-10 bg-white rounded-2xl max-md:pl-5">
           <div className="flex flex-wrap gap-5 justify-between w-full text-xl font-semibold tracking-tight leading-none text-gray-700 whitespace-nowrap max-w-[1120px] max-md:max-w-full">
             <div className="my-auto">업로드</div>

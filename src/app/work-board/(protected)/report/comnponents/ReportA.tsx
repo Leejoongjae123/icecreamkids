@@ -15,24 +15,23 @@ import {
 import AddPicture from "./AddPicture";
 import ApplyModal from "./ApplyModal";
 import ConfirmModal from "./ConfirmModal";
+import ImageEditToolbar from "./ImageEditToolbar";
 
 function ReportA() {
   const [showCircles, setShowCircles] = React.useState(false);
   const [isAnimating, setIsAnimating] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);
 
-  // 각 아이콘에 대한 툴팁 텍스트
-  const tooltipTexts = [
-    "사진틀 변경",
-    "텍스트 스티커", 
-    "꾸미기 스티커",
-    "사진 배경 제거",
-    "사진 틀 삭제",
-    "표 추가"
-  ];
-
-  // 버튼 클릭 핸들러
+  // 툴바 아이콘 클릭 핸들러
   const handleIconClick = (index: number) => {
+    const tooltipTexts = [
+      "사진틀 변경",
+      "텍스트 스티커", 
+      "꾸미기 스티커",
+      "사진 배경 제거",
+      "사진 틀 삭제",
+      "표 추가"
+    ];
     console.log(`${tooltipTexts[index]} 클릭됨`);
     // 여기에 각 아이콘에 대한 로직 추가
   };
@@ -49,25 +48,27 @@ function ReportA() {
   // 영역 클릭 시 원 애니메이션 처리
   const handleAreaClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (!isAnimating && !showCircles) {
-      setIsAnimating(true);
-      setShowCircles(true);
-      
-      // 약간의 지연 후 펼치기 애니메이션 시작
-      setTimeout(() => {
-        setIsExpanded(true);
-      }, 50);
-      
-      // 애니메이션 완료 후 상태 초기화 (showCircles는 유지)
-      setTimeout(() => {
-        setIsAnimating(false);
-      }, 2000);
+    if (!isAnimating) {
+      if (showCircles) {
+        // 툴바가 이미 보이는 상태라면 숨기기
+        setShowCircles(false);
+        setIsExpanded(false);
+      } else {
+        // 툴바가 숨겨진 상태라면 보이기
+        setIsAnimating(true);
+        setShowCircles(true);
+        
+        // 약간의 지연 후 펼치기 애니메이션 시작
+        setTimeout(() => {
+          setIsExpanded(true);
+        }, 50);
+        
+        // 애니메이션 완료 후 상태 초기화 (showCircles는 유지)
+        setTimeout(() => {
+          setIsAnimating(false);
+        }, 2000);
+      }
     }
-  };
-
-  // 버튼 클릭 시 이벤트 버블링 방지
-  const handleButtonClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
   };
 
   return (
@@ -146,75 +147,46 @@ function ReportA() {
                   className="grid-box relative flex flex-col items-center justify-center w-[300px] h-[200px] border-2 border-dashed border-[#B4B4B4] rounded-[15px] hover:border-blue-400 hover:bg-blue-50 transition-colors group cursor-pointer"
                   onClick={handleAreaClick}
                 >
-                  <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3 group-hover:bg-blue-100">
-                    <svg
-                      className="w-6 h-6 text-gray-400 group-hover:text-blue-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                      />
-                    </svg>
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <AddPicture>
+                      <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3 group-hover:bg-blue-100 cursor-pointer">
+                        <svg
+                          className="plus-button w-6 h-6 text-gray-400 group-hover:text-blue-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                          />
+                        </svg>
+                      </div>
+                    </AddPicture>
                   </div>
                   
-                  <AddPicture>
-                    <button 
-                      className="text-gray-500 text-sm font-medium group-hover:text-blue-500 bg-transparent border-none cursor-pointer"
-                      onClick={handleButtonClick}
-                    >
-                      이미지 추가(테스트)
-                    </button>
-                  </AddPicture>
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <AddPicture>
+                      <div className="text-gray-500 text-sm font-medium group-hover:text-blue-500 cursor-pointer hover:underline">
+                        이미지 추가(테스트)
+                      </div>
+                    </AddPicture>
+                  </div>
                   
                   <span className="text-gray-400 text-xs mt-1">
                     클릭하여 이미지를 업로드하세요
                   </span>
                 </div>
                 
-                {/* 이미지가 들어간 원 애니메이션 - grid-box 바깥쪽 좌측 하단으로 이동 */}
-                {showCircles && (
-                  <div 
-                    className="absolute z-50"
-                    style={{
-                      left: 'calc(50% - 150px)', // grid-box 왼쪽 라인과 정렬 (grid-box 너비 300px의 절반)
-                      top: 'calc(50% + 100px + 8px)', // grid-box 바로 아래쪽 (grid-box 높이 200px의 절반 + 8px 여백)
-                    }}
-                  >
-                    <div className="relative flex items-center justify-center" style={{ width: '230px', height: '38px' }}>
-                      {[...Array(6)].map((_, index) => (
-                        <Tooltip key={index}>
-                          <TooltipTrigger asChild>
-                            <div
-                              className="w-[38px] h-[38px] bg-black hover:bg-primary rounded-full absolute flex items-center justify-center cursor-pointer transition-colors duration-200"
-                              style={{
-                                left: isExpanded ? `${index * 48}px` : '0px',
-                                transition: 'left 0.5s ease-in-out',
-                                zIndex: 5 - index,
-                              }}
-                              onClick={() => handleIconClick(index)}
-                            >
-                              <Image
-                                src={`https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix${index + 1}.svg`}
-                                alt={`fix${index + 1}`}
-                                width={18}
-                                height={18}
-                                className="object-contain"
-                              />
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="bg-primary text-white text-sm px-2 py-1">
-                            {tooltipTexts[index]}
-                          </TooltipContent>
-                        </Tooltip>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* 이미지 편집 툴바 */}
+                <ImageEditToolbar
+                  show={showCircles}
+                  isExpanded={isExpanded}
+                  onIconClick={handleIconClick}
+                  targetGridId="main-image-grid"
+                />
               </div>
 
               {/* 확인 및 적용 버튼 */}
@@ -258,7 +230,7 @@ function ReportA() {
 
             {/* 하단 텍스트 부위 */}
             <div className="flex flex-col w-full gap-y-3">
-              <div className="relative flex flex-col w-full h-[174px] border-2 border-dashed border-[#B4B4B4] rounded-[15px] ">
+              <div className="relative flex flex-col w-full h-[174px] border-2 border-dashed border-[#B4B4B4] rounded-[15px]">
                 <h3 className="text-[12px] font-semibold  p-3 text-primary flex items-center gap-1">
                   <div className="flex items-center gap-2">
                     <Image

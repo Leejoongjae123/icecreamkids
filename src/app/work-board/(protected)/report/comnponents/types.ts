@@ -28,4 +28,10 @@ export interface FileUploadProps {
 
 export interface AddPictureProps {
   children: React.ReactNode;
-} 
+}
+
+export interface PhotoFrameModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onApply: (selectedFrame: number) => void;
+}

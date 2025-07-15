@@ -11,6 +11,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { NavigationGuardProvider } from 'next-navigation-guard';
 import { DndProviderWrapper } from '@/context/DnDContext';
 import { FileProvider } from '@/context/fileContext';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 export default function ClientProviders({ children }: { children: ReactNode }) {
   const { userInfo, clearUserInfo } = useUserStore();
@@ -59,15 +60,17 @@ export default function ClientProviders({ children }: { children: ReactNode }) {
   return (
     <ReactQueryProvider>
       {/* <GlobalLoading /> */}
-      <DndProviderWrapper>
-        <FileProvider>
-          <NavigationGuardProvider>{children}</NavigationGuardProvider>
-        </FileProvider>
-      </DndProviderWrapper>
-      <ClassManageModalProvider />
-      <ToastProvider />
-      <SnackbarProvider />
-      <AlertProvider />
+      <TooltipProvider>
+        <DndProviderWrapper>
+          <FileProvider>
+            <NavigationGuardProvider>{children}</NavigationGuardProvider>
+          </FileProvider>
+        </DndProviderWrapper>
+        <ClassManageModalProvider />
+        <ToastProvider />
+        <SnackbarProvider />
+        <AlertProvider />
+      </TooltipProvider>
     </ReactQueryProvider>
   );
 }
