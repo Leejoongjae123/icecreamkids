@@ -3,13 +3,13 @@ import React, { useState } from "react";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-interface PhotoFrameModalProps {
+interface DecorationStickerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (selectedFrame: number) => void;
+  onApply: (selectedSticker: number) => void;
 }
 
-const PhotoFrameModal: React.FC<PhotoFrameModalProps> = ({
+const DecorationStickerModal: React.FC<DecorationStickerModalProps> = ({
   isOpen,
   onClose,
   onApply,
@@ -17,15 +17,15 @@ const PhotoFrameModal: React.FC<PhotoFrameModalProps> = ({
   const [activeTab, setActiveTab] = useState<"category1" | "category2">(
     "category2",
   );
-  const [selectedFrame, setSelectedFrame] = useState<number>(3); // Default to frame 3
+  const [selectedSticker, setSelectedSticker] = useState<number>(3); // Default to sticker 3
 
   const handleApply = () => {
-    onApply(selectedFrame);
+    onApply(selectedSticker);
     onClose();
   };
 
-  const handleFrameSelect = (frameIndex: number) => {
-    setSelectedFrame(frameIndex);
+  const handleStickerSelect = (stickerIndex: number) => {
+    setSelectedSticker(stickerIndex);
   };
 
   return (
@@ -40,7 +40,7 @@ const PhotoFrameModal: React.FC<PhotoFrameModalProps> = ({
       >
         {/* Header */}
         <div className="flex justify-between items-center p-10 pb-6 max-md:px-5 max-sm:px-4 flex-shrink-0">
-          <h2 className="text-xl font-bold text-gray-700">사진틀 변경</h2>
+          <h2 className="text-xl font-bold text-gray-700">꾸미기 스티커</h2>
           <DialogClose
             className={cn(
               "flex shrink-0 justify-center items-center p-0.5 w-6 h-6 bg-white border border-solid border-zinc-100 rounded-[50px] hover:bg-gray-50"
@@ -98,54 +98,54 @@ const PhotoFrameModal: React.FC<PhotoFrameModalProps> = ({
           </div>
         </div>
 
-        {/* Frame Grid */}
+        {/* Sticker Grid */}
         <div className="flex-1 px-10 py-6 max-md:px-5 max-sm:px-4 overflow-y-auto min-h-0">
           <div className="grid grid-cols-4 gap-3 min-h-[400px]">
             {/* First Row */}
-            {[0, 1, 2, 3].map((frameIndex) => (
+            {[0, 1, 2, 3].map((stickerIndex) => (
               <div
-                key={frameIndex}
+                key={stickerIndex}
                 className={cn(
                   "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors",
-                  selectedFrame === frameIndex && "border-2 border-amber-400 border-solid",
+                  selectedSticker === stickerIndex && "border-2 border-amber-400 border-solid",
                 )}
-                onClick={() => handleFrameSelect(frameIndex)}
+                onClick={() => handleStickerSelect(stickerIndex)}
               />
             ))}
             
             {/* Second Row */}
-            {[4, 5, 6, 7].map((frameIndex) => (
+            {[4, 5, 6, 7].map((stickerIndex) => (
               <div
-                key={frameIndex}
+                key={stickerIndex}
                 className={cn(
                   "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors",
-                  selectedFrame === frameIndex && "border-2 border-amber-400 border-solid",
+                  selectedSticker === stickerIndex && "border-2 border-amber-400 border-solid",
                 )}
-                onClick={() => handleFrameSelect(frameIndex)}
+                onClick={() => handleStickerSelect(stickerIndex)}
               />
             ))}
             
             {/* Third Row */}
-            {[8, 9, 10, 11].map((frameIndex) => (
+            {[8, 9, 10, 11].map((stickerIndex) => (
               <div
-                key={frameIndex}
+                key={stickerIndex}
                 className={cn(
                   "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors",
-                  selectedFrame === frameIndex && "border-2 border-amber-400 border-solid",
+                  selectedSticker === stickerIndex && "border-2 border-amber-400 border-solid",
                 )}
-                onClick={() => handleFrameSelect(frameIndex)}
+                onClick={() => handleStickerSelect(stickerIndex)}
               />
             ))}
             
             {/* Fourth Row */}
-            {[12, 13, 14, 15].map((frameIndex) => (
+            {[12, 13, 14, 15].map((stickerIndex) => (
               <div
-                key={frameIndex}
+                key={stickerIndex}
                 className={cn(
                   "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors",
-                  selectedFrame === frameIndex && "border-2 border-amber-400 border-solid",
+                  selectedSticker === stickerIndex && "border-2 border-amber-400 border-solid",
                 )}
-                onClick={() => handleFrameSelect(frameIndex)}
+                onClick={() => handleStickerSelect(stickerIndex)}
               />
             ))}
           </div>
@@ -175,4 +175,4 @@ const PhotoFrameModal: React.FC<PhotoFrameModalProps> = ({
   );
 };
 
-export default PhotoFrameModal;
+export default DecorationStickerModal;

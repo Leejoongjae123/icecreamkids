@@ -35,3 +35,7 @@ export interface PhotoFrameModalProps {
   onClose: () => void;
   onApply: (selectedFrame: number) => void;
 }
+
+export interface ReportBottomSectionProps {
+  type: ReportType;
+}

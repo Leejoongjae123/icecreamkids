@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/tooltip";
 import PhotoFrameModal from "./PhotoFrameModal";
 import TextStickerModal from "./TextStickerModal";
+import DecorationStickerModal from "./DecorationStickerModal";
 
 interface ImageEditToolbarProps {
   show: boolean;
@@ -29,6 +30,7 @@ const ImageEditToolbar: React.FC<ImageEditToolbarProps> = ({
 }) => {
   const [isPhotoFrameModalOpen, setIsPhotoFrameModalOpen] = useState(false);
   const [isTextStickerModalOpen, setIsTextStickerModalOpen] = useState(false);
+  const [isDecorationStickerModalOpen, setIsDecorationStickerModalOpen] = useState(false);
 
   // 디버깅용 useEffect
   useEffect(() => {
@@ -60,6 +62,10 @@ const ImageEditToolbar: React.FC<ImageEditToolbarProps> = ({
       // 텍스트 스티커 클릭 시 모달 열기
       console.log("텍스트 스티커 클릭, 모달 열기");
       setIsTextStickerModalOpen(true);
+    } else if (index === 2) {
+      // 꾸미기 스티커 클릭 시 모달 열기
+      console.log("꾸미기 스티커 클릭, 모달 열기");
+      setIsDecorationStickerModalOpen(true);
     } else {
       onIconClick(index);
     }
@@ -84,6 +90,16 @@ const ImageEditToolbar: React.FC<ImageEditToolbarProps> = ({
     console.log("Selected text sticker:", selectedSticker);
     // 여기서 선택된 텍스트 스티커를 적용하는 로직을 구현할 수 있습니다
     onIconClick(1); // 기존 로직도 호출
+  };
+
+  const handleDecorationStickerModalClose = () => {
+    setIsDecorationStickerModalOpen(false);
+  };
+
+  const handleDecorationStickerApply = (selectedSticker: number) => {
+    console.log("Selected decoration sticker:", selectedSticker);
+    // 여기서 선택된 꾸미기 스티커를 적용하는 로직을 구현할 수 있습니다
+    onIconClick(2); // 기존 로직도 호출
   };
 
   if (!show) return null;
@@ -145,6 +161,13 @@ const ImageEditToolbar: React.FC<ImageEditToolbarProps> = ({
         isOpen={isTextStickerModalOpen}
         onClose={handleTextStickerModalClose}
         onApply={handleTextStickerApply}
+      />
+
+      {/* Decoration Sticker Modal */}
+      <DecorationStickerModal
+        isOpen={isDecorationStickerModalOpen}
+        onClose={handleDecorationStickerModalClose}
+        onApply={handleDecorationStickerApply}
       />
     </>
   );

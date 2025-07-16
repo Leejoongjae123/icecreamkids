@@ -1,6 +1,8 @@
 "use client";
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 interface TextStickerModalProps {
@@ -51,7 +53,7 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
       >
         {/* Header */}
         <div className="flex justify-between items-center p-10 pb-6 max-md:px-5 max-sm:px-4 flex-shrink-0">
-          <h2 className="text-xl font-bold text-gray-700">사진툴 변경</h2>
+          <h2 className="text-xl font-bold text-gray-700">텍스트 스티커</h2>
           <DialogClose
             className={cn(
               "flex shrink-0 justify-center items-center p-0.5 w-6 h-6 bg-white border border-solid border-zinc-100 rounded-[50px] hover:bg-gray-50"
@@ -114,59 +116,50 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
           {activeTab === "category1" ? (
             /* Text Type Selection */
             <div className="space-y-4 min-h-[400px]">
-              {/* 제목텍스트추가 */}
-              <div
-                className={cn(
-                  "flex items-center space-x-4 p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors",
-                  selectedTextType === "title" && "border-2 border-amber-400 border-solid bg-amber-50",
-                )}
-                onClick={() => setSelectedTextType("title")}
+              <RadioGroup
+                value={selectedTextType}
+                onValueChange={(value: "title" | "subtitle" | "body") => setSelectedTextType(value)}
+                className="space-y-4"
               >
-                <input
-                  type="radio"
-                  name="textType"
-                  checked={selectedTextType === "title"}
-                  onChange={() => setSelectedTextType("title")}
-                  className="w-4 h-4 text-amber-400 border-gray-300 focus:ring-amber-400"
-                />
-                <span className="text-base font-medium text-gray-700">제목텍스트추가</span>
-              </div>
-              
-              {/* 부제목 텍스트추가 */}
-              <div
-                className={cn(
-                  "flex items-center space-x-4 p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors",
-                  selectedTextType === "subtitle" && "border-2 border-amber-400 border-solid bg-amber-50",
-                )}
-                onClick={() => setSelectedTextType("subtitle")}
-              >
-                <input
-                  type="radio"
-                  name="textType"
-                  checked={selectedTextType === "subtitle"}
-                  onChange={() => setSelectedTextType("subtitle")}
-                  className="w-4 h-4 text-amber-400 border-gray-300 focus:ring-amber-400"
-                />
-                <span className="text-base font-medium text-gray-700">부제목 텍스트추가</span>
-              </div>
-              
-              {/* 본문 텍스트추가 */}
-              <div
-                className={cn(
-                  "flex items-center space-x-4 p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors",
-                  selectedTextType === "body" && "border-2 border-amber-400 border-solid bg-amber-50",
-                )}
-                onClick={() => setSelectedTextType("body")}
-              >
-                <input
-                  type="radio"
-                  name="textType"
-                  checked={selectedTextType === "body"}
-                  onChange={() => setSelectedTextType("body")}
-                  className="w-4 h-4 text-amber-400 border-gray-300 focus:ring-amber-400"
-                />
-                <span className="text-base font-medium text-gray-700">본문 텍스트추가</span>
-              </div>
+                {/* 제목텍스트추가 */}
+                <div
+                  className={cn(
+                    "flex items-center space-x-4 p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors",
+                    selectedTextType === "title" && "border-2 border-primary border-solid bg-primary/10",
+                  )}
+                >
+                  <RadioGroupItem value="title" id="title" />
+                  <Label htmlFor="title" className="text-base font-medium text-gray-700 cursor-pointer">
+                    제목텍스트추가
+                  </Label>
+                </div>
+                
+                {/* 부제목 텍스트추가 */}
+                <div
+                  className={cn(
+                    "flex items-center space-x-4 p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors",
+                    selectedTextType === "subtitle" && "border-2 border-primary border-solid bg-primary/10",
+                  )}
+                >
+                  <RadioGroupItem value="subtitle" id="subtitle" />
+                  <Label htmlFor="subtitle" className="text-base font-medium text-gray-700 cursor-pointer">
+                    부제목 텍스트추가
+                  </Label>
+                </div>
+                
+                {/* 본문 텍스트추가 */}
+                <div
+                  className={cn(
+                    "flex items-center space-x-4 p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors",
+                    selectedTextType === "body" && "border-2 border-primary border-solid bg-primary/10",
+                  )}
+                >
+                  <RadioGroupItem value="body" id="body" />
+                  <Label htmlFor="body" className="text-base font-medium text-gray-700 cursor-pointer">
+                    본문 텍스트추가
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
           ) : (
             /* Frame Grid for 말풍선 tab */
@@ -223,7 +216,7 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-center space-x-2 p-10 pt-6 max-md:px-5 max-sm:px-4 flex-shrink-0 border-t border-gray-100">
+        <div className="flex justify-center space-x-2 px-10 pb-10 max-md:px-5 max-sm:px-4 flex-shrink-0 ">
           <button
             className={cn(
               "flex justify-center items-center px-6 py-3 bg-gray-50 rounded-md border border-solid border-zinc-100 hover:bg-gray-100 transition-colors min-w-[100px]"
