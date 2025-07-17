@@ -60,13 +60,11 @@ export function TypeSelectionModal({
   };
 
   const handleConfirm = () => {
-    // URL 파라미터 업데이트 (기존 파라미터 모두 초기화하고 type만 설정)
-    const current = new URLSearchParams();
-    current.set('type', selectedType);
-    const search = current.toString();
-    const query = search ? `?${search}` : "";
+    // 모든 기존 searchParams를 제거하고 type만 설정
+    const newParams = new URLSearchParams();
+    newParams.set('type', selectedType);
     
-    router.push(`${pathname}${query}`);
+    router.push(`${pathname}?${newParams.toString()}`);
     
     onSelect(selectedType);
   };
@@ -85,7 +83,7 @@ export function TypeSelectionModal({
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-4 top-4 h-6 w-6 rounded-full border border-zinc-100 hover:bg-gray-50"
+                          className="absolute right-4 top-4 h-6 w-6 rounded-full border border-gray-300 hover:bg-gray-50"
             onClick={handleCancel}
           >
             <X className="h-4 w-4" />
@@ -115,7 +113,7 @@ export function TypeSelectionModal({
                   className={`w-[205px] h-[266px] cursor-pointer transition-all ${
                     selectedType === option.type
                       ? "border-4 border-amber-400"
-                      : "border border-zinc-100 hover:border-zinc-200"
+                      : "border border-gray-300 hover:border-gray-400"
                   }`}
                   onClick={() => handleTypeSelect(option.type)}
                 >
@@ -146,7 +144,7 @@ export function TypeSelectionModal({
           <div className="flex gap-[10px] justify-center">
             <Button
               variant="outline"
-              className="w-[100px] h-[42px] bg-gray-50 border-zinc-100 text-gray-700 hover:bg-gray-100"
+              className="w-[100px] h-[42px] bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100"
               onClick={handleCancel}
             >
               닫기

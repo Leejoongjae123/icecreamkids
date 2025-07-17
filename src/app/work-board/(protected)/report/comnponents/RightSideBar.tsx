@@ -22,10 +22,14 @@ function RightSideBarContent() {
   const [isAgePopoverOpen, setIsAgePopoverOpen] = useState(false);
   const [ageCount, setAgeCount] = useState(3);
   
-  // searchParams에서 초기값 읽어오기
-  const [selectedSubject, setSelectedSubject] = useState(searchParams.get('subject') || "4개");
+  // searchParams에서 초기값 읽어오기 - 타입에 따라 기본값 다르게 설정
+  const getDefaultSubject = (type: string) => {
+    return type === "B" ? "12개" : "4개";
+  };
+  
+  const [selectedSubject, setSelectedSubject] = useState(searchParams.get('subject') ? `${searchParams.get('subject')}개` : getDefaultSubject(currentType));
   const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
-  const [subjectCount, setSubjectCount] = useState(parseInt(searchParams.get('subject')?.replace('개', '') || '4'));
+  const [subjectCount, setSubjectCount] = useState(parseInt(searchParams.get('subject') || (currentType === "B" ? '12' : '4')));
 
   const [selectedPhoto, setSelectedPhoto] = useState("4개");
   const [isPhotoPopoverOpen, setIsPhotoPopoverOpen] = useState(false);
@@ -66,6 +70,26 @@ function RightSideBarContent() {
       setAgeCount(ageCountMap[ageString] || 3);
     }
   }, [searchParams]);
+
+  // 타입이 변경될 때 subject 관련 상태 업데이트
+  useEffect(() => {
+    console.log("useEffect 실행 - 현재 타입:", currentType);
+    const subjectParam = searchParams.get('subject');
+    console.log("subjectParam:", subjectParam);
+    
+    if (!subjectParam) {
+      // URL에 subject 파라미터가 없으면 타입에 따른 기본값 설정
+      const defaultSubject = getDefaultSubject(currentType);
+      console.log("기본값 설정:", defaultSubject);
+      setSelectedSubject(defaultSubject);
+      setSubjectCount(parseInt(defaultSubject.replace('개', '')));
+    } else {
+      // URL에 subject 파라미터가 있으면 그 값 사용
+      console.log("URL 파라미터 사용:", `${subjectParam}개`);
+      setSelectedSubject(`${subjectParam}개`);
+      setSubjectCount(parseInt(subjectParam));
+    }
+  }, [currentType, searchParams]);
 
   const handleAgeSelect = (ageNumber: string) => {
     // 숫자를 문자열로 변환
@@ -153,7 +177,7 @@ function RightSideBarContent() {
   };
 
   return (
-    <div className="flex flex-col gap-2.5 ">
+    <div className="flex flex-col gap-2.5 max-h-[calc(100vh-120px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
       <Button
         className="box-border flex gap-1 justify-center items-center py-3 pr-2 pl-2 bg-amber-400 hover:bg-amber-500 rounded-xl h-[42px] w-[110px] max-sm:w-full max-sm:text-sm max-sm:max-w-[280px]"
         onClick={() => {
@@ -166,6 +190,7 @@ function RightSideBarContent() {
           alt="magic"
           width={20}
           height={20}
+          className="rounded-full object-cover flex-shrink-0"
         />
         <div className="text-xs font-semibold leading-3 text-white whitespace-nowrap flex items-center gap-1 max-sm:text-sm">
           놀이기록 생성
@@ -184,14 +209,19 @@ function RightSideBarContent() {
           alt="tv"
           width={18}
           height={18}
+          className="rounded-full object-cover flex-shrink-0"
         />
         <div className="text-xs font-medium leading-3 text-gray-700 whitespace-nowrap flex items-center gap-1">
           타입 설정<div className="text-amber-400">({currentType})</div>
         </div>
       </Button>
 
-      {/* A타입일 때만 놀이주제 표시 */}
-      {currentType === "A" && (
+      {/* A타입과 B타입일 때 놀이주제 표시 */}
+      {(() => {
+        const shouldShow = currentType === "A" || currentType === "B";
+        console.log("놀이주제 표시 여부:", shouldShow, "currentType:", currentType);
+        return shouldShow;
+      })() && (
         <Popover open={isSubjectPopoverOpen} onOpenChange={setIsSubjectPopoverOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -203,6 +233,7 @@ function RightSideBarContent() {
                 alt="theme"
                 width={18}
                 height={18}
+                className="rounded-full object-cover flex-shrink-0"
               />
               <div className="text-xs font-medium leading-3 text-gray-700 whitespace-nowrap flex items-center gap-1">
                 놀이 주제<div className="text-amber-400">({subjectCount})</div>
@@ -213,6 +244,7 @@ function RightSideBarContent() {
             <SubjectSelector
               selectedSubject={selectedSubject}
               onSubjectSelect={handleSubjectSelect}
+              type={currentType as "A" | "B" | "C"}
             />
           </PopoverContent>
         </Popover>
@@ -231,6 +263,7 @@ function RightSideBarContent() {
                 alt="theme"
                 width={18}
                 height={18}
+                className="rounded-full object-cover flex-shrink-0"
               />
               <div className="text-xs font-medium leading-3 text-gray-700 whitespace-nowrap flex items-center gap-1">
                 사진 개수<div className="text-amber-400">({photoCount})</div>
@@ -257,6 +290,7 @@ function RightSideBarContent() {
               alt="baby"
               width={20}
               height={20}
+              className="rounded-full object-cover flex-shrink-0"
             />
             <div className="text-xs font-medium leading-3 text-gray-700 whitespace-nowrap flex items-center gap-1">
               연령선택<div className="text-amber-400">({getAgeDisplay(selectedAge)})</div>

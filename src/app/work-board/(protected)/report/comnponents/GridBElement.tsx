@@ -4,7 +4,7 @@ import Image from "next/image";
 import AddPicture from "./AddPicture";
 import { Input } from "@/components/ui/input";
 
-interface GridAElementProps {
+interface GridBElementProps {
   index: number;
   className?: string;
   children?: React.ReactNode;
@@ -12,14 +12,13 @@ interface GridAElementProps {
   style?: React.CSSProperties;
   checked?: boolean;
   onCheckedChange?: (checked: boolean) => void;
-  category?: string;
   images?: string[];
   onAIGenerate?: () => void;
   onImageUpload?: () => void;
   placeholderText?: string;
 }
 
-function GridAElement({
+function GridBElement({
   index,
   className = "",
   children,
@@ -27,12 +26,11 @@ function GridAElement({
   style,
   checked,
   onCheckedChange,
-  category = "촉감놀이",
   images = [],
   onAIGenerate,
   onImageUpload,
   placeholderText = "ex) 아이들과 촉감놀이를 했어요",
-}: GridAElementProps) {
+}: GridBElementProps) {
   const [inputValue, setInputValue] = React.useState("");
 
   // Default images if none provided
@@ -69,18 +67,11 @@ function GridAElement({
       style={style}
       onClick={onClick}
     >
-      {/* 카테고리 섹션 - 고정 높이 */}
-      <div className="flex gap-2.5 text-sm font-bold tracking-tight leading-none text-amber-400 whitespace-nowrap flex-shrink-0">
-        <div className="flex overflow-hidden flex-col grow shrink-0 justify-center items-start px-2 py-1.5 rounded-md border border-solid basis-0 border-gray-300 w-fit">
-          <div className="text-[18px]">{category}</div>
-        </div>
-      </div>
-
-      {/* 이미지 그리드 - 제한된 높이 */}
-      <div className="grid grid-cols-2 gap-1 h-[calc(215/393*100%)]">
+      {/* 이미지 그리드 - 2개 이미지만 표시, 사이즈 1/2로 축소 */}
+      <div className="grid grid-cols-2 gap-1 h-[calc(105/240*100%)]">
         {(() => {
-          // 최소 1개, 최대 4개의 이미지 표시
-          const imageCount = Math.max(1, Math.min(4, displayImages.length));
+          // 최소 1개, 최대 2개의 이미지 표시
+          const imageCount = Math.max(1, Math.min(2, displayImages.length));
           const imagesToShow = displayImages.slice(0, imageCount);
           
           // 이미지가 없으면 기본 noimage를 최소 1개 표시
@@ -134,8 +125,8 @@ function GridAElement({
       </div>
 
       {/* 하단 입력 영역 - 남은 공간 사용 */}
-      <div className="flex overflow-hidden flex-col items-center px-3 py-2 flex-1 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 min-h-0 justify-center">
-        <div className="flex gap-1.5 w-4/5 mb-2"> 
+      <div className="flex overflow-hidden flex-col items-center px-1 py-2 flex-1 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 min-h-0 justify-center">
+        <div className="flex gap-1.5 px-1 mb-2 w-full"> 
           <Input
             type="text"
             value={inputValue}
@@ -146,20 +137,20 @@ function GridAElement({
           />
           <button
             onClick={handleAIGenerate}
-            className="flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight text-white rounded-md bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90 flex justify-center items-center w-[56px] h-[27px]"
+            className="flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight text-white rounded-md bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90 flex justify-center items-center w-[48px] h-[25px]"
           >
             <Image
               src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/leaf.svg"
               className="object-contain"
-              width={12}
-              height={12}
+              width={10}
+              height={10}
               alt="AI icon"
             />
-            <div className="text-[11px] tracking-[-0.03em]">AI 생성</div>
+            <div className="text-[8px] tracking-[-0.03em]">AI 생성</div>
           </button>
         </div>
 
-        <div className="text-[11px] font-semibold tracking-tight text-slate-300 text-center mb-1 leading-tight">
+        <div className="text-[8px] font-semibold tracking-tight text-slate-300 text-center mb-1 leading-tight">
           활동에 맞는 키워드를 입력하거나 메모를 드래그 또는
         </div>
 
@@ -171,12 +162,12 @@ function GridAElement({
             >
               <Image
                 src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload.svg"
-                width={11}
-                height={11}
+                width={8}
+                height={8}
                 className="object-contain"
                 alt="Upload icon"
               />
-              <div className="text-slate-300 text-[11px]">를 눌러서 업로드 해 주세요.</div>
+              <div className="text-slate-300 text-[8px]">를 눌러서 업로드 해 주세요.</div>
             </button>
           </AddPicture>
         </div>
@@ -187,4 +178,4 @@ function GridAElement({
   );
 }
 
-export default GridAElement;
+export default GridBElement; 

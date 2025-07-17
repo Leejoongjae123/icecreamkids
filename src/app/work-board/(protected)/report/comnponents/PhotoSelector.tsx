@@ -40,15 +40,14 @@ function PhotoSelectorContent({
         사진 개수를<br />
         선택해주세요
       </div>
-      <div className="flex flex-col mt-5 w-full">
+      <div className="flex flex-col mt-5 w-full max-h-[200px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
         {photos.map((photo, index) => (
           <button
             key={photo}
             onClick={() => handlePhotoSelect(photo)}
             className={`
-              flex overflow-hidden flex-col justify-center items-center w-full whitespace-nowrap h-[46px] rounded-[50px] transition-colors
+              flex overflow-hidden flex-col justify-center items-center w-full whitespace-nowrap h-[46px] rounded-[50px] transition-colors px-2
               ${index === 0 ? "" : "mt-2.5"}
-              ${photo === "0~2세" ? "px-1" : "px-3"}
               ${
                 selectedPhoto === photo
                   ? "font-semibold text-white bg-amber-400 hover:bg-amber-500"

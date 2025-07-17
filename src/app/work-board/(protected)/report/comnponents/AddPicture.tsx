@@ -177,7 +177,7 @@ function AddPicture({ children }: AddPictureProps) {
               </div>
               <div className="flex gap-2.5 self-center mt-6 max-w-full text-base font-medium tracking-tight leading-none whitespace-nowrap w-[210px]">
                 <DialogClose asChild>
-                  <div className="flex overflow-hidden flex-col justify-center px-5 py-3.5 text-gray-700 bg-gray-50 rounded-md border border-solid border-zinc-100 max-md:px-5 cursor-pointer hover:bg-gray-100 transition-colors">
+                  <div className="flex overflow-hidden flex-col justify-center px-5 py-3.5 text-gray-700 bg-gray-50 rounded-md border border-solid border-gray-300 max-md:px-5 cursor-pointer hover:bg-gray-100 transition-colors">
                     <div>닫기</div>
                   </div>
                 </DialogClose>
