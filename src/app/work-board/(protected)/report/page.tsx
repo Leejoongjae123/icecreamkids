@@ -64,7 +64,11 @@ function ReportPageContent() {
           <LeftSideBar />
         </div>
         <div className="w-full max-w-[800px]">
-          {selectedReportType === "A" && <ReportA />}
+          {selectedReportType === "A" && (
+            <Suspense fallback={<div>Loading...</div>}>
+              <ReportA />
+            </Suspense>
+          )}
           {selectedReportType === "B" && <ReportB />}
           {selectedReportType === "C" && <ReportC />}
         </div>

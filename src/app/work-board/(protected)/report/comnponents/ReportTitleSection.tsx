@@ -48,30 +48,38 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
   // 우측 상단 박스 폰트 사이즈 조절
   useEffect(() => {
     if (topText.length === 0) {
-      setTopFontSize("text-lg");
-    } else if (topText.length <= 5) {
-      setTopFontSize("text-lg");
-    } else if (topText.length <= 10) {
-      setTopFontSize("text-base");
-    } else if (topText.length <= 15) {
       setTopFontSize("text-sm");
-    } else {
+    } else if (topText.length <= 3) {
+      setTopFontSize("text-sm");
+    } else if (topText.length <= 6) {
       setTopFontSize("text-xs");
+    } else if (topText.length <= 10) {
+      setTopFontSize("text-xs");
+    } else if (topText.length <= 15) {
+      setTopFontSize("text-[10px]");
+    } else if (topText.length <= 20) {
+      setTopFontSize("text-[9px]");
+    } else {
+      setTopFontSize("text-[8px]");
     }
   }, [topText]);
 
   // 우측 하단 박스 폰트 사이즈 조절
   useEffect(() => {
     if (bottomText.length === 0) {
-      setBottomFontSize("text-lg");
-    } else if (bottomText.length <= 5) {
-      setBottomFontSize("text-lg");
-    } else if (bottomText.length <= 10) {
-      setBottomFontSize("text-base");
-    } else if (bottomText.length <= 15) {
       setBottomFontSize("text-sm");
-    } else {
+    } else if (bottomText.length <= 3) {
+      setBottomFontSize("text-sm");
+    } else if (bottomText.length <= 6) {
       setBottomFontSize("text-xs");
+    } else if (bottomText.length <= 10) {
+      setBottomFontSize("text-xs");
+    } else if (bottomText.length <= 15) {
+      setBottomFontSize("text-[10px]");
+    } else if (bottomText.length <= 20) {
+      setBottomFontSize("text-[9px]");
+    } else {
+      setBottomFontSize("text-[8px]");
     }
   }, [bottomText]);
 
@@ -124,7 +132,7 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
     <div
       className={`flex flex-row w-full justify-between h-[83px] ${className}`}
     >
-      <div className="flex flex-col w-[10%] border-2 border-dashed border-[#B4B4B4] rounded-[15px] items-center justify-center hover:border-gray-400  transition-colors cursor-pointer">
+      <div className="flex flex-col w-[10%] border border-dashed border-zinc-400 rounded-[15px] items-center justify-center hover:border-gray-400  transition-colors cursor-pointer">
         <AddPicture>
           <Image
             src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg"
@@ -137,10 +145,10 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
       </div>
 
       <div 
-        className={`flex flex-col w-[60%] border-2 rounded-[15px] items-center justify-center cursor-text transition-colors p-2 ${
-          isFocused || text
+        className={`flex flex-col w-[60%] border rounded-[15px] items-center justify-center cursor-text transition-colors p-2 ${
+          isFocused
             ? 'border-primary border-solid' 
-            : 'border-[#B4B4B4] border-dashed hover:border-gray-400'
+            : 'border-zinc-400 border-dashed hover:border-gray-400'
         }`}
         onClick={() => contentRef.current?.focus()}
       >
@@ -169,44 +177,54 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
       <div className="flex flex-col w-[10%] gap-y-2">
         {/* 상단 박스 */}
         <div 
-          className={`flex flex-col w-full h-1/2 border-2 rounded-[15px] items-center justify-center cursor-text transition-colors p-2 ${
-            isTopFocused || topText
+          className={`flex flex-col w-full h-1/2 border rounded-[15px] items-center justify-center cursor-text transition-colors p-1 overflow-hidden ${
+            isTopFocused
               ? 'border-primary border-solid' 
-              : 'border-[#B4B4B4] border-dashed hover:border-gray-400'
+              : 'border-zinc-400 border-dashed hover:border-gray-400'
           }`}
           onClick={() => topContentRef.current?.focus()}
         >
           <div
             ref={topContentRef}
             contentEditable
-            className={`w-full h-full outline-none text-center flex items-center justify-center font-medium ${topFontSize} transition-all duration-200`}
+            className={`w-full h-full outline-none text-center flex items-center justify-center font-medium ${topFontSize} transition-all duration-200 overflow-hidden break-words`}
             onFocus={handleTopFocus}
             onBlur={handleTopBlur}
             onInput={handleTopInput}
             suppressContentEditableWarning={true}
-            style={{ minHeight: '1em' }}
+            style={{ 
+              minHeight: '1em',
+              maxHeight: '100%',
+              lineHeight: '1.2',
+              wordBreak: 'break-all'
+            }}
             data-placeholder={topText === "" ? "텍스트" : ""}
           />
         </div>
 
         {/* 하단 박스 */}
         <div 
-          className={`flex flex-col w-full h-1/2 border-2 rounded-[15px] items-center justify-center cursor-text transition-colors p-2 ${
-            isBottomFocused || bottomText
+          className={`flex flex-col w-full h-1/2 border rounded-[15px] items-center justify-center cursor-text transition-colors p-1 overflow-hidden ${
+            isBottomFocused
               ? 'border-primary border-solid' 
-              : 'border-[#B4B4B4] border-dashed hover:border-gray-400'
+              : 'border-zinc-400 border-dashed hover:border-gray-400'
           }`}
           onClick={() => bottomContentRef.current?.focus()}
         >
           <div
             ref={bottomContentRef}
             contentEditable
-            className={`w-full h-full outline-none text-center flex items-center justify-center font-medium ${bottomFontSize} transition-all duration-200`}
+            className={`w-full h-full outline-none text-center flex items-center justify-center font-medium ${bottomFontSize} transition-all duration-200 overflow-hidden break-words`}
             onFocus={handleBottomFocus}
             onBlur={handleBottomBlur}
             onInput={handleBottomInput}
             suppressContentEditableWarning={true}
-            style={{ minHeight: '1em' }}
+            style={{ 
+              minHeight: '1em',
+              maxHeight: '100%',
+              lineHeight: '1.2',
+              wordBreak: 'break-all'
+            }}
             data-placeholder={bottomText === "" ? "텍스트" : ""}
           />
         </div>

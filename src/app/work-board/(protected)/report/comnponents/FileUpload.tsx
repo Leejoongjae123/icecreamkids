@@ -95,7 +95,7 @@ function FileUpload({ onFilesChange, selectedFiles, onFileSelect }: FileUploadPr
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+        className={`border border-dashed border-zinc-400rounded-lg p-8 text-center transition-colors ${
           isDragOver 
             ? 'border-amber-400 bg-amber-50' 
             : 'border-gray-300 hover:border-gray-400'

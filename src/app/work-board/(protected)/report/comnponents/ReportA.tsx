@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
-import { IoClose } from "react-icons/io5";
-import { HiOutlinePrinter, HiOutlineDownload } from "react-icons/hi";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { HiOutlineViewColumns } from "react-icons/hi2";
 import Image from "next/image";
 import HomeIcon from "@/components/common/Icons/HomeIcon";
@@ -18,11 +18,21 @@ import ConfirmModal from "./ConfirmModal";
 import ImageEditToolbar from "./ImageEditToolbar";
 import ReportBottomSection from "./ReportBottomSection";
 import ReportTitleSection from "./ReportTitleSection";
+import GridA from "./GridA";
 
-function ReportA() {
+// searchParams를 사용하는 컴포넌트 분리
+function ReportAContent() {
+  const searchParams = useSearchParams();
   const [showCircles, setShowCircles] = React.useState(false);
   const [isAnimating, setIsAnimating] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);
+  
+  // searchParams에서 subject 값 가져오기 (1-4 범위, 기본값 3)
+  const subjectParam = searchParams.get('subject');
+  const subject = React.useMemo(() => {
+    const parsed = parseInt(subjectParam || '3', 10);
+    return parsed >= 1 && parsed <= 4 ? parsed : 3;
+  }, [subjectParam]);
 
   // 툴바 아이콘 클릭 핸들러
   const handleIconClick = (index: number) => {
@@ -125,110 +135,38 @@ function ReportA() {
               </Button>
               <Button
                 size="sm"
-                className="bg-amber-400 hover:bg-amber-500 text-[14px] text-white font-semibold shadow-none h-[34px]"
+                className="bg-amber-500 hover:bg-amber-600 text-white font-semibold h-[34px]"
               >
-                저장
+                완료
               </Button>
             </div>
           </div>
 
-          <div className="flex flex-col w-full min-h-[1130px] justify-between gap-y-3">
+          <div className="flex flex-col w-full h-[1130px] justify-between gap-y-3">
             <ReportTitleSection />
 
-            {/* 이미지 추가 버튼 */}
-            <div className="flex-1 flex-col w-full  justify-center items-center">
-              <div className="flex items-center justify-center h-full relative">
-                <div
-                  className="grid-box relative flex flex-col items-center justify-center w-[300px] h-[200px] border-2 border-dashed border-[#B4B4B4] rounded-[15px] hover:border-blue-400 hover:bg-blue-50 transition-colors group cursor-pointer"
-                  onClick={handleAreaClick}
-                >
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <AddPicture>
-                      <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3 group-hover:bg-blue-100 cursor-pointer">
-                        <svg
-                          className="plus-button w-6 h-6 text-gray-400 group-hover:text-blue-500"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                          />
-                        </svg>
-                      </div>
-                    </AddPicture>
-                  </div>
-                  
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <AddPicture>
-                      <div className="text-gray-500 text-sm font-medium group-hover:text-blue-500 cursor-pointer hover:underline">
-                        이미지 추가(테스트)
-                      </div>
-                    </AddPicture>
-                  </div>
-                  
-                  <span className="text-gray-400 text-xs mt-1">
-                    클릭하여 이미지를 업로드하세요
-                  </span>
-                </div>
-                
-                {/* 이미지 편집 툴바 */}
-                <ImageEditToolbar
-                  show={showCircles}
-                  isExpanded={isExpanded}
-                  onIconClick={handleIconClick}
-                  targetGridId="main-image-grid"
-                />
-              </div>
-
-              {/* 확인 및 적용 버튼 */}
-              <div className="flex gap-3 mt-4 w-full justify-center items-center mt-24">
-                <ConfirmModal
-                  title="확인"
-                  description="작업을 진행하시겠습니까?"
-                  confirmText="확인"
-                  onConfirm={() => {
-                    // 확인 버튼 클릭 처리
-                  }}
-                >
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="px-6 py-2 text-sm font-medium"
-                  >
-                    확인
-                  </Button>
-                </ConfirmModal>
-                <ApplyModal
-                  description="기존에 작업한 내용이 모두 초기화 됩니다.\n사진 개수를 3개로 변경하시겠습니까?"
-                  cancelText="취소"
-                  confirmText="적용"
-                  onConfirm={() => {
-                    // 적용 버튼 클릭 처리 - 사진 개수를 3개로 변경하고 기존 내용 초기화
-                  }}
-                  onCancel={() => {
-                    // 취소 버튼 클릭 처리
-                  }}
-                >
-                  <Button
-                    size="sm"
-                    className="px-6 py-2 text-sm font-medium bg-primary hover:bg-primary/80 text-white"
-                  >
-                    적용
-                  </Button>
-                </ApplyModal>
-              </div>
+            {/* 이미지 그리드 */}
+            <div className="flex-1 w-full h-full min-h-[600px]">
+              <GridA subject={subject} />
             </div>
 
             {/* 하단 텍스트 부위 */}
             <ReportBottomSection type="A" />
+
+
           </div>
         </div>
       </div>
     </TooltipProvider>
+  );
+}
+
+// Suspense로 감싼 메인 컴포넌트
+function ReportA() {
+  return (
+    <Suspense fallback={<div className="w-full h-96 flex items-center justify-center">로딩 중...</div>}>
+      <ReportAContent />
+    </Suspense>
   );
 }
 

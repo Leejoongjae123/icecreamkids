@@ -45,10 +45,10 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
 
   const getSectionStyle = (section: string) => {
     const isActive = activeSection === section;
-    return `relative flex flex-col w-full h-full border-2 rounded-[15px] cursor-pointer ${
+    return `relative flex flex-col w-full h-full border rounded-[15px] cursor-pointer ${
       isActive
         ? "border-solid border-primary" 
-        : "border-dashed border-[#B4B4B4]"
+        : "border-dashed border-zinc-400"
     }`;
   };
 
@@ -57,12 +57,12 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
       {/* "이렇게 놀이했어요" 부분 - typeC에서만 보임 */}
       {type === "C" && (
         <div 
-          className={`relative flex flex-col w-full h-[174px] border-2 rounded-[15px] cursor-pointer ${
+          className={`relative flex flex-col w-full h-[174px] border rounded-[15px] cursor-pointer ${
             activeSection === "playActivity"
               ? "border-solid border-primary" 
-              : "border-dashed border-[#B4B4B4]"
+              : "border-dashed border-zinc-400"
           }`}
-          onClick={() => handleSectionClick("playActivity")}
+          onClick={(e) => handleSectionClick("playActivity", e)}
         >
           <h3 className="text-[12px] font-semibold p-3 text-primary flex items-center gap-1">
             <div className="flex items-center gap-2">
@@ -106,7 +106,7 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
       <div className="flex flex-row w-full h-[174px] gap-x-3">
         <div 
           className={getSectionStyle("teacherSupport")}
-          onClick={() => handleSectionClick("teacherSupport")}
+          onClick={(e) => handleSectionClick("teacherSupport", e)}
         >
           <h3 className="text-[12px] font-semibold p-3 text-primary flex items-center gap-1">
             <div className="flex items-center gap-2">
@@ -146,7 +146,7 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
         </div>
         <div 
           className={getSectionStyle("homeConnection")}
-          onClick={() => handleSectionClick("homeConnection")}
+          onClick={(e) => handleSectionClick("homeConnection", e)}
         >
           <h3 className="text-[12px] font-semibold p-3 text-primary flex items-center gap-1">
             <div className="flex items-center gap-2">
