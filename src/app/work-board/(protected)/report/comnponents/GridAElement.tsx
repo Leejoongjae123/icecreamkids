@@ -35,12 +35,12 @@ function GridAElement({
 
   // Default images if none provided
   const defaultImages = [
-    "https://api.builder.io/api/v1/image/assets/304aa4871c104446b0f8164e96d049f4/62fd88dd186d877ba1c1b31e95426f2a8c55dd17?placeholderIfAbsent=true",
-    "https://api.builder.io/api/v1/image/assets/304aa4871c104446b0f8164e96d049f4/b6eb3eda5e288ff738e53390136ef19371535316?placeholderIfAbsent=true",
-    "https://api.builder.io/api/v1/image/assets/304aa4871c104446b0f8164e96d049f4/5d1aaa8af210526307392bcfdf99bc81abc48f26?placeholderIfAbsent=true",
-    "https://api.builder.io/api/v1/image/assets/304aa4871c104446b0f8164e96d049f4/0d3503091a7eac3b441c4d51177d9c3a303fb964?placeholderIfAbsent=true",
-    "https://api.builder.io/api/v1/image/assets/304aa4871c104446b0f8164e96d049f4/ab6917aa5f7ea3dd5ccb7586e1e34271b5b28856?placeholderIfAbsent=true",
-    "https://api.builder.io/api/v1/image/assets/304aa4871c104446b0f8164e96d049f4/a405b03a19bc82c823a464adfe9fd8e8eac2df30?placeholderIfAbsent=true",
+    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
+    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
+    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
+    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
+    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
+    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
   ];
 
   const displayImages = images.length > 0 ? images : defaultImages;
@@ -63,100 +63,96 @@ function GridAElement({
 
   return (
     <div
-      className={`overflow-hidden px-2.5 py-3 bg-white rounded-2xl border border-dashed border-zinc-400 w-full ${className}`}
+      className={`overflow-hidden px-2.5 py-2 bg-white rounded-2xl border border-dashed border-zinc-400 w-full h-full flex flex-col ${className} gap-y-2`}
       style={style}
       onClick={onClick}
     >
-      <div className="flex gap-2.5 text-lg font-bold tracking-tight leading-none text-amber-400 whitespace-nowrap">
-
-        <div className="flex overflow-hidden flex-col grow shrink-0 justify-center items-start px-3 py-3 rounded-md border border-solid basis-0 border-zinc-100 w-fit">
+      {/* 카테고리 섹션 - 고정 높이 */}
+      <div className="flex gap-2.5 text-sm font-bold tracking-tight leading-none text-amber-400 whitespace-nowrap flex-shrink-0">
+        <div className="flex overflow-hidden flex-col grow shrink-0 justify-center items-start px-2 py-1.5 rounded-md border border-solid basis-0 border-zinc-100 w-fit">
           <div>{category}</div>
         </div>
       </div>
 
-      <div className="flex gap-1.5 mt-4">
-        {displayImages.slice(0, 3).map((src, index) => (
-          <img
-            key={index}
-            src={src}
-            className={`object-contain shrink-0 max-w-full rounded-md ${
-              index === 0
-                ? "aspect-square w-[105px]"
-                : index === 1
-                  ? "aspect-[1.35] w-[142px]"
-                  : "aspect-[0.97] w-[102px]"
-            }`}
-            alt={`Image ${index + 1}`}
-          />
-        ))}
+      {/* 이미지 그리드 - 제한된 높이 */}
+      <div className="grid grid-cols-2 gap-1 h-[215px]">
+        {(() => {
+          // 최소 1개, 최대 4개의 이미지 표시
+          const imageCount = Math.max(1, Math.min(4, displayImages.length));
+          const imagesToShow = displayImages.slice(0, imageCount);
+          
+          // 이미지가 없으면 기본 noimage를 최소 1개 표시
+          if (imagesToShow.length === 0) {
+            return (
+              <div className="flex relative">
+                <Image
+                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+                  alt="No image"
+                  fill
+                  className="object-cover rounded-md"
+                />
+              </div>
+            );
+          }
+          
+          return imagesToShow.map((imageSrc, index) => (
+            <div key={index} className="flex relative">
+              <Image
+                src={imageSrc}
+                alt={`Image ${index + 1}`}
+                fill
+                className="object-cover rounded-md"
+              />
+            </div>
+          ));
+        })()}
       </div>
 
-      <div className="flex gap-1.5 mt-1.5">
-        {displayImages.slice(3, 6).map((src, index) => (
-          <img
-            key={index + 3}
-            src={src}
-            className={`object-contain shrink-0 max-w-full rounded-md ${
-              index === 0
-                ? "aspect-[1.35] w-[142px]"
-                : index === 1
-                  ? "aspect-square w-[105px]"
-                  : "aspect-[0.97] w-[102px]"
-            }`}
-            alt={`Image ${index + 4}`}
-          />
-        ))}
-      </div>
-
-      <div className="flex overflow-hidden flex-col items-center px-12 py-3.5 mt-1.5 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400">
-        <div className="flex gap-1.5 self-stretch w-full">
+      {/* 하단 입력 영역 - 남은 공간 사용 */}
+      <div className="flex overflow-hidden flex-col items-center px-3 py-2 flex-1 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 min-h-0 justify-center">
+        <div className="flex gap-1.5 w-4/5 mb-2"> 
           <input
             type="text"
             value={inputValue}
             onChange={handleInputChange}
             placeholder={placeholderText}
-            className="w-full h-[27px] text-[11px] border border-1 border-[#F0F0F0] text-zinc-400 placeholder-zinc-400 outline-none rounded-md"
+            className="flex overflow-hidden flex-col justify-center items-start px-2 py-1.5 text-xs tracking-tight bg-white rounded-md border border-solid border-zinc-100 text-zinc-400 placeholder-zinc-400 flex-1 outline-none"
           />
           <button
             onClick={handleAIGenerate}
-            className="flex  w-[56px] h-[27px] flex items-center justify-center gap-1 rounded-md items-center "
-            style={{
-              background: 'linear-gradient(to right, #FA8C3D 0%, #FF8560 50%, #FAB83D 100%)'
-            }}
+            className="flex overflow-hidden gap-1 px-1.5 py-1.5 text-xs font-semibold tracking-tight text-white rounded-md bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90 transition-opacity whitespace-nowrap"
           >
-            <Image
+            <img
               src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/leaf.svg"
-              className="object-contain aspect-square"
-              width={12}
-              height={12}
+              className="object-contain shrink-0 w-3 aspect-square"
               alt="AI icon"
             />
-            <div className="text-white text-[11px]">AI 생성</div>
+            <span>AI 생성</span>
           </button>
         </div>
 
-        <div className="mt-3 text-xs font-semibold tracking-tight text-slate-300">
+        <div className="text-[11px] font-semibold tracking-tight text-slate-300 text-center mb-1 leading-tight">
           활동에 맞는 키워드를 입력하거나 메모를 드래그 또는
         </div>
 
-        <div className="flex gap-1.5 mt-1 max-w-full text-xs font-semibold tracking-tight text-slate-300 w-[135px]">
+        <div className="flex gap-1.5 text-xs font-semibold tracking-tight text-slate-300 items-center">
           <button
             onClick={handleImageUpload}
-            className="flex items-center gap-1.5 hover:text-slate-400 transition-colors cursor-pointer"
+            className="flex items-center gap-0.5 hover:text-slate-400 transition-colors cursor-pointer justify-center"
           >
-            <img
-              src="https://api.builder.io/api/v1/image/assets/304aa4871c104446b0f8164e96d049f4/4130790501b0a7bc5b842afc4d832301a04ee225?placeholderIfAbsent=true"
-              className="object-contain shrink-0 aspect-square w-[15px]"
+            <Image
+              src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload.svg"
+              width={11}
+              height={11}
+              className="object-contain"
               alt="Upload icon"
             />
-            <div className="grow shrink w-[111px]">
-              를 눌러서 업로드 해 주세요.
-            </div>
+            <div className="text-slate-300 text-[11px]">를 눌러서 업로드 해 주세요.</div>
           </button>
         </div>
       </div>
 
-      {children}
+      {children && <div className="mt-1 flex-shrink-0">{children}</div>}
     </div>
   );
 }
