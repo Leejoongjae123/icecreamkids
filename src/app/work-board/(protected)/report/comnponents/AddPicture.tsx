@@ -86,10 +86,8 @@ function AddPicture({ children }: AddPictureProps) {
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <div onClick={(e) => e.stopPropagation()}>
-          {children}
-        </div>
+      <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
+        {children}
       </DialogTrigger>
       <DialogContent className="max-w-[1200px] p-0 border-none bg-transparent shadow-none z-[60]" style={{ zIndex: 60 }}>
         <div className="flex overflow-hidden flex-col items-start py-10 pl-10 bg-white rounded-2xl max-md:pl-5">

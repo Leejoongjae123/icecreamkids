@@ -135,7 +135,7 @@ function ReportAContent() {
               </Button>
               <Button
                 size="sm"
-                className="bg-amber-500 hover:bg-amber-600 text-white font-semibold h-[34px]"
+                className="bg-primary hover:bg-primary/80 text-white font-semibold h-[34px]"
               >
                 완료
               </Button>
