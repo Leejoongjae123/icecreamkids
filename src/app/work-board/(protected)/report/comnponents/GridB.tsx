@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import GridBElement from "./GridBElement";
 import AddButton from "./AddButton";
+import GridEditToolbar from "./GridEditToolbar";
 
 interface GridBProps {
   gridCount?: number;
@@ -16,18 +17,44 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
   const subjectParam = searchParams.get('subject');
   const subjectCount = subjectParam ? Math.min(Math.max(parseInt(subjectParam), 1), 12) : 12;
   
-  // 각 이미지 영역의 체크 상태 관리
-  const [checkedItems, setCheckedItems] = React.useState<Record<number, boolean>>({});
+  // 선택된 아이템 관리 (하나만 선택 가능)
+  const [selectedItem, setSelectedItem] = React.useState<number | null>(null);
   
   // 삭제된 아이템들을 관리하는 상태
   const [deletedItems, setDeletedItems] = React.useState<Set<number>>(new Set());
+  
+  // 확장된 아이템들을 관리하는 상태 (col-span-2가 적용된 아이템)
+  const [expandedItems, setExpandedItems] = React.useState<Set<number>>(new Set());
 
-  // 체크 상태 변경 핸들러
-  const handleCheckedChange = (index: number, checked: boolean) => {
-    setCheckedItems(prev => ({
-      ...prev,
-      [index]: checked
-    }));
+  // + 버튼 클릭 핸들러 (확장 기능)
+  const handleExpand = (firstIndex: number, secondIndex: number) => {
+    // 뒤쪽 아이템 삭제
+    setDeletedItems(prev => {
+      const newSet = new Set(prev);
+      newSet.add(secondIndex);
+      return newSet;
+    });
+    
+    // 앞쪽 아이템 확장
+    setExpandedItems(prev => {
+      const newSet = new Set(prev);
+      newSet.add(firstIndex);
+      return newSet;
+    });
+    
+    // 삭제된 아이템이 선택되어 있다면 선택 해제
+    if (selectedItem === secondIndex) {
+      setSelectedItem(null);
+    }
+  };
+
+  // 선택 상태 변경 핸들러
+  const handleSelectChange = (index: number, isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedItem(index);
+    } else {
+      setSelectedItem(null);
+    }
   };
 
   // 삭제 핸들러
@@ -37,12 +64,38 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
       newSet.add(index);
       return newSet;
     });
-    // 삭제된 아이템의 체크 상태도 제거
-    setCheckedItems(prev => {
-      const updated = { ...prev };
-      delete updated[index];
-      return updated;
-    });
+    // 삭제된 아이템이 선택되어 있다면 선택 해제
+    if (selectedItem === index) {
+      setSelectedItem(null);
+    }
+  };
+
+  // 툴바 핸들러들
+  const handleToolbarDelete = () => {
+    if (selectedItem) {
+      handleDelete(selectedItem);
+    }
+  };
+
+  const handleToolbarEdit = () => {
+    if (selectedItem) {
+      // 편집 로직 구현
+      console.log(`편집: 아이템 ${selectedItem}`);
+    }
+  };
+
+  const handleToolbarDuplicate = () => {
+    if (selectedItem) {
+      // 복제 로직 구현
+      console.log(`복제: 아이템 ${selectedItem}`);
+    }
+  };
+
+  const handleToolbarMove = () => {
+    if (selectedItem) {
+      // 이동 로직 구현
+      console.log(`이동: 아이템 ${selectedItem}`);
+    }
   };
 
   // 그리드 아이템들을 렌더링하는 함수
@@ -56,17 +109,14 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
           <GridBElement
             key={i}
             index={i}
-            gridId={`grid-b-${i}`}
-            onClick={() => console.log(`이미지 영역 ${i} 클릭됨`)}
-            checked={checkedItems[i] || false}
-            onCheckedChange={(checked) => handleCheckedChange(i, checked)}
+            isSelected={selectedItem === i}
+            onSelectChange={(isSelected) => handleSelectChange(i, isSelected)}
             onDelete={() => handleDelete(i)}
+            isExpanded={expandedItems.has(i)}
           />
         );
-      } else {
-        // subject 범위를 벗어나거나 삭제된 아이템은 빈 공간
-        items.push(<div key={`empty-${i}`} />);
       }
+      // 삭제된 아이템이나 범위 밖 아이템은 아예 렌더링하지 않음 (빈 div 제거)
     }
     
     return items;
@@ -89,9 +139,10 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
     buttonPositions.forEach(({ between, row, position }) => {
       const [first, second] = between;
       
-      // 두 요소가 모두 표시되고 삭제되지 않은 경우에만 플러스 버튼 표시
+      // 두 요소가 모두 표시되고 삭제되지 않은 경우, 그리고 확장되지 않은 경우에만 플러스 버튼 표시
       if (first <= subjectCount && second <= subjectCount && 
-          !deletedItems.has(first) && !deletedItems.has(second)) {
+          !deletedItems.has(first) && !deletedItems.has(second) &&
+          !expandedItems.has(first) && !expandedItems.has(second)) {
         const topPosition = `${(row * 33.33) + 16.67}%`; // 각 행의 중앙
         const leftPosition = position === 'left' ? '25%' : '75%'; // 좌측 또는 우측 중앙
         
@@ -105,7 +156,7 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
             }}
           >
             <AddButton
-              onClick={() => console.log(`+ 버튼 클릭됨: ${first}-${second} 사이`)}
+              onClick={() => handleExpand(first, second)}
             />
           </div>
         );

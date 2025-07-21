@@ -12,13 +12,14 @@ interface GridBElementProps {
   children?: React.ReactNode;
   onClick?: () => void;
   style?: React.CSSProperties;
-  checked?: boolean;
-  onCheckedChange?: (checked: boolean) => void;
+  isSelected?: boolean;
+  onSelectChange?: (isSelected: boolean) => void;
   images?: string[];
   onAIGenerate?: () => void;
   onImageUpload?: () => void;
   onDelete?: () => void;
   placeholderText?: string;
+  isExpanded?: boolean; // col-span-2 적용 여부
 }
 
 function GridBElement({
@@ -28,13 +29,14 @@ function GridBElement({
   children,
   onClick,
   style,
-  checked,
-  onCheckedChange,
+  isSelected = false,
+  onSelectChange,
   images = [],
   onAIGenerate,
   onImageUpload,
   onDelete,
   placeholderText = "ex) 아이들과 촉감놀이를 했어요",
+  isExpanded = false,
 }: GridBElementProps) {
   const [inputValue, setInputValue] = React.useState("");
   
@@ -78,7 +80,7 @@ function GridBElement({
     }
   };
 
-  // 이미지가 아닌 영역 클릭 핸들러 - 툴바 표시
+  // 이미지가 아닌 영역 클릭 핸들러 - 툴바 표시 및 기존 선택 로직
   const handleNonImageClick = (event: React.MouseEvent) => {
     event.stopPropagation(); // 이벤트 전파 방지
     
@@ -88,6 +90,10 @@ function GridBElement({
       isExpanded: true,
     });
     
+    // 기존 선택 로직 유지
+    if (onSelectChange) {
+      onSelectChange(!isSelected);
+    }
     if (onClick) {
       onClick();
     }
@@ -131,15 +137,15 @@ function GridBElement({
     };
   }, [toolbarState.show, gridId]);
 
-  // 툴바 표시 상태에 따른 border 스타일 결정
-  const borderClass = toolbarState.show 
-    ? "border-solid border-2 border-primary" 
-    : "border-dashed border border-zinc-400";
+  // 툴바 표시 상태 또는 기존 선택 상태에 따른 border 스타일 결정
+  const borderClass = (toolbarState.show || isSelected)
+    ? 'border-solid border-primary border-2' 
+    : 'border-dashed border-zinc-400';
 
   return (
-    <div className="relative">
+    <div className={`relative ${isExpanded ? 'col-span-2' : ''}`}>
       <div
-        className={`relative overflow-hidden px-3 py-3 bg-white rounded-2xl ${borderClass} w-full h-full flex flex-col ${className} gap-y-2`}
+        className={`relative overflow-hidden px-3 py-3 bg-white rounded-2xl border ${borderClass} w-full h-full flex flex-col ${className} gap-y-2 cursor-pointer`}
         style={style}
         onClick={handleNonImageClick}
         data-grid-id={gridId}
@@ -151,7 +157,7 @@ function GridBElement({
               e.stopPropagation();
               handleDelete();
             }}
-            className="absolute top-2 right-2 w-7 h-7 bg-white border border-gray-200 rounded-md flex items-center justify-center z-20"
+            className="absolute top-2 right-2 w-7 h-7 bg-white border border-[#F0F0F0] rounded-md flex items-center justify-center z-20"
           >
             <Image
               src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/trash.svg"
