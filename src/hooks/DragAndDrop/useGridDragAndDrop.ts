@@ -14,7 +14,7 @@ export function useGridDragAndDrop({ id, index, moveCard }: UseGridDragAndDropPr
     accept: "card",
     collect(monitor) {
       return {
-        handlerId: monitor.getHandlerId()
+        handlerId: monitor.getHandlerId() || ""
       };
     },
     hover(item: DragItem, monitor) {

@@ -1,16 +1,22 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
-import type { IDragAndDropFileState } from '@/components/common/DragAndDrop/types';
+
+// 파일 업로드를 위한 타입 정의
+export interface IFileUploadState {
+  file: File;
+  preview: string;
+  id: string;
+}
 
 interface IUseDragAndDropProps<T> {
-  handleSetFiles: Dispatch<SetStateAction<IDragAndDropFileState[]>>;
-  files: IDragAndDropFileState[];
+  handleSetFiles: Dispatch<SetStateAction<IFileUploadState[]>>;
+  files: IFileUploadState[];
 }
 
 interface IUseDragAndDropReturn<T> {
   dndEvent: {
     handleDragEnter: () => void;
     handleDragLeave: () => void;
-    handleDragOver: () => void;
+    handleDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
     handleDrop: (e: React.DragEvent<HTMLDivElement>) => void;
     handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   };
@@ -42,7 +48,7 @@ export function useDragAndDrop<T = any>({
     setIsDragging(false);
 
     const droppedFiles = Array.from(e.dataTransfer.files);
-    const newFiles: IDragAndDropFileState[] = droppedFiles.map((file) => ({
+    const newFiles: IFileUploadState[] = droppedFiles.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
       id: Math.random().toString(36).substring(2, 11), // Unique ID
@@ -55,7 +61,7 @@ export function useDragAndDrop<T = any>({
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
     if (selectedFiles) {
-      const newFiles: IDragAndDropFileState[] = Array.from(selectedFiles).map(
+      const newFiles: IFileUploadState[] = Array.from(selectedFiles).map(
         (file) => ({
           file,
           preview: URL.createObjectURL(file),
