@@ -18,6 +18,9 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
   
   // 각 이미지 영역의 체크 상태 관리
   const [checkedItems, setCheckedItems] = React.useState<Record<number, boolean>>({});
+  
+  // 삭제된 아이템들을 관리하는 상태
+  const [deletedItems, setDeletedItems] = React.useState<Set<number>>(new Set());
 
   // 체크 상태 변경 핸들러
   const handleCheckedChange = (index: number, checked: boolean) => {
@@ -27,23 +30,41 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
     }));
   };
 
+  // 삭제 핸들러
+  const handleDelete = (index: number) => {
+    setDeletedItems(prev => {
+      const newSet = new Set(prev);
+      newSet.add(index);
+      return newSet;
+    });
+    // 삭제된 아이템의 체크 상태도 제거
+    setCheckedItems(prev => {
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
+  };
+
   // 그리드 아이템들을 렌더링하는 함수
   const renderGridItems = () => {
     const items = [];
     
     for (let i = 1; i <= 12; i++) {
-      if (i <= subjectCount) {
+      if (i <= subjectCount && !deletedItems.has(i)) {
+        // 삭제되지 않은 아이템만 렌더링
         items.push(
           <GridBElement
             key={i}
             index={i}
+            gridId={`grid-b-${i}`}
             onClick={() => console.log(`이미지 영역 ${i} 클릭됨`)}
             checked={checkedItems[i] || false}
             onCheckedChange={(checked) => handleCheckedChange(i, checked)}
+            onDelete={() => handleDelete(i)}
           />
         );
       } else {
-        // subject 범위를 벗어나면 빈 공간
+        // subject 범위를 벗어나거나 삭제된 아이템은 빈 공간
         items.push(<div key={`empty-${i}`} />);
       }
     }
@@ -68,8 +89,9 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
     buttonPositions.forEach(({ between, row, position }) => {
       const [first, second] = between;
       
-      // 두 요소가 모두 표시되는 경우에만 플러스 버튼 표시
-      if (first <= subjectCount && second <= subjectCount) {
+      // 두 요소가 모두 표시되고 삭제되지 않은 경우에만 플러스 버튼 표시
+      if (first <= subjectCount && second <= subjectCount && 
+          !deletedItems.has(first) && !deletedItems.has(second)) {
         const topPosition = `${(row * 33.33) + 16.67}%`; // 각 행의 중앙
         const leftPosition = position === 'left' ? '25%' : '75%'; // 좌측 또는 우측 중앙
         

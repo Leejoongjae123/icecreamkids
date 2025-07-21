@@ -47,7 +47,7 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
     const isActive = activeSection === section;
     return `relative flex flex-col w-full h-full border rounded-[15px] cursor-pointer ${
       isActive
-        ? "border-solid border-primary" 
+        ? "border-solid border-primary border-2" 
         : "border-dashed border-zinc-400"
     }`;
   };

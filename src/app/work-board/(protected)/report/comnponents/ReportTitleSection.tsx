@@ -147,7 +147,7 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
       <div 
         className={`flex flex-col w-[60%] border rounded-[15px] items-center justify-center cursor-text transition-colors p-2 ${
           isFocused
-            ? 'border-primary border-solid' 
+            ? 'border-primary border-solid border-2' 
             : 'border-zinc-400 border-dashed hover:border-gray-400'
         }`}
         onClick={() => contentRef.current?.focus()}
@@ -179,7 +179,7 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
         <div 
           className={`flex flex-col w-full h-1/2 border rounded-[15px] items-center justify-center cursor-text transition-colors p-1 overflow-hidden ${
             isTopFocused
-              ? 'border-primary border-solid' 
+              ? 'border-primary border-solid border-2' 
               : 'border-zinc-400 border-dashed hover:border-gray-400'
           }`}
           onClick={() => topContentRef.current?.focus()}
@@ -206,7 +206,7 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
         <div 
           className={`flex flex-col w-full h-1/2 border rounded-[15px] items-center justify-center cursor-text transition-colors p-1 overflow-hidden ${
             isBottomFocused
-              ? 'border-primary border-solid' 
+              ? 'border-primary border-solid border-2' 
               : 'border-zinc-400 border-dashed hover:border-gray-400'
           }`}
           onClick={() => bottomContentRef.current?.focus()}
