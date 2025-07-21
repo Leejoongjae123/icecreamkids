@@ -22,6 +22,7 @@ interface GridAElementProps {
   isDragging?: boolean; // 드래그 상태 추가
   dragAttributes?: any; // 드래그 속성 추가
   dragListeners?: any; // 드래그 리스너 추가
+  cardType?: 'large' | 'small'; // 카드 타입 추가
 }
 
 function GridAElement({
@@ -41,6 +42,7 @@ function GridAElement({
   isDragging = false, // 드래그 상태 추가
   dragAttributes, // 드래그 속성 추가
   dragListeners, // 드래그 리스너 추가
+  cardType, // 카드 타입 추가
 }: GridAElementProps) {
   const [inputValue, setInputValue] = React.useState("");
   
@@ -145,32 +147,31 @@ function GridAElement({
   return (
     <div className="relative w-full h-full">
       <div
-        className={`drag-contents overflow-hidden px-2.5 py-2.5 bg-white rounded-2xl ${containerClass} w-full h-full flex flex-col ${className} gap-y-1.5 ${isDragging ? 'opacity-90' : ''} transition-all duration-200`}
+        className={`drag-contents overflow-hidden px-2.5 py-2.5 bg-white rounded-2xl ${containerClass} w-full h-full flex flex-col ${className} gap-y-1.5 ${isDragging ? 'opacity-90' : ''} transition-all duration-200 cursor-grab active:cursor-grabbing`}
         style={style}
         onClick={handleNonImageClick}
         data-grid-id={gridId}
+        {...dragAttributes}
+        {...dragListeners}
       >
-        {/* 드래그 핸들 영역 */}
-        
-
         {/* 카테고리 섹션 - 고정 높이 */}
         <div className="flex gap-2.5 text-sm font-bold tracking-tight leading-none text-amber-400 whitespace-nowrap flex-shrink-0 mb-1">
-          <div 
-            className="flex overflow-hidden flex-col grow shrink-0 justify-center items-start px-2 py-1 rounded-md border border-solid basis-0 border-gray-300 w-fit cursor-grab active:cursor-grabbing"
-            {...dragAttributes}
-            {...dragListeners}
-          >
+          <div className="flex overflow-hidden flex-col grow shrink-0 justify-center items-start px-2 py-1 rounded-md border border-solid basis-0 border-gray-300 w-fit">
             <div className="text-[16px] pointer-events-none select-none leading-tight">{category}</div>
-            {/* 드래그 아이콘 추가 */}
-            <div className="text-[10px] text-gray-400 pointer-events-none select-none leading-tight">드래그</div>
+            
           </div>
         </div>
 
-        {/* 이미지 그리드 - 더 많은 공간 차지 */}
-        <div className="grid grid-cols-2 gap-1 flex-1 min-h-[140px]">
+        {/* 이미지 그리드 - 카드 타입에 따라 다른 레이아웃 */}
+        <div className={`grid gap-1 flex-1 ${
+          cardType === 'large' 
+            ? 'grid-cols-3 min-h-[160px]' // large 카드는 3열로 더 많은 이미지 표시
+            : 'grid-cols-2 min-h-[140px]' // small 카드는 2열
+        }`}>
           {(() => {
-            // 최소 1개, 최대 4개의 이미지 표시
-            const imageCount = Math.max(1, Math.min(4, displayImages.length));
+            // 카드 타입에 따라 표시할 이미지 개수 결정
+            const maxImageCount = cardType === 'large' ? 6 : 4;
+            const imageCount = Math.max(1, Math.min(maxImageCount, displayImages.length));
             const imagesToShow = displayImages.slice(0, imageCount);
             
             // 이미지가 없으면 기본 noimage를 최소 1개 표시

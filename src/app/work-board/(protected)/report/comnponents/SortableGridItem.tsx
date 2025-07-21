@@ -13,6 +13,8 @@ interface SortableGridItemProps {
   category?: string;
   images?: string[];
   placeholderText?: string;
+  isOverlay?: boolean; // 드래그 중 hover된 상태
+  cardType?: 'large' | 'small'; // 카드 타입 추가
 }
 
 function SortableGridItem({
@@ -24,6 +26,8 @@ function SortableGridItem({
   category = "촉감놀이",
   images = [],
   placeholderText = "ex) 아이들과 촉감놀이를 했어요",
+  isOverlay = false,
+  cardType,
 }: SortableGridItemProps) {
   const {
     attributes,
@@ -45,7 +49,7 @@ function SortableGridItem({
     <div
       ref={setNodeRef}
       style={sortableStyle}
-      className={`touch-none ${isDragging ? 'z-50' : ''}`}
+      className={`touch-none ${isDragging ? 'z-50' : ''} ${isOverlay ? 'ring-2 ring-primary ring-opacity-50' : ''}`}
     >
       <GridAElement
         index={index}
@@ -59,6 +63,7 @@ function SortableGridItem({
         isDragging={isDragging}
         dragAttributes={attributes}
         dragListeners={listeners}
+        cardType={cardType}
       />
     </div>
   );

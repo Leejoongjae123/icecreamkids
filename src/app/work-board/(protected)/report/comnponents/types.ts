@@ -61,6 +61,7 @@ export interface GridItem {
   category: string;
   images: string[];
   inputValue: string;
+  cardType?: 'large' | 'small'; // 3개 레이아웃에서 카드 타입
 }
 
 export interface GridAElementProps {

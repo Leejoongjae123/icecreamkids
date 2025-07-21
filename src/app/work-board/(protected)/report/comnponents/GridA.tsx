@@ -12,7 +12,6 @@ import {
   DragOverlay,
 } from "@dnd-kit/core";
 import {
-  arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   rectSortingStrategy,
@@ -90,22 +89,38 @@ function GridA({ subject }: GridAProps) {
     setActiveId(event.active.id as string);
   };
 
-  // 드래그 종료 핸들러
+  // 드래그 종료 핸들러 (1:1 swap 방식)
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (active.id !== over?.id) {
+    if (active.id !== over?.id && over?.id) {
       setItems((items) => {
-        const oldIndex = items.findIndex(item => item.id === active.id);
-        const newIndex = items.findIndex(item => item.id === over?.id);
+        const activeIndex = items.findIndex(item => item.id === active.id);
+        const overIndex = items.findIndex(item => item.id === over.id);
 
-        const newItems = arrayMove(items, oldIndex, newIndex);
+        if (activeIndex === -1 || overIndex === -1) return items;
+
+        // 1:1 swap: 두 아이템의 위치만 교환
+        const newItems = [...items];
+        const activeItem = { ...newItems[activeIndex] };
+        const overItem = { ...newItems[overIndex] };
         
-        // 인덱스 재정렬
-        return newItems.map((item, index) => ({
-          ...item,
-          index: index + 1,
-        }));
+        // 인덱스 값만 서로 교환
+        const tempIndex = activeItem.index;
+        activeItem.index = overItem.index;
+        overItem.index = tempIndex;
+        
+        // 배열에서 위치 교환
+        newItems[activeIndex] = overItem;
+        newItems[overIndex] = activeItem;
+
+        // subject가 3일 때 카드 타입 업데이트
+        if (subject === 3) {
+          newItems[activeIndex].cardType = newItems[activeIndex].index === 1 ? 'large' : 'small';
+          newItems[overIndex].cardType = newItems[overIndex].index === 1 ? 'large' : 'small';
+        }
+
+        return newItems;
       });
     }
 
@@ -191,6 +206,7 @@ function GridA({ subject }: GridAProps) {
               category={item.category}
               images={item.images}
               placeholderText={`ex) 아이들과 ${item.category}를 했어요`}
+              cardType={subject === 3 ? (item.index === 1 ? 'large' : 'small') : undefined}
             />
           ))}
         </div>
@@ -208,6 +224,7 @@ function GridA({ subject }: GridAProps) {
               images={activeItem.images}
               placeholderText={`ex) 아이들과 ${activeItem.category}를 했어요`}
               isDragging={true}
+              cardType={subject === 3 ? (activeItem.index === 1 ? 'large' : 'small') : undefined}
             />
           </div>
         ) : null}
