@@ -2,60 +2,80 @@ import { useState, type Dispatch, type SetStateAction } from 'react';
 import type { IDragAndDropFileState } from '@/components/common/DragAndDrop/types';
 
 interface IUseDragAndDropProps<T> {
-  initialItems: T[];
-  onItemsChange?: (items: T[]) => void;
-  onSelectionChange?: (ids: number[]) => void;
+  handleSetFiles: Dispatch<SetStateAction<IDragAndDropFileState[]>>;
+  files: IDragAndDropFileState[];
 }
 
 interface IUseDragAndDropReturn<T> {
-  availableItems: T[];
-  uploadedItems: T[];
-  selectedIds: number[];
-  setUploadedItems: Dispatch<SetStateAction<T[]>>;
-  setSelectedIds: Dispatch<SetStateAction<number[]>>;
-  updateAvailableItems: (items: T[]) => void;
+  dndEvent: {
+    handleDragEnter: () => void;
+    handleDragLeave: () => void;
+    handleDragOver: () => void;
+    handleDrop: (e: React.DragEvent<HTMLDivElement>) => void;
+    handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  };
+  isDragging: boolean;
+  uploadedFiles: any[];
 }
 
-export function useDragAndDrop<T>({
-  initialItems,
-  onItemsChange,
-  onSelectionChange,
+export function useDragAndDrop<T = any>({
+  handleSetFiles,
+  files,
 }: IUseDragAndDropProps<T>): IUseDragAndDropReturn<T> {
-  const [state, setState] = useState<IDragAndDropFileState<T>>({
-    availableItems: initialItems,
-    uploadedItems: [],
-    selectedIds: [],
-  });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
 
-  const setUploadedItems: Dispatch<SetStateAction<T[]>> = (items) => {
-    const newItems = typeof items === 'function' ? items(state.uploadedItems) : items;
-    setState((prev) => ({
-      ...prev,
-      uploadedItems: newItems,
-    }));
-    onItemsChange?.(newItems);
+  const handleDragEnter = () => {
+    setIsDragging(true);
   };
 
-  const setSelectedIds: Dispatch<SetStateAction<number[]>> = (ids) => {
-    const newIds = typeof ids === 'function' ? ids(state.selectedIds) : ids;
-    setState((prev) => ({
-      ...prev,
-      selectedIds: newIds,
-    }));
-    onSelectionChange?.(newIds);
+  const handleDragLeave = () => {
+    setIsDragging(false);
   };
 
-  const updateAvailableItems = (items: T[]) => {
-    setState((prev) => ({
-      ...prev,
-      availableItems: items,
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    const newFiles: IDragAndDropFileState[] = droppedFiles.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+      id: Math.random().toString(36).substring(2, 11), // Unique ID
     }));
+
+    handleSetFiles((prevFiles) => [...prevFiles, ...newFiles]);
+    setUploadedFiles((prev) => [...prev, ...newFiles]);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (selectedFiles) {
+      const newFiles: IDragAndDropFileState[] = Array.from(selectedFiles).map(
+        (file) => ({
+          file,
+          preview: URL.createObjectURL(file),
+          id: Math.random().toString(36).substring(2, 11),
+        })
+      );
+      handleSetFiles((prevFiles) => [...prevFiles, ...newFiles]);
+      setUploadedFiles((prev) => [...prev, ...newFiles]);
+    }
   };
 
   return {
-    ...state,
-    setUploadedItems,
-    setSelectedIds,
-    updateAvailableItems,
+    dndEvent: {
+      handleDragEnter,
+      handleDragLeave,
+      handleDragOver,
+      handleDrop,
+      handleFileUpload,
+    },
+    isDragging,
+    uploadedFiles,
   };
 }

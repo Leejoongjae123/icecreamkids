@@ -16,4 +16,15 @@ interface IUseFileDropProps {
   uploadedFiles: any[];
 }
 
+export interface DragItem {
+  index: number;
+  id: string;
+  type: string;
+}
+
+export interface GridItem {
+  id: string;
+  index: number;
+}
+
 export type { IUseFileUploadProps, IUseFileDropProps };
