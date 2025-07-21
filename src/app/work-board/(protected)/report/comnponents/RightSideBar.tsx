@@ -74,6 +74,12 @@ function RightSideBarContent() {
   // 타입이 변경될 때 subject 관련 상태 업데이트
   useEffect(() => {
     console.log("useEffect 실행 - 현재 타입:", currentType);
+    
+    // B타입일 때는 subject 관련 상태를 설정하지 않음
+    if (currentType === "B") {
+      return;
+    }
+    
     const subjectParam = searchParams.get('subject');
     console.log("subjectParam:", subjectParam);
     
@@ -149,6 +155,12 @@ function RightSideBarContent() {
   const handleTypeSelect = (type: "A" | "B" | "C") => {
     const newSearchParams = new URLSearchParams(searchParams);
     newSearchParams.set("type", type);
+    
+    // B타입일 때는 subject 파라미터 제거
+    if (type === "B") {
+      newSearchParams.delete("subject");
+    }
+    
     router.push(`?${newSearchParams.toString()}`);
     setIsTypeModalOpen(false);
     console.log(`타입 선택: ${type}`);
@@ -179,7 +191,7 @@ function RightSideBarContent() {
   return (
     <div className="flex flex-col gap-2.5 max-h-[calc(100vh-120px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
       <Button
-        className="box-border flex gap-1 justify-center items-center py-3 pr-2 pl-2 bg-amber-400 hover:bg-amber-500 rounded-xl h-[42px] w-[110px] max-sm:w-full max-sm:text-sm max-sm:max-w-[280px]"
+        className="box-border flex gap-1 justify-center items-center py-3 pr-2 pl-2 bg-primary hover:bg-primary/80 rounded-xl h-[42px] w-[110px] max-sm:w-full max-sm:text-sm max-sm:max-w-[280px]"
         onClick={() => {
           // 놀이기록 생성 로직
           console.log("놀이기록 생성");
@@ -216,12 +228,8 @@ function RightSideBarContent() {
         </div>
       </Button>
 
-      {/* A타입과 B타입일 때 놀이주제 표시 */}
-      {(() => {
-        const shouldShow = currentType === "A" || currentType === "B";
-        console.log("놀이주제 표시 여부:", shouldShow, "currentType:", currentType);
-        return shouldShow;
-      })() && (
+      {/* A타입일 때만 놀이주제 표시 (B타입에서는 숨김) */}
+      {currentType === "A" && (
         <Popover open={isSubjectPopoverOpen} onOpenChange={setIsSubjectPopoverOpen}>
           <PopoverTrigger asChild>
             <Button

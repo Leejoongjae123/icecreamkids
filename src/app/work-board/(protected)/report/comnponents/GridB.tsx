@@ -9,12 +9,12 @@ interface GridBProps {
   gridCount?: number;
 }
 
-function GridBContent({ gridCount = 6 }: GridBProps) {
+function GridBContent({ gridCount = 12 }: GridBProps) {
   const searchParams = useSearchParams();
   
   // searchParams에서 subject 값을 가져오고, 1~12 범위로 제한
   const subjectParam = searchParams.get('subject');
-  const subjectCount = subjectParam ? Math.min(Math.max(parseInt(subjectParam), 1), 12) : gridCount;
+  const subjectCount = subjectParam ? Math.min(Math.max(parseInt(subjectParam), 1), 12) : 12;
   
   // 각 이미지 영역의 체크 상태 관리
   const [checkedItems, setCheckedItems] = React.useState<Record<number, boolean>>({});

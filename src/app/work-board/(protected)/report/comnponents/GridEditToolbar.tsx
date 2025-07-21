@@ -10,7 +10,7 @@ import PhotoFrameModal from "./PhotoFrameModal";
 import TextStickerModal from "./TextStickerModal";
 import DecorationStickerModal from "./DecorationStickerModal";
 
-interface ImageEditToolbarProps {
+interface GridEditToolbarProps {
   show: boolean;
   isExpanded: boolean;
   position?: {
@@ -21,25 +21,38 @@ interface ImageEditToolbarProps {
   targetGridId?: string; // 특정 그리드 식별을 위한 ID
 }
 
-const ImageEditToolbar: React.FC<ImageEditToolbarProps> = ({
+const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
   show,
   isExpanded,
-  position = { left: "calc(50% - 150px)", top: "calc(50% + 100px + 8px)" },
+  position = { left: "8px", top: "calc(100% + 8px)" },
   onIconClick,
   targetGridId,
 }) => {
   const [isPhotoFrameModalOpen, setIsPhotoFrameModalOpen] = useState(false);
   const [isTextStickerModalOpen, setIsTextStickerModalOpen] = useState(false);
   const [isDecorationStickerModalOpen, setIsDecorationStickerModalOpen] = useState(false);
+  const [internalExpanded, setInternalExpanded] = useState(false);
 
   // 디버깅용 useEffect
   useEffect(() => {
-    console.log("ImageEditToolbar 렌더링됨, show:", show);
+    console.log("GridEditToolbar 렌더링됨, show:", show);
   }, [show]);
 
   useEffect(() => {
     console.log("PhotoFrameModal 상태 변경:", isPhotoFrameModalOpen);
   }, [isPhotoFrameModalOpen]);
+
+  // show가 true가 되면 약간의 지연 후 펼치기
+  useEffect(() => {
+    if (show) {
+      const timer = setTimeout(() => {
+        setInternalExpanded(true);
+      }, 100); // 100ms 후 펼치기
+      return () => clearTimeout(timer);
+    } else {
+      setInternalExpanded(false);
+    }
+  }, [show]);
 
   // 각 아이콘에 대한 툴팁 텍스트
   const tooltipTexts = [
@@ -115,17 +128,18 @@ const ImageEditToolbar: React.FC<ImageEditToolbarProps> = ({
       >
         <div
           className="relative flex items-center justify-center"
-          style={{ width: "230px", height: "38px" }}
+          style={{ width: "290px", height: "38px" }}
         >
           {[...Array(6)].map((_, index) => (
             <Tooltip key={index}>
               <TooltipTrigger asChild>
                 <div
-                  className="w-[38px] h-[38px] bg-black hover:bg-primary rounded-full absolute flex items-center justify-center cursor-pointer transition-colors duration-200"
+                  className="w-[38px] h-[38px] bg-black hover:bg-primary rounded-full absolute flex items-center justify-center cursor-pointer transition-all duration-200 hover:-translate-y-1"
                   style={{
-                    left: isExpanded ? `${index * 48}px` : "0px",
-                    transition: "left 0.5s ease-in-out",
-                    zIndex: 5 - index,
+                    left: internalExpanded ? `${index * (38 + 12)}px` : "0px",
+                    transition: "left 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease-in-out, background-color 0.2s ease-in-out",
+                    transitionDelay: internalExpanded ? `${index * 50}ms` : "0ms",
+                    zIndex: 6 - index,
                   }}
                   onClick={() => handleIconClick(index)}
                 >
@@ -173,4 +187,4 @@ const ImageEditToolbar: React.FC<ImageEditToolbarProps> = ({
   );
 };
 
-export default ImageEditToolbar;
+export default GridEditToolbar; 

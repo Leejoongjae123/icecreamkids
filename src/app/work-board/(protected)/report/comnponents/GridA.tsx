@@ -77,7 +77,7 @@ function GridA({ subject }: GridAProps) {
         <GridAElement
           key={i}
           index={i}
-          onClick={() => console.log(`이미지 영역 ${i} 클릭됨`)}
+          gridId={`grid-${i}`}
           style={getItemStyle(i)}
           checked={checkedItems[i] || false}
           onCheckedChange={(checked) => handleCheckedChange(i, checked)}
@@ -91,7 +91,7 @@ function GridA({ subject }: GridAProps) {
 
   return (
     <div 
-      className={layout.className}
+      className={`${layout.className} grid-container relative`}
       style={layout.style}
     >
       {renderImageAreas()}
