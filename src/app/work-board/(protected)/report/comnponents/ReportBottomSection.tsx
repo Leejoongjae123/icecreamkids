@@ -59,7 +59,7 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
         <div 
           className={`relative flex flex-col w-full h-[174px] border rounded-[15px] cursor-pointer ${
             activeSection === "playActivity"
-              ? "border-solid border-primary" 
+              ? "border-solid border-primary border-2" 
               : "border-dashed border-zinc-400"
           }`}
           onClick={(e) => handleSectionClick("playActivity", e)}
@@ -117,7 +117,7 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
                 height={16}
               />
             </div>
-            교사지원
+            놀이속 배움 / 교사지원
           </h3>
           {(activeSection === "teacherSupport" || teacherSupportText) && (
             <textarea

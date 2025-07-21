@@ -15,7 +15,7 @@ import {
 import AddPicture from "./AddPicture";
 import ApplyModal from "./ApplyModal";
 import ConfirmModal from "./ConfirmModal";
-import ImageEditToolbar from "./ImageEditToolbar";
+import GridEditToolbar from "./GridEditToolbar";
 import ReportBottomSection from "./ReportBottomSection";
 import ReportTitleSection from "./ReportTitleSection";
 import GridA from "./GridA";
