@@ -145,9 +145,9 @@ function GridBElement({
     : 'border-dashed border-zinc-400';
 
   return (
-    <div className={`relative ${isExpanded ? 'col-span-2' : ''} ${isHidden ? 'opacity-0 pointer-events-none' : ''}`}>
+    <div className="relative w-full h-full">
       <div
-        className={`relative overflow-hidden px-3 py-3 bg-white rounded-2xl border ${borderClass} w-full h-full flex flex-col ${className} gap-y-2 cursor-pointer`}
+        className={`relative overflow-hidden px-2.5 py-2.5 bg-white rounded-2xl border ${borderClass} w-full h-full flex flex-col ${className} gap-y-1.5 cursor-pointer`}
         style={style}
         onClick={handleNonImageClick}
         data-grid-id={gridId}
@@ -170,11 +170,13 @@ function GridBElement({
             />
           </button>
         )}
-        {/* 이미지 그리드 - 2개 이미지만 표시, 사이즈 1/2로 축소 */}
-        <div className="grid grid-cols-2 gap-1 h-[calc(105/240*100%)]">
+
+        {/* 이미지 그리드 - 적절한 높이로 설정하고 flex-1로 공간 차지 */}
+        <div className={`grid gap-1 flex-1 min-h-[120px] grid-cols-2`}>
           {(() => {
-            // 최소 1개, 최대 2개의 이미지 표시
-            const imageCount = Math.max(1, Math.min(2, displayImages.length));
+            // 최대 2개의 이미지만 표시
+            const maxImageCount = 2;
+            const imageCount = Math.max(1, Math.min(maxImageCount, displayImages.length));
             const imagesToShow = displayImages.slice(0, imageCount);
             
             // 이미지가 없으면 기본 noimage를 최소 1개 표시
@@ -182,7 +184,7 @@ function GridBElement({
               return (
                 <AddPicture>
                   <div 
-                    className="flex relative cursor-pointer hover:opacity-80 transition-opacity"
+                    className="flex relative cursor-pointer hover:opacity-80 transition-opacity h-full"
                     onClick={handleImageClick}
                   >
                     <Image
@@ -199,7 +201,7 @@ function GridBElement({
             return imagesToShow.map((imageSrc, index) => (
               <AddPicture key={index}>
                 <div 
-                  className="flex relative cursor-pointer hover:opacity-80 transition-opacity group"
+                  className="flex relative cursor-pointer hover:opacity-80 transition-opacity group h-full"
                   onClick={handleImageClick}
                 >
                   <Image
@@ -209,7 +211,7 @@ function GridBElement({
                     className="object-cover rounded-md"
                   />
                   {/* Black overlay */}
-                  <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
                     {/* Upload icon */}
                     <Image
                       src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
@@ -233,16 +235,16 @@ function GridBElement({
           })()}
         </div>
 
-        {/* 하단 입력 영역 - 남은 공간 사용 */}
-        <div className="flex overflow-hidden flex-col items-center px-1 py-2 flex-1 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 min-h-0 justify-center">
-          <div className="flex gap-1.5 px-1 mb-2 w-full"> 
+        {/* 하단 입력 영역 - flex-shrink-0으로 고정 높이 유지 */}
+        <div className="flex overflow-hidden flex-col items-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 min-h-[90px] justify-center flex-shrink-0">
+          <div className="flex gap-1.5 w-full mb-1.5"> 
             <Input
               type="text"
               value={inputValue}
               onChange={handleInputChange}
               placeholder={placeholderText}
-              className="h-[27px] px-2 py-1.5 text-xs tracking-tight bg-white border border-gray-300 text-zinc-600 placeholder-zinc-400 flex-1 shadow-none !rounded-md focus:ring-0 focus-visible:ring-0 focus:outline-none focus:border-primary focus:border-2"
-              style={{ borderRadius: '6px', fontSize: '11px' }}
+              className="h-[26px] px-2 py-1 text-xs tracking-tight bg-white border border-gray-300 text-zinc-600 placeholder-zinc-400 flex-1 shadow-none !rounded-md focus:ring-0 focus-visible:ring-0 focus:outline-none focus:border-primary focus:border-2"
+              style={{ borderRadius: '6px', fontSize: '10px' }}
               onClick={handleImageClick} // Input 클릭 시에도 이벤트 전파 방지
             />
             <button
@@ -250,24 +252,24 @@ function GridBElement({
                 e.stopPropagation(); // 이벤트 전파 방지
                 handleAIGenerate();
               }}
-              className="flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight text-white rounded-md bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90 flex justify-center items-center w-[48px] h-[25px]"
+              className="flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight text-white rounded-md bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90 flex justify-center items-center w-[54px] h-[26px]"
             >
               <Image
                 src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/leaf.svg"
                 className="object-contain"
-                width={10}
-                height={10}
+                width={11}
+                height={11}
                 alt="AI icon"
               />
-              <div className="text-[8px] tracking-[-0.03em]">AI 생성</div>
+              <div className="text-[10px] tracking-[-0.03em]">AI 생성</div>
             </button>
           </div>
 
-          <div className="text-[8px] font-semibold tracking-tight text-slate-300 text-center mb-1 leading-tight">
+          <div className="text-[10px] font-semibold tracking-tight text-slate-300 text-center mb-1 leading-tight px-1">
             활동에 맞는 키워드를 입력하거나 메모를 드래그 또는
           </div>
 
-          <div className="flex gap-1.5 text-xs font-semibold tracking-tight text-slate-300 items-center">
+          <div className="flex gap-1 text-xs font-semibold tracking-tight text-slate-300 items-center">
             <AddPicture>
               <button
                 onClick={(e) => {
@@ -278,12 +280,12 @@ function GridBElement({
               >
                 <Image
                   src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload.svg"
-                  width={8}
-                  height={8}
+                  width={10}
+                  height={10}
                   className="object-contain"
                   alt="Upload icon"
                 />
-                <div className="text-slate-300 text-[8px]">를 눌러서 업로드 해 주세요.</div>
+                <div className="text-slate-300 text-[10px]">를 눌러서 업로드 해 주세요.</div>
               </button>
             </AddPicture>
           </div>

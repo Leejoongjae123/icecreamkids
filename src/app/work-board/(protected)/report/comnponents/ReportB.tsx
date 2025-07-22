@@ -142,16 +142,18 @@ function ReportBContent() {
             </div>
           </div>
 
-          <div className="flex flex-col w-full h-[1130px] justify-between gap-y-3">
+          <div className="flex flex-col w-full ">
             <ReportTitleSection />
 
-            {/* 이미지 그리드 */}
-            <div className="flex-1 w-full h-full min-h-[600px]">
+            {/* 이미지 그리드 - 3행 × 240px + gap 12px를 고려한 고정 높이 */}
+            <div className="w-full h-[756px] mt-3">
               <GridB gridCount={gridCount} />
             </div>
 
-            {/* 하단 텍스트 부위 */}
-            <ReportBottomSection type="B" />
+            {/* 하단 텍스트 부위 - 정확한 여백으로 위치 조정 */}
+            <div className="mt-3 h-[174px]">
+              <ReportBottomSection type="B" />
+            </div>
           </div>
         </div>
       </div>

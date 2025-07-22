@@ -23,6 +23,7 @@ interface GridAElementProps {
   dragAttributes?: any; // 드래그 속성 추가
   dragListeners?: any; // 드래그 리스너 추가
   cardType?: 'large' | 'small'; // 카드 타입 추가
+  isExpanded?: boolean; // 확장 상태 추가
 }
 
 function GridAElement({
@@ -43,6 +44,7 @@ function GridAElement({
   dragAttributes, // 드래그 속성 추가
   dragListeners, // 드래그 리스너 추가
   cardType, // 카드 타입 추가
+  isExpanded = false, // 확장 상태 추가
 }: GridAElementProps) {
   const [inputValue, setInputValue] = React.useState("");
   
@@ -166,7 +168,7 @@ function GridAElement({
         <div className={`grid gap-1 flex-1 ${
           cardType === 'large' 
             ? 'grid-cols-3 min-h-[160px]' // large 카드는 3열로 더 많은 이미지 표시
-            : 'grid-cols-2 min-h-[140px]' // small 카드는 2열
+            : 'grid-cols-2 min-h-[215px]' // small 카드는 2열
         }`}>
           {(() => {
             // 카드 타입에 따라 표시할 이미지 개수 결정

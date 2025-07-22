@@ -2,21 +2,22 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import ThemeSelectionModal from "./ThemeSelectionModal";
 
 function LeftSideBarContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  
+
   const [selectedTab, setSelectedTab] = useState<"theme" | "background">(
-    "theme",
+    "theme"
   );
   const [selectedTheme, setSelectedTheme] = useState<number>(2);
   const [selectedBackground, setSelectedBackground] = useState<number>(0);
 
   // 초기 렌더링 시 searchParams에서 theme 값 읽어오기
   useEffect(() => {
-    const themeParam = searchParams.get('theme');
+    const themeParam = searchParams.get("theme");
     if (themeParam) {
       const themeIndex = parseInt(themeParam);
       if (!isNaN(themeIndex) && themeIndex >= 0 && themeIndex < 8) {
@@ -28,22 +29,33 @@ function LeftSideBarContent() {
   // 테마 선택 시 URL searchParams 업데이트
   const handleThemeSelect = (index: number) => {
     setSelectedTheme(index);
-    
+
     const current = new URLSearchParams(Array.from(searchParams.entries()));
-    current.set('theme', index.toString());
-    
+    current.set("theme", index.toString());
+
     const search = current.toString();
     const query = search ? `?${search}` : "";
-    
+
     router.push(`${window.location.pathname}${query}`);
   };
 
   return (
     <div className="rounded-xl bg-white shadow-custom flex w-full max-w-[480px] flex-col overflow-hidden mx-auto p-[30px_20px] border border-gray-200">
       <div className="flex flex-col">
-        <div className="flex font-pretendard leading-none">
-          <div className="text-gray-700 text-xl font-semibold tracking-tight self-start">
-            테마 선택
+        <div className="flex font-pretendard leading-none justify-between items-center">
+          <div className="text-gray-700 text-xl font-semibold tracking-tight">
+            추천 테마
+          </div>
+          <div className="flex justify-center">
+            <ThemeSelectionModal>
+              <Button
+                variant="default"
+                className="w-[80px] h-[38px] rounded-md text-[14px] font-semibold font-pretendard text-white flex items-center justify-center gap-1"
+              >
+                <Plus size={16} />
+                더보기
+              </Button>
+            </ThemeSelectionModal>
           </div>
         </div>
 
@@ -98,17 +110,6 @@ function LeftSideBarContent() {
                       />
                     </div>
                   ))}
-                </div>
-
-                <div className="flex justify-center w-full">
-                  <ThemeSelectionModal>
-                    <Button
-                      variant="default"
-                      className="mt-5 w-[132px] h-[42px] rounded-full self-center text-sm font-semibold font-pretendard text-white"
-                    >
-                      더보기
-                    </Button>
-                  </ThemeSelectionModal>
                 </div>
               </div>
             )}

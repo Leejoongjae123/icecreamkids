@@ -191,7 +191,7 @@ function RightSideBarContent() {
   return (
     <div className="flex flex-col gap-2.5 max-h-[calc(100vh-120px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
       <Button
-        className="box-border flex gap-1 justify-center items-center py-3 pr-2 pl-2 bg-primary hover:bg-primary/80 rounded-xl h-[42px] w-[110px] max-sm:w-full max-sm:text-sm max-sm:max-w-[280px]"
+        className="box-border flex flex-col gap-1 justify-center items-center py-3 pr-2 pl-2 bg-primary hover:bg-primary/80 rounded-xl h-[72px] w-[110px] max-sm:w-full max-sm:text-sm max-sm:max-w-[280px]"
         onClick={() => {
           // 놀이기록 생성 로직
           console.log("놀이기록 생성");
@@ -200,8 +200,8 @@ function RightSideBarContent() {
         <Image
           src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/create.svg"
           alt="magic"
-          width={20}
-          height={20}
+          width={17.5}
+          height={17.5}
           className="rounded-full object-cover flex-shrink-0"
         />
         <div className="text-xs font-semibold leading-3 text-white whitespace-nowrap flex items-center gap-1 max-sm:text-sm">

@@ -155,4 +155,37 @@ export interface DndGridAElementProps {
   isDragging?: boolean;
   dragAttributes?: any;
   dragListeners?: any;
+  cardType?: 'large' | 'small';
+}
+
+// GridB 컴포넌트용 타입 추가
+export interface GridBItem {
+  id: string;
+  index: number;
+  isSelected: boolean;
+  isExpanded: boolean;
+  isHidden: boolean;
+  images?: string[];
+  inputValue?: string;
+}
+
+export interface GridBElementDndProps {
+  index: number;
+  gridId?: string;
+  className?: string;
+  children?: React.ReactNode;
+  onClick?: () => void;
+  style?: React.CSSProperties;
+  isSelected?: boolean;
+  onSelectChange?: (isSelected: boolean) => void;
+  images?: string[];
+  onAIGenerate?: () => void;
+  onImageUpload?: () => void;
+  onDelete?: () => void;
+  placeholderText?: string;
+  isExpanded?: boolean;
+  isHidden?: boolean;
+  isDragging?: boolean;
+  dragAttributes?: any;
+  dragListeners?: any;
 }

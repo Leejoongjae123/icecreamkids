@@ -142,7 +142,7 @@ function ReportAContent() {
             </div>
           </div>
 
-          <div className="flex flex-col w-full h-[1130px] justify-between gap-y-3">
+          <div className="flex flex-col w-full justify-between gap-y-3">
             <ReportTitleSection />
 
             {/* 이미지 그리드 */}

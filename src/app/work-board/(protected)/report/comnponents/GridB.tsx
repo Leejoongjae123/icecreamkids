@@ -2,9 +2,31 @@
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import {
+  DndContext,
+  closestCenter,
+  closestCorners,
+  rectIntersection,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+  CollisionDetection,
+  getFirstCollision,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
 import GridBElement from "./GridBElement";
+import SortableGridBItem from "./SortableGridBItem";
 import AddButton from "./AddButton";
 import GridEditToolbar from "./GridEditToolbar";
+import { GridBItem } from "./types";
 
 interface GridBProps {
   gridCount?: number;
@@ -17,6 +39,26 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
   const subjectParam = searchParams.get('subject');
   const subjectCount = subjectParam ? Math.min(Math.max(parseInt(subjectParam), 1), 12) : 12;
   
+  // 그리드 아이템 데이터 관리
+  const [items, setItems] = React.useState<GridBItem[]>(() => {
+    const initialItems: GridBItem[] = [];
+    for (let i = 1; i <= 12; i++) {
+      initialItems.push({
+        id: `grid-b-${i}`,
+        index: i,
+        isSelected: false,
+        isExpanded: false,
+        isHidden: false,
+        images: [],
+        inputValue: ""
+      });
+    }
+    return initialItems;
+  });
+
+  // 현재 드래그 중인 아이템
+  const [activeId, setActiveId] = React.useState<string | null>(null);
+  
   // 선택된 아이템 관리 (하나만 선택 가능)
   const [selectedItem, setSelectedItem] = React.useState<number | null>(null);
   
@@ -28,6 +70,34 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
   
   // 확장된 아이템들을 관리하는 상태 (col-span-2가 적용된 아이템)
   const [expandedItems, setExpandedItems] = React.useState<Set<number>>(new Set());
+
+  // 센서 설정
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // 커스텀 collision detection - 확장된 아이템을 고려
+  const customCollisionDetection: CollisionDetection = (args) => {
+    const { active, collisionRect, droppableRects, droppableContainers } = args;
+    
+    // 먼저 rect intersection으로 충돌 감지
+    const rectCollisions = rectIntersection(args);
+    
+    // rect collision이 있으면 우선 사용
+    if (rectCollisions.length > 0) {
+      return rectCollisions;
+    }
+    
+    // 없으면 closest center로 fallback
+    return closestCenter(args);
+  };
 
   // + 버튼 클릭 핸들러 (확장 기능)
   const handleExpand = (firstIndex: number, secondIndex: number) => {
@@ -45,6 +115,16 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
       return newSet;
     });
     
+    // items 상태 업데이트
+    setItems(prev => 
+      prev.map(item => {
+        if (item.index === firstIndex) {
+          return { ...item, isExpanded: true };
+        }
+        return item;
+      })
+    );
+    
     // 제거된 아이템이 선택되어 있다면 선택 해제
     if (selectedItem === secondIndex) {
       setSelectedItem(null);
@@ -58,6 +138,14 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
     } else {
       setSelectedItem(null);
     }
+    
+    // items 상태 업데이트
+    setItems(prev => 
+      prev.map(item => ({
+        ...item,
+        isSelected: item.index === index ? isSelected : false
+      }))
+    );
   };
 
   // 삭제 핸들러 (쓰레기통 버튼 - 숨김 처리)
@@ -67,10 +155,139 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
       newSet.add(index);
       return newSet;
     });
+    
+    // items 상태 업데이트
+    setItems(prev => 
+      prev.map(item => 
+        item.index === index ? { ...item, isHidden: true } : item
+      )
+    );
+    
     // 숨겨진 아이템이 선택되어 있다면 선택 해제
     if (selectedItem === index) {
       setSelectedItem(null);
     }
+  };
+
+  // 드래그 시작 핸들러
+  const handleDragStart = (event: DragStartEvent) => {
+    const draggedItem = items.find(item => item.id === event.active.id);
+    if (draggedItem) {
+      // 숨겨진 아이템이나 제거된 아이템은 드래그 시작 방지
+      if (hiddenItems.has(draggedItem.index) || removedItems.has(draggedItem.index)) {
+        return;
+      }
+    }
+    setActiveId(event.active.id as string);
+  };
+
+  // 드래그 종료 핸들러 (1:1 swap 방식)
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id && over?.id) {
+      const activeItemId = active.id as string;
+      const overItemId = over.id as string;
+      
+      setItems((currentItems) => {
+        const activeIndex = currentItems.findIndex(item => item.id === activeItemId);
+        const overIndex = currentItems.findIndex(item => item.id === overItemId);
+
+        if (activeIndex === -1 || overIndex === -1) return currentItems;
+
+        const activeItem = currentItems[activeIndex];
+        const overItem = currentItems[overIndex];
+        
+        // 숨겨진 아이템이나 제거된 아이템은 드래그 불가
+        if (hiddenItems.has(activeItem.index) || removedItems.has(activeItem.index) ||
+            hiddenItems.has(overItem.index) || removedItems.has(overItem.index)) {
+          return currentItems;
+        }
+
+        // 새로운 배열 생성
+        const newItems = [...currentItems];
+        
+        // 확장된 아이템 처리를 고려한 swap
+        const activeGridIndex = activeItem.index;
+        const overGridIndex = overItem.index;
+        
+        // 두 아이템의 모든 데이터를 교환 (인덱스 제외)
+        const tempActiveItem = {
+          ...activeItem,
+          index: overGridIndex
+        };
+        const tempOverItem = {
+          ...overItem,  
+          index: activeGridIndex
+        };
+        
+        // 배열에서 위치 교환
+        newItems[activeIndex] = tempOverItem;
+        newItems[overIndex] = tempActiveItem;
+
+        return newItems;
+      });
+
+      // 확장/숨김 상태도 함께 교환
+      const activeItem = items.find(item => item.id === activeItemId);
+      const overItem = items.find(item => item.id === overItemId);
+      
+      if (activeItem && overItem) {
+        const activeGridIndex = activeItem.index;
+        const overGridIndex = overItem.index;
+        
+        // 확장 상태 교환
+        setExpandedItems(prev => {
+          const newSet = new Set(prev);
+          const activeExpanded = prev.has(activeGridIndex);
+          const overExpanded = prev.has(overGridIndex);
+          
+          // 기존 상태 제거
+          newSet.delete(activeGridIndex);
+          newSet.delete(overGridIndex);
+          
+          // 교환된 상태 적용
+          if (activeExpanded) {
+            newSet.add(overGridIndex);
+          }
+          if (overExpanded) {
+            newSet.add(activeGridIndex);
+          }
+          
+          return newSet;
+        });
+
+        // 숨김 상태 교환
+        setHiddenItems(prev => {
+          const newSet = new Set(prev);
+          const activeHidden = prev.has(activeGridIndex);
+          const overHidden = prev.has(overGridIndex);
+          
+          // 기존 상태 제거
+          newSet.delete(activeGridIndex);
+          newSet.delete(overGridIndex);
+          
+          // 교환된 상태 적용
+          if (activeHidden) {
+            newSet.add(overGridIndex);
+          }
+          if (overHidden) {
+            newSet.add(activeGridIndex);
+          }
+          
+          return newSet;
+        });
+
+        // 선택 상태 업데이트
+        if (selectedItem === activeGridIndex) {
+          setSelectedItem(overGridIndex);
+        } else if (selectedItem === overGridIndex) {
+          setSelectedItem(activeGridIndex);
+        }
+      }
+    }
+
+    setActiveId(null);
   };
 
   // 툴바 핸들러들
@@ -103,27 +320,27 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
 
   // 그리드 아이템들을 렌더링하는 함수
   const renderGridItems = () => {
-    const items = [];
-    
-    for (let i = 1; i <= 12; i++) {
-      // subjectCount 범위 내에 있고, 제거되지 않은 아이템만 렌더링
-      if (i <= subjectCount && !removedItems.has(i)) {
-        items.push(
-          <GridBElement
-            key={i}
-            index={i}
-            isSelected={selectedItem === i}
-            onSelectChange={(isSelected) => handleSelectChange(i, isSelected)}
-            onDelete={() => handleDelete(i)}
-            isExpanded={expandedItems.has(i)}
-            isHidden={hiddenItems.has(i)} // 숨김 상태 전달
-          />
-        );
+    // 항상 12개의 그리드를 렌더링하되, subjectCount에 따라 표시 여부 결정
+    return items.slice(0, 12).map((item) => {
+      // subjectCount를 초과하거나 완전히 제거된 아이템은 렌더링하지 않음
+      if (item.index > subjectCount || removedItems.has(item.index)) {
+        return null;
       }
-      // 제거된 아이템은 아예 렌더링하지 않음 (빈 div도 생성하지 않음)
-    }
-    
-    return items;
+      
+      return (
+        <SortableGridBItem
+          key={item.id}
+          id={item.id}
+          index={item.index}
+          isSelected={selectedItem === item.index}
+          onSelectChange={(isSelected) => handleSelectChange(item.index, isSelected)}
+          onDelete={() => handleDelete(item.index)}
+          isExpanded={expandedItems.has(item.index)}
+          isHidden={hiddenItems.has(item.index)}
+          images={item.images}
+        />
+      );
+    }).filter(Boolean); // null 값 제거
   };
 
   // floating 플러스 버튼들을 렌더링하는 함수
@@ -143,12 +360,20 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
     buttonPositions.forEach(({ between, row, position }) => {
       const [first, second] = between;
       
-      // 두 요소가 모두 표시되고 제거되지 않은 경우, 확장되지 않은 경우, 그리고 숨김처리되지 않은 경우에만 플러스 버튼 표시
+      // 확장된 아이템이 있는 행에서는 플러스 버튼을 표시하지 않음
+      const hasExpandedInRow = Array.from(expandedItems).some(expandedIndex => {
+        const expandedRow = Math.floor((expandedIndex - 1) / 4);
+        return expandedRow === row;
+      });
+      
+      // 두 요소가 모두 표시되고 제거되지 않은 경우, 확장되지 않은 경우, 숨김처리되지 않은 경우, 그리고 해당 행에 확장된 아이템이 없는 경우에만 플러스 버튼 표시
       if (first <= subjectCount && second <= subjectCount && 
           !removedItems.has(first) && !removedItems.has(second) &&
           !expandedItems.has(first) && !expandedItems.has(second) &&
-          !hiddenItems.has(first) && !hiddenItems.has(second)) {
-        const topPosition = `${(row * 33.33) + 16.67}%`; // 각 행의 중앙
+          !hiddenItems.has(first) && !hiddenItems.has(second) &&
+          !hasExpandedInRow) {
+        // 240px 카드 높이 기준으로 각 행의 정확한 중앙 계산
+        const topPosition = `${(row * 240) + 120 + (row * 12)}px`; // 카드 높이(240px) + gap(12px) 고려
         const leftPosition = position === 'left' ? '25%' : '75%'; // 좌측 또는 우측 중앙
         
         buttons.push(
@@ -171,16 +396,54 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
     return buttons;
   };
 
+  const activeItem = items.find(item => item.id === activeId);
+
   return (
-    <div className="w-full h-full relative">
-      {/* 기본 그리드 레이아웃 (4x3) */}
-      <div className="w-full h-full grid grid-cols-4 grid-rows-3 gap-3">
-        {renderGridItems()}
-      </div>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={customCollisionDetection}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext 
+        items={items.filter(item => 
+          item.index <= subjectCount && 
+          !removedItems.has(item.index)
+        ).map(item => item.id)} 
+        strategy={rectSortingStrategy}
+      >
+        <div className="w-full h-full relative">
+          {/* 기본 그리드 레이아웃 (4x3) */}
+          <div className={`w-full h-full grid grid-cols-4 gap-3 transition-colors duration-200 ${
+            activeId ? 'bg-primary/5' : ''
+          }`}
+          style={{ gridTemplateRows: 'repeat(3, 240px)' }}>
+            {renderGridItems()}
+          </div>
+          
+          {/* Floating 플러스 버튼들 */}
+          {renderFloatingButtons()}
+        </div>
+      </SortableContext>
       
-      {/* Floating 플러스 버튼들 */}
-      {renderFloatingButtons()}
-    </div>
+      <DragOverlay>
+        {activeId && activeItem ? (
+          <div className="rotate-6 scale-110 shadow-2xl border-2 border-primary rounded-2xl">
+            <GridBElement
+              index={activeItem.index}
+              gridId={activeItem.id}
+              isSelected={activeItem.isSelected}
+              onSelectChange={() => {}}
+              onDelete={() => {}}
+              isExpanded={activeItem.isExpanded}
+              isHidden={activeItem.isHidden}
+              images={activeItem.images}
+              placeholderText="ex) 아이들과 촉감놀이를 했어요"
+            />
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
 
