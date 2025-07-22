@@ -75,36 +75,7 @@ export interface CanvasHandlers {
   onEditEnd?: (id: string) => void;
 }
 
-// React Image Crop 관련 타입들
-import { Crop, PixelCrop } from 'react-image-crop';
 
-export interface CropData {
-  crop: Crop;
-  pixelCrop?: PixelCrop;
-  croppedImageUrl?: string;
-}
-
-// Crop 기반 그리드 아이템
-export interface CropGridItem {
-  id: string;
-  color: string;
-  shape: 'circle' | 'square' | 'star' | 'heart' | 'ellipse';
-  borderWidth: number;
-  originalImageUrl: string;    // 원본 이미지 URL
-  croppedImageUrl?: string;    // 크롭된 이미지 URL
-  isEditing: boolean;          // 편집 모드 여부
-  cropData?: CropData;         // 크롭 데이터
-  maskSize: { width: number; height: number };
-}
-
-// Crop 핸들러들
-export interface CropHandlers {
-  onCropChange?: (id: string, crop: Crop, pixelCrop?: PixelCrop) => void;
-  onCropComplete?: (id: string, crop: Crop, pixelCrop?: PixelCrop) => void;
-  onEditStart?: (id: string) => void;
-  onEditEnd?: (id: string) => void;
-  onImageLoad?: (id: string, image: HTMLImageElement) => void;
-}
 
 export interface SvgItem {
   id: string;
