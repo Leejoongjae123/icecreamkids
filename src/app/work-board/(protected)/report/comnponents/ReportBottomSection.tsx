@@ -105,7 +105,7 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
       {/* 교사지원과 가정연계 부분 - 모든 타입에서 보임 */}
       <div className="flex flex-row w-full h-[174px] gap-x-3">
         <div 
-          className={getSectionStyle("teacherSupport")}
+          className={`${getSectionStyle("teacherSupport")} bg-white`}
           onClick={(e) => handleSectionClick("teacherSupport", e)}
         >
           <h3 className="text-[12px] font-semibold p-3 text-primary flex items-center gap-1">
@@ -145,7 +145,7 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
           )}
         </div>
         <div 
-          className={getSectionStyle("homeConnection")}
+          className={`${getSectionStyle("homeConnection")} bg-white`}
           onClick={(e) => handleSectionClick("homeConnection", e)}
         >
           <h3 className="text-[12px] font-semibold p-3 text-primary flex items-center gap-1">

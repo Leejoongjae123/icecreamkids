@@ -132,7 +132,7 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
     <div
       className={`flex flex-row w-full justify-between h-[83px] ${className}`}
     >
-      <div className="flex flex-col w-[10%] border border-dashed border-zinc-400 rounded-[15px] items-center justify-center hover:border-gray-400  transition-colors cursor-pointer">
+      <div className="flex flex-col w-[10%] border border-dashed border-zinc-400 rounded-[15px] items-center justify-center hover:border-gray-400  transition-colors cursor-pointer bg-white">
         <AddPicture>
           <Image
             src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg"
@@ -145,7 +145,7 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
       </div>
 
       <div 
-        className={`flex flex-col w-[60%] border rounded-[15px] items-center justify-center cursor-text transition-colors p-2 ${
+        className={`flex flex-col w-[60%] border rounded-[15px] items-center justify-center cursor-text transition-colors p-2 bg-white ${
           isFocused
             ? 'border-primary border-solid border-2' 
             : 'border-zinc-400 border-dashed hover:border-gray-400'
@@ -177,7 +177,7 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
       <div className="flex flex-col w-[10%] gap-y-2">
         {/* 상단 박스 */}
         <div 
-          className={`flex flex-col w-full h-1/2 border rounded-[15px] items-center justify-center cursor-text transition-colors p-1 overflow-hidden ${
+          className={`flex flex-col w-full h-1/2 border rounded-[15px] items-center justify-center cursor-text transition-colors p-1 overflow-hidden bg-white ${
             isTopFocused
               ? 'border-primary border-solid border-2' 
               : 'border-zinc-400 border-dashed hover:border-gray-400'
@@ -204,7 +204,7 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
 
         {/* 하단 박스 */}
         <div 
-          className={`flex flex-col w-full h-1/2 border rounded-[15px] items-center justify-center cursor-text transition-colors p-1 overflow-hidden ${
+          className={`flex flex-col w-full h-1/2 border rounded-[15px] items-center justify-center cursor-text transition-colors p-1 overflow-hidden bg-white ${
             isBottomFocused
               ? 'border-primary border-solid border-2' 
               : 'border-zinc-400 border-dashed hover:border-gray-400'

@@ -87,7 +87,12 @@ function ReportAContent() {
     <TooltipProvider>
       <div className="w-full relative">
         {/* Header with A4 Template */}
-        <div className="w-full shadow-custom border border-gray-200 rounded-xl bg-white p-4">
+        <div 
+          className="bg-image w-full shadow-custom border border-gray-200 rounded-xl p-4 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: 'url(https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg.jpg)'
+          }}
+        >
           <div className="flex flex-row justify-between mb-4">
             <div className="flex gap-1 my-auto text-base tracking-tight">
               <img
