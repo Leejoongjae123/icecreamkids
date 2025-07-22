@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import {
   Tooltip,
   TooltipContent,
@@ -9,6 +10,8 @@ import {
 import PhotoFrameModal from "./PhotoFrameModal";
 import TextStickerModal from "./TextStickerModal";
 import DecorationStickerModal from "./DecorationStickerModal";
+import ImageCountModal from "./ImageCountModal";
+import { MdPhotoLibrary } from "react-icons/md";
 
 interface GridEditToolbarProps {
   show: boolean;
@@ -17,7 +20,7 @@ interface GridEditToolbarProps {
     left: string;
     top: string;
   };
-  onIconClick: (index: number) => void;
+  onIconClick: (index: number, data?: any) => void;
   targetGridId?: string; // 특정 그리드 식별을 위한 ID
 }
 
@@ -28,9 +31,12 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
   onIconClick,
   targetGridId,
 }) => {
+  const searchParams = useSearchParams();
+  const type = searchParams.get("type");
   const [isPhotoFrameModalOpen, setIsPhotoFrameModalOpen] = useState(false);
   const [isTextStickerModalOpen, setIsTextStickerModalOpen] = useState(false);
   const [isDecorationStickerModalOpen, setIsDecorationStickerModalOpen] = useState(false);
+  const [isImageCountModalOpen, setIsImageCountModalOpen] = useState(false);
   const [internalExpanded, setInternalExpanded] = useState(false);
 
   // 디버깅용 useEffect
@@ -56,7 +62,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
 
   // 각 아이콘에 대한 툴팁 텍스트
   const tooltipTexts = [
-    "사진틀 변경",
+    type === "A" || type === "B" ? "이미지 개수" : "사진틀 변경",
     "텍스트 스티커",
     "꾸미기 스티커",
     "사진 배경 제거",
@@ -68,9 +74,15 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
   const handleIconClick = (index: number) => {
     console.log("아이콘 클릭됨:", index);
     if (index === 0) {
-      // 사진틀 변경 클릭 시 모달 열기
-      console.log("사진틀 변경 클릭, 모달 열기");
-      setIsPhotoFrameModalOpen(true);
+      if (type === "A" || type === "B") {
+        // 이미지 개수 선택 모달 열기
+        console.log("이미지 개수 선택 클릭, 모달 열기");
+        setIsImageCountModalOpen(true);
+      } else {
+        // 사진틀 변경 클릭 시 모달 열기
+        console.log("사진틀 변경 클릭, 모달 열기");
+        setIsPhotoFrameModalOpen(true);
+      }
     } else if (index === 1) {
       // 텍스트 스티커 클릭 시 모달 열기
       console.log("텍스트 스티커 클릭, 모달 열기");
@@ -115,6 +127,23 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
     onIconClick(2); // 기존 로직도 호출
   };
 
+  const handleImageCountModalClose = () => {
+    setIsImageCountModalOpen(false);
+  };
+
+  const handleImageCountApply = (count: number) => {
+    console.log("Selected image count:", count);
+    console.log("Target grid ID:", targetGridId);
+    // 여기서 선택된 이미지 개수를 적용하는 로직을 구현할 수 있습니다
+    // 부모 컴포넌트로 그리드 ID와 이미지 개수를 전달
+    if (targetGridId) {
+      // 부모 컴포넌트의 콜백 함수를 통해 그리드 이미지 개수 변경
+      onIconClick(0, { action: 'changeImageCount', gridId: targetGridId, count });
+    } else {
+      onIconClick(0); // 기존 로직도 호출
+    }
+  };
+
   if (!show) return null;
 
   return (
@@ -145,13 +174,17 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
                   }}
                   onClick={() => handleIconClick(index)}
                 >
-                  <Image
-                    src={`https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix${index + 1}.svg`}
-                    alt={`fix${index + 1}`}
-                    width={18}
-                    height={18}
-                    className="object-contain"
-                  />
+                  {index === 0 && (type === "A" || type === "B") ? (
+                    <MdPhotoLibrary size={18} className="text-white" />
+                  ) : (
+                    <Image
+                      src={`https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix${index + 1}.svg`}
+                      alt={`fix${index + 1}`}
+                      width={18}
+                      height={18}
+                      className="object-contain"
+                    />
+                  )}
                 </div>
               </TooltipTrigger>
               <TooltipContent
@@ -184,6 +217,15 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
         isOpen={isDecorationStickerModalOpen}
         onClose={handleDecorationStickerModalClose}
         onApply={handleDecorationStickerApply}
+      />
+
+      {/* Image Count Modal */}
+      <ImageCountModal
+        isOpen={isImageCountModalOpen}
+        onClose={handleImageCountModalClose}
+        onApply={handleImageCountApply}
+        targetGridId={targetGridId}
+        type={type}
       />
     </>
   );

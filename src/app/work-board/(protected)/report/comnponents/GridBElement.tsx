@@ -21,6 +21,7 @@ interface GridBElementProps {
   placeholderText?: string;
   isExpanded?: boolean; // col-span-2 적용 여부
   isHidden?: boolean; // 숨김 처리 여부 (쓰레기통으로 삭제된 경우)
+  imageCount?: number; // 초기 이미지 개수
 }
 
 function GridBElement({
@@ -39,7 +40,53 @@ function GridBElement({
   placeholderText = "ex) 아이들과 촉감놀이를 했어요",
   isExpanded = false,
   isHidden = false,
+  imageCount: initialImageCount = 1, // 초기 이미지 개수
 }: GridBElementProps) {
+  // 이미지 개수 상태 관리
+  const [imageCount, setImageCount] = React.useState(initialImageCount);
+  
+  // 이미지 배열을 imageCount에 맞게 조정
+  const [currentImages, setCurrentImages] = React.useState<string[]>(() => {
+    const newImages = [...images];
+    // 이미지 개수에 맞게 배열 크기 조정
+    while (newImages.length < imageCount) {
+      newImages.push("");
+    }
+    return newImages.slice(0, imageCount);
+  });
+
+  // imageCount 변경 시 currentImages 업데이트
+  React.useEffect(() => {
+    setCurrentImages(prev => {
+      const newImages = [...prev];
+      // 이미지 개수에 맞게 배열 크기 조정
+      while (newImages.length < imageCount) {
+        newImages.push("");
+      }
+      return newImages.slice(0, imageCount);
+    });
+  }, [imageCount]);
+
+  // 이미지 그리드 레이아웃 클래스 결정
+  const getImageGridClass = (count: number) => {
+    switch (count) {
+      case 1:
+        return "grid-cols-1";
+      case 2:
+        return "grid-cols-2";
+      case 3:
+        return "grid-cols-3";
+      case 4:
+        return "grid-cols-2";
+      case 6:
+        return "grid-cols-3";
+      case 9:
+        return "grid-cols-3";
+      default:
+        return "grid-cols-1";
+    }
+  };
+
   const [inputValue, setInputValue] = React.useState("");
   
   // 툴바 상태 관리
@@ -115,8 +162,15 @@ function GridBElement({
   };
 
   // 툴바 아이콘 클릭 핸들러
-  const handleToolbarIconClick = (iconIndex: number) => {
-    console.log(`툴바 아이콘 ${iconIndex} 클릭됨, Grid ${index}`);
+  const handleToolbarIconClick = (iconIndex: number, data?: any) => {
+    console.log(`툴바 아이콘 ${iconIndex} 클릭됨, Grid ${index}`, data);
+    
+    // 이미지 개수 변경 처리
+    if (data && data.action === 'changeImageCount') {
+      console.log(`그리드 ${data.gridId}의 이미지 개수를 ${data.count}개로 변경`);
+      setImageCount(data.count);
+    }
+    
     // 여기에 각 아이콘별 로직 구현
   };
 
@@ -172,67 +226,56 @@ function GridBElement({
         )}
 
         {/* 이미지 그리드 - 적절한 높이로 설정하고 flex-1로 공간 차지 */}
-        <div className={`grid gap-1 flex-1 min-h-[120px] grid-cols-2`}>
-          {(() => {
-            // 최대 2개의 이미지만 표시
-            const maxImageCount = 2;
-            const imageCount = Math.max(1, Math.min(maxImageCount, displayImages.length));
-            const imagesToShow = displayImages.slice(0, imageCount);
-            
-            // 이미지가 없으면 기본 noimage를 최소 1개 표시
-            if (imagesToShow.length === 0) {
-              return (
-                <AddPicture>
-                  <div 
-                    className="flex relative cursor-pointer hover:opacity-80 transition-opacity h-full"
-                    onClick={handleImageClick}
-                  >
-                    <Image
-                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
-                      alt="No image"
-                      fill
-                      className="object-cover rounded-md"
-                    />
-                  </div>
-                </AddPicture>
-              );
-            }
-            
-            return imagesToShow.map((imageSrc, index) => (
-              <AddPicture key={index}>
-                <div 
-                  className="flex relative cursor-pointer hover:opacity-80 transition-opacity group h-full"
-                  onClick={handleImageClick}
-                >
+        <div className={`grid gap-1 flex-1 min-h-[120px] ${getImageGridClass(imageCount)}`}>
+          {currentImages.map((imageSrc, index) => (
+            <AddPicture key={index}>
+              <div 
+                className="flex relative cursor-pointer hover:opacity-80 transition-opacity group h-full"
+                onClick={handleImageClick}
+              >
+                {imageSrc ? (
                   <Image
                     src={imageSrc}
                     alt={`Image ${index + 1}`}
                     fill
                     className="object-cover rounded-md"
                   />
-                  {/* Black overlay */}
-                  <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-                    {/* Upload icon */}
-                    <Image
-                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                      width={20}
-                      height={20}
-                      className="object-contain mb-2"
-                      alt="Upload icon"
-                    />
-                    {/* Upload text */}
-                    <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
-                      이미지를 드래그하거나<br />클릭하여 업로드
-                    </div>
-                    {/* File select button */}
-                    <button className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors">
-                      파일선택
-                    </button>
+                ) : (
+                  <Image
+                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+                    alt="No image"
+                    fill
+                    className="object-cover rounded-md"
+                  />
+                )}
+                {/* Black overlay */}
+                <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                  {/* Upload icon */}
+                  <Image
+                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
+                    width={20}
+                    height={20}
+                    className="object-contain mb-2"
+                    alt="Upload icon"
+                  />
+                  {/* Upload text */}
+                  <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                    이미지를 드래그하거나<br />클릭하여 업로드
                   </div>
+                  {/* File select button */}
+                  <button 
+                    className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // 파일 선택 로직
+                    }}
+                  >
+                    파일선택
+                  </button>
                 </div>
-              </AddPicture>
-            ));
-          })()}
+              </div>
+            </AddPicture>
+          ))}
         </div>
 
         {/* 하단 입력 영역 - flex-shrink-0으로 고정 높이 유지 */}

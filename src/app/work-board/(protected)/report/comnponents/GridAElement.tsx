@@ -24,6 +24,8 @@ interface GridAElementProps {
   dragListeners?: any; // 드래그 리스너 추가
   cardType?: 'large' | 'small'; // 카드 타입 추가
   isExpanded?: boolean; // 확장 상태 추가
+  isWideCard?: boolean; // col-span-2인 경우를 위한 prop 추가
+  imageCount?: number; // 초기 이미지 개수
 }
 
 function GridAElement({
@@ -45,7 +47,55 @@ function GridAElement({
   dragListeners, // 드래그 리스너 추가
   cardType, // 카드 타입 추가
   isExpanded = false, // 확장 상태 추가
+  isWideCard = false, // col-span-2인 경우를 위한 prop 추가
+  imageCount: initialImageCount = 1, // 초기 이미지 개수
 }: GridAElementProps) {
+  // 이미지 개수 상태 관리
+  const [imageCount, setImageCount] = React.useState(initialImageCount);
+  
+  // 이미지 배열을 imageCount에 맞게 조정
+  const [currentImages, setCurrentImages] = React.useState<string[]>(() => {
+    const newImages = [...images];
+    // 이미지 개수에 맞게 배열 크기 조정
+    while (newImages.length < imageCount) {
+      newImages.push("");
+    }
+    return newImages.slice(0, imageCount);
+  });
+
+  // imageCount 변경 시 currentImages 업데이트
+  React.useEffect(() => {
+    setCurrentImages(prev => {
+      const newImages = [...prev];
+      // 이미지 개수에 맞게 배열 크기 조정
+      while (newImages.length < imageCount) {
+        newImages.push("");
+      }
+      return newImages.slice(0, imageCount);
+    });
+  }, [imageCount]);
+
+  // 이미지 그리드 레이아웃 클래스 결정
+  const getImageGridClass = (count: number, cardType?: string) => {
+    switch (count) {
+      case 1:
+        return "grid-cols-1";
+      case 2:
+        return "grid-cols-2";
+      case 3:
+        return "grid-cols-3";
+      case 4:
+        // A타입 large 카드일 때는 가로로 4개 배치
+        return cardType === 'large' ? "grid-cols-4" : "grid-cols-2";
+      case 6:
+        return "grid-cols-3";
+      case 9:
+        return "grid-cols-3";
+      default:
+        return "grid-cols-1";
+    }
+  };
+
   const [inputValue, setInputValue] = React.useState("");
   
   // 툴바 상태 관리
@@ -54,10 +104,8 @@ function GridAElement({
     isExpanded: false,
   });
 
-  // Default images if none provided
+  // Default images if none provided - A타입은 최대 4개로 제한
   const defaultImages = [
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
     "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
     "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
     "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
@@ -112,8 +160,15 @@ function GridAElement({
   };
 
   // 툴바 아이콘 클릭 핸들러
-  const handleToolbarIconClick = (iconIndex: number) => {
-    console.log(`툴바 아이콘 ${iconIndex} 클릭됨, Grid ${index}`);
+  const handleToolbarIconClick = (iconIndex: number, data?: any) => {
+    console.log(`툴바 아이콘 ${iconIndex} 클릭됨, Grid ${index}`, data);
+    
+    // 이미지 개수 변경 처리
+    if (data && data.action === 'changeImageCount') {
+      console.log(`그리드 ${data.gridId}의 이미지 개수를 ${data.count}개로 변경`);
+      setImageCount(data.count);
+    }
+    
     // 여기에 각 아이콘별 로직 구현
   };
 
@@ -164,78 +219,63 @@ function GridAElement({
           </div>
         </div>
 
-        {/* 이미지 그리드 - 카드 타입에 따라 다른 레이아웃 */}
+        {/* 이미지 그리드 - 카드 타입과 너비에 따라 다른 레이아웃 */}
         <div className={`grid gap-1 flex-1 ${
-          cardType === 'large' 
-            ? 'grid-cols-3 min-h-[160px]' // large 카드는 3열로 더 많은 이미지 표시
-            : 'grid-cols-2 min-h-[215px]' // small 카드는 2열
+          isWideCard
+            ? `${getImageGridClass(imageCount, cardType)} min-h-[160px]` // col-span-2인 경우 이미지 개수에 따라 배치
+            : cardType === 'large' 
+              ? `${getImageGridClass(imageCount, cardType)} min-h-[160px]` // large 카드는 이미지 개수에 따라 배치
+              : `${getImageGridClass(imageCount, cardType)} min-h-[215px]` // small 카드도 이미지 개수에 따라 배치
         }`}>
-          {(() => {
-            // 카드 타입에 따라 표시할 이미지 개수 결정
-            const maxImageCount = cardType === 'large' ? 6 : 4;
-            const imageCount = Math.max(1, Math.min(maxImageCount, displayImages.length));
-            const imagesToShow = displayImages.slice(0, imageCount);
-            
-            // 이미지가 없으면 기본 noimage를 최소 1개 표시
-            if (imagesToShow.length === 0) {
-              return (
-                <AddPicture>
-                  <div 
-                    className="flex relative cursor-pointer hover:opacity-80 transition-opacity h-full"
-                    onClick={handleImageClick}
-                  >
-                    <Image
-                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
-                      alt="No image"
-                      fill
-                      className="object-cover rounded-md"
-                    />
-                  </div>
-                </AddPicture>
-              );
-            }
-            
-            return imagesToShow.map((imageSrc, index) => (
-              <AddPicture key={index}>
-                <div 
-                  className="flex relative cursor-pointer hover:opacity-80 transition-opacity group h-full"
-                  onClick={handleImageClick}
-                >
+          {currentImages.map((imageSrc, index) => (
+            <AddPicture key={index}>
+              <div 
+                className="flex relative cursor-pointer hover:opacity-80 transition-opacity group h-full"
+                onClick={handleImageClick}
+              >
+                {imageSrc ? (
                   <Image
                     src={imageSrc}
                     alt={`Image ${index + 1}`}
                     fill
                     className="object-cover rounded-md"
                   />
-                  {/* Black overlay */}
-                  <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-                    {/* Upload icon */}
-                    <Image
-                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                      width={20}
-                      height={20}
-                      className="object-contain mb-2"
-                      alt="Upload icon"
-                    />
-                    {/* Upload text */}
-                    <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
-                      이미지를 드래그하거나<br />클릭하여 업로드
-                    </div>
-                    {/* File select button */}
-                    <button 
-                      className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // 파일 선택 로직
-                      }}
-                    >
-                      파일선택
-                    </button>
+                ) : (
+                  <Image
+                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+                    alt="No image"
+                    fill
+                    className="object-cover rounded-md"
+                  />
+                )}
+                {/* Black overlay */}
+                <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                  {/* Upload icon */}
+                  <Image
+                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
+                    width={20}
+                    height={20}
+                    className="object-contain mb-2"
+                    alt="Upload icon"
+                  />
+                  {/* Upload text */}
+                  <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                    이미지를 드래그하거나<br />클릭하여 업로드
                   </div>
+                  {/* File select button */}
+                  <button 
+                    className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // 파일 선택 로직
+                    }}
+                  >
+                    파일선택
+                  </button>
                 </div>
-              </AddPicture>
-            ));
-          })()}
+              </div>
+            </AddPicture>
+          ))}
         </div>
 
         {/* 하단 입력 영역 - 남은 공간을 더 효율적으로 사용 */}
