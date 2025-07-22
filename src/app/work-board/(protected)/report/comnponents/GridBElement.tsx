@@ -20,6 +20,7 @@ interface GridBElementProps {
   onDelete?: () => void;
   placeholderText?: string;
   isExpanded?: boolean; // col-span-2 적용 여부
+  isHidden?: boolean; // 숨김 처리 여부 (쓰레기통으로 삭제된 경우)
 }
 
 function GridBElement({
@@ -37,6 +38,7 @@ function GridBElement({
   onDelete,
   placeholderText = "ex) 아이들과 촉감놀이를 했어요",
   isExpanded = false,
+  isHidden = false,
 }: GridBElementProps) {
   const [inputValue, setInputValue] = React.useState("");
   
@@ -143,7 +145,7 @@ function GridBElement({
     : 'border-dashed border-zinc-400';
 
   return (
-    <div className={`relative ${isExpanded ? 'col-span-2' : ''}`}>
+    <div className={`relative ${isExpanded ? 'col-span-2' : ''} ${isHidden ? 'opacity-0 pointer-events-none' : ''}`}>
       <div
         className={`relative overflow-hidden px-3 py-3 bg-white rounded-2xl border ${borderClass} w-full h-full flex flex-col ${className} gap-y-2 cursor-pointer`}
         style={style}

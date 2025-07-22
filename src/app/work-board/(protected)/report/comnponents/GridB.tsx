@@ -20,16 +20,19 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
   // 선택된 아이템 관리 (하나만 선택 가능)
   const [selectedItem, setSelectedItem] = React.useState<number | null>(null);
   
-  // 삭제된 아이템들을 관리하는 상태
-  const [deletedItems, setDeletedItems] = React.useState<Set<number>>(new Set());
+  // 숨겨진 아이템들을 관리하는 상태 (쓰레기통으로 삭제한 경우)
+  const [hiddenItems, setHiddenItems] = React.useState<Set<number>>(new Set());
+  
+  // 제거된 아이템들을 관리하는 상태 (합치기로 완전히 제거된 경우)
+  const [removedItems, setRemovedItems] = React.useState<Set<number>>(new Set());
   
   // 확장된 아이템들을 관리하는 상태 (col-span-2가 적용된 아이템)
   const [expandedItems, setExpandedItems] = React.useState<Set<number>>(new Set());
 
   // + 버튼 클릭 핸들러 (확장 기능)
   const handleExpand = (firstIndex: number, secondIndex: number) => {
-    // 뒤쪽 아이템 삭제
-    setDeletedItems(prev => {
+    // 뒤쪽 아이템 완전히 제거 (DOM에서 제거)
+    setRemovedItems(prev => {
       const newSet = new Set(prev);
       newSet.add(secondIndex);
       return newSet;
@@ -42,7 +45,7 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
       return newSet;
     });
     
-    // 삭제된 아이템이 선택되어 있다면 선택 해제
+    // 제거된 아이템이 선택되어 있다면 선택 해제
     if (selectedItem === secondIndex) {
       setSelectedItem(null);
     }
@@ -57,14 +60,14 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
     }
   };
 
-  // 삭제 핸들러
+  // 삭제 핸들러 (쓰레기통 버튼 - 숨김 처리)
   const handleDelete = (index: number) => {
-    setDeletedItems(prev => {
+    setHiddenItems(prev => {
       const newSet = new Set(prev);
       newSet.add(index);
       return newSet;
     });
-    // 삭제된 아이템이 선택되어 있다면 선택 해제
+    // 숨겨진 아이템이 선택되어 있다면 선택 해제
     if (selectedItem === index) {
       setSelectedItem(null);
     }
@@ -103,8 +106,8 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
     const items = [];
     
     for (let i = 1; i <= 12; i++) {
-      if (i <= subjectCount && !deletedItems.has(i)) {
-        // 삭제되지 않은 아이템만 렌더링
+      // subjectCount 범위 내에 있고, 제거되지 않은 아이템만 렌더링
+      if (i <= subjectCount && !removedItems.has(i)) {
         items.push(
           <GridBElement
             key={i}
@@ -113,10 +116,11 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
             onSelectChange={(isSelected) => handleSelectChange(i, isSelected)}
             onDelete={() => handleDelete(i)}
             isExpanded={expandedItems.has(i)}
+            isHidden={hiddenItems.has(i)} // 숨김 상태 전달
           />
         );
       }
-      // 삭제된 아이템이나 범위 밖 아이템은 아예 렌더링하지 않음 (빈 div 제거)
+      // 제거된 아이템은 아예 렌더링하지 않음 (빈 div도 생성하지 않음)
     }
     
     return items;
@@ -139,10 +143,11 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
     buttonPositions.forEach(({ between, row, position }) => {
       const [first, second] = between;
       
-      // 두 요소가 모두 표시되고 삭제되지 않은 경우, 그리고 확장되지 않은 경우에만 플러스 버튼 표시
+      // 두 요소가 모두 표시되고 제거되지 않은 경우, 확장되지 않은 경우, 그리고 숨김처리되지 않은 경우에만 플러스 버튼 표시
       if (first <= subjectCount && second <= subjectCount && 
-          !deletedItems.has(first) && !deletedItems.has(second) &&
-          !expandedItems.has(first) && !expandedItems.has(second)) {
+          !removedItems.has(first) && !removedItems.has(second) &&
+          !expandedItems.has(first) && !expandedItems.has(second) &&
+          !hiddenItems.has(first) && !hiddenItems.has(second)) {
         const topPosition = `${(row * 33.33) + 16.67}%`; // 각 행의 중앙
         const leftPosition = position === 'left' ? '25%' : '75%'; // 좌측 또는 우측 중앙
         
