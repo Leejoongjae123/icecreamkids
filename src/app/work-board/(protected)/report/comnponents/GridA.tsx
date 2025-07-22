@@ -3,8 +3,6 @@ import * as React from "react";
 import {
   DndContext,
   closestCenter,
-  closestCorners,
-  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -12,13 +10,12 @@ import {
   DragEndEvent,
   DragStartEvent,
   DragOverlay,
-  CollisionDetection,
-  getFirstCollision,
 } from "@dnd-kit/core";
 import {
   SortableContext,
   sortableKeyboardCoordinates,
   rectSortingStrategy,
+  arrayMove,
 } from "@dnd-kit/sortable";
 import GridAElement from "./GridAElement";
 import SortableGridItem from "./SortableGridItem";
@@ -35,14 +32,15 @@ function GridA({ subject }: GridAProps) {
   // 그리드 아이템 데이터 관리
   const [items, setItems] = React.useState<GridItem[]>(() => {
     const initialItems: GridItem[] = [];
-    for (let i = 1; i <= subject; i++) {
+    for (let i = 0; i < subject; i++) {
       initialItems.push({
         id: `grid-${i}`,
         index: i,
         category: "촉감놀이",
         images: [],
         inputValue: "",
-        cardType: subject === 3 ? (i === 1 ? 'large' : 'small') : undefined
+        cardType: subject === 3 ? (i === 0 ? 'large' : 'small') : undefined,
+        colSpan: subject === 3 ? (i === 0 ? 2 : 1) : 1
       });
     }
     return initialItems;
@@ -51,38 +49,37 @@ function GridA({ subject }: GridAProps) {
   // 현재 드래그 중인 아이템
   const [activeId, setActiveId] = React.useState<string | null>(null);
   
-  // 확장된 아이템들을 관리하는 상태 (3개 레이아웃에서 large 카드)
-  const [expandedItems, setExpandedItems] = React.useState<Set<number>>(() => {
-    if (subject === 3) {
-      return new Set([1]); // index 1은 large 카드로 확장된 상태
-    }
-    return new Set();
-  });
 
-  // subject가 변경되면 items와 expandedItems 업데이트
+
+  // subject가 변경되면 items 업데이트
   React.useEffect(() => {
     setItems(prevItems => {
       const newItems: GridItem[] = [];
-      for (let i = 1; i <= subject; i++) {
+      for (let i = 0; i < subject; i++) {
         const existingItem = prevItems.find(item => item.index === i);
-        newItems.push(existingItem || {
-          id: `grid-${i}`,
-          index: i,
-          category: "촉감놀이",
-          images: [],
-          inputValue: "",
-          cardType: subject === 3 ? (i === 1 ? 'large' : 'small') : undefined
-        });
+        if (existingItem) {
+          // 기존 아이템이 있으면 cardType과 colSpan을 subject에 맞게 업데이트
+          newItems.push({
+            ...existingItem,
+            index: i,
+            cardType: subject === 3 ? (i === 0 ? 'large' : 'small') : undefined,
+            colSpan: subject === 3 ? (i === 0 ? 2 : 1) : 1
+          });
+        } else {
+          // 새 아이템 생성
+          newItems.push({
+            id: `grid-${i}`,
+            index: i,
+            category: "촉감놀이",
+            images: [],
+            inputValue: "",
+            cardType: subject === 3 ? (i === 0 ? 'large' : 'small') : undefined,
+            colSpan: subject === 3 ? (i === 0 ? 2 : 1) : 1
+          });
+        }
       }
       return newItems.slice(0, subject);
     });
-
-    // expandedItems 업데이트
-    if (subject === 3) {
-      setExpandedItems(new Set([1]));
-    } else {
-      setExpandedItems(new Set());
-    }
   }, [subject]);
 
   // 센서 설정
@@ -97,22 +94,6 @@ function GridA({ subject }: GridAProps) {
     })
   );
 
-  // 커스텀 collision detection - 확장된 아이템을 고려
-  const customCollisionDetection: CollisionDetection = (args) => {
-    const { active, collisionRect, droppableRects, droppableContainers } = args;
-    
-    // 먼저 rect intersection으로 충돌 감지
-    const rectCollisions = rectIntersection(args);
-    
-    // rect collision이 있으면 우선 사용
-    if (rectCollisions.length > 0) {
-      return rectCollisions;
-    }
-    
-    // 없으면 closest center로 fallback
-    return closestCenter(args);
-  };
-
   // 체크 상태 변경 핸들러
   const handleCheckedChange = (id: string, checked: boolean) => {
     setCheckedItems(prev => ({
@@ -121,145 +102,101 @@ function GridA({ subject }: GridAProps) {
     }));
   };
 
+  // 레이아웃 재계산 함수 - subject에 따라 다른 레이아웃 적용
+  const recalculateLayout = (items: GridItem[], targetSpanTwoIndex: number): GridItem[] => {
+    if (subject !== 3) {
+      // subject가 3이 아닌 경우 모든 아이템을 span 1로 설정
+      return items.map((item, index) => ({
+        ...item,
+        index,
+        cardType: undefined,
+        colSpan: 1
+      }));
+    }
+    
+    // subject가 3인 경우만 span 2 아이템 배치
+    // 2x2 그리드에서 span 2는 첫 번째 위치(0) 또는 마지막 위치에만 가능
+    // targetSpanTwoIndex가 마지막 위치일 때만 마지막으로, 나머지는 첫 번째로
+    const spanTwoIndex = targetSpanTwoIndex === items.length - 1 ? items.length - 1 : 0;
+    
+    return items.map((item, index) => ({
+      ...item,
+      index,
+      cardType: index === spanTwoIndex ? 'large' as const : 'small' as const,
+      colSpan: index === spanTwoIndex ? 2 : 1
+    }));
+  };
+
   // 드래그 시작 핸들러
   const handleDragStart = (event: DragStartEvent) => {
-    const draggedItem = items.find(item => item.id === event.active.id);
-    if (draggedItem) {
-      // 필요한 경우 드래그 시작 조건 확인
-    }
     setActiveId(event.active.id as string);
   };
 
-  // 드래그 종료 핸들러 (확장된 아이템을 고려한 swap 방식)
+  // 드래그 종료 핸들러 (2행 레이아웃 유지)
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (active.id !== over?.id && over?.id) {
-      const activeItemId = active.id as string;
-      const overItemId = over.id as string;
-      
       setItems((currentItems) => {
-        const activeIndex = currentItems.findIndex(item => item.id === activeItemId);
-        const overIndex = currentItems.findIndex(item => item.id === overItemId);
+        const activeIndex = currentItems.findIndex(item => item.id === active.id);
+        const overIndex = currentItems.findIndex(item => item.id === over.id);
 
         if (activeIndex === -1 || overIndex === -1) return currentItems;
 
-        const activeItem = currentItems[activeIndex];
-        const overItem = currentItems[overIndex];
-
-        // 새로운 배열 생성
-        const newItems = [...currentItems];
+        // 배열 위치 이동 (arrayMove 사용)
+        const reorderedItems = arrayMove(currentItems, activeIndex, overIndex);
         
-        // subject가 3일 때 특별한 교환 로직 (확장된 아이템 고려)
-        if (subject === 3) {
-          const activeGridIndex = activeItem.index;
-          const overGridIndex = overItem.index;
-          
-          // 확장된 아이템(large)과 일반 아이템(small) 간의 교환
-          if (expandedItems.has(activeGridIndex) || expandedItems.has(overGridIndex)) {
-            // 확장된 아이템과 일반 아이템의 교환은 모든 데이터 교환
-            const tempActiveData = {
-              category: activeItem.category,
-              images: activeItem.images,
-              inputValue: activeItem.inputValue,
-            };
-            const tempOverData = {
-              category: overItem.category,
-              images: overItem.images,
-              inputValue: overItem.inputValue,
-            };
-            
-            // 데이터 교환 (인덱스와 cardType은 유지)
-            newItems[activeIndex] = {
-              ...activeItem,
-              category: tempOverData.category,
-              images: tempOverData.images,
-              inputValue: tempOverData.inputValue,
-            };
-            newItems[overIndex] = {
-              ...overItem,
-              category: tempActiveData.category,
-              images: tempActiveData.images,
-              inputValue: tempActiveData.inputValue,
-            };
-
-            return newItems;
-          }
+        // subject가 3이 아닌 경우 단순 위치 이동만 처리
+        if (subject !== 3) {
+          return reorderedItems.map((item, index) => ({
+            ...item,
+            index
+          }));
         }
         
-        // 일반적인 교환 로직
-        const tempActiveData = {
-          category: activeItem.category,
-          images: activeItem.images,
-          inputValue: activeItem.inputValue,
-        };
-        const tempOverData = {
-          category: overItem.category,
-          images: overItem.images,
-          inputValue: overItem.inputValue,
-        };
+        // subject가 3인 경우만 span 2 아이템 로직 처리
+        // span 2 아이템이 있는지 확인
+        const spanTwoItem = currentItems.find(item => item.colSpan === 2);
         
-        // 데이터 교환 (인덱스와 cardType은 유지)
-        newItems[activeIndex] = {
-          ...activeItem,
-          category: tempOverData.category,
-          images: tempOverData.images,
-          inputValue: tempOverData.inputValue,
-        };
-        newItems[overIndex] = {
-          ...overItem,
-          category: tempActiveData.category,
-          images: tempActiveData.images,
-          inputValue: tempActiveData.inputValue,
-        };
-
-        return newItems;
+        if (spanTwoItem) {
+          const activeWasSpanTwo = currentItems[activeIndex].colSpan === 2;
+          
+          if (activeWasSpanTwo) {
+            // span 2 아이템을 드래그한 경우, 목표 위치에 따라 첫 번째나 마지막으로 배치
+            return recalculateLayout(reorderedItems, overIndex);
+          } else {
+            // span 1 아이템을 드래그한 경우, span 2 아이템의 새 위치 계산
+            const originalSpanTwoIndex = currentItems.findIndex(item => item.colSpan === 2);
+            const spanTwoItemInReordered = reorderedItems.findIndex(item => item.id === spanTwoItem.id);
+            
+            return recalculateLayout(reorderedItems, spanTwoItemInReordered);
+          }
+        } else {
+          // span 2 아이템이 없으면 단순 위치 이동
+          return reorderedItems.map((item, index) => ({
+            ...item,
+            index
+          }));
+        }
       });
 
-      // 확장 상태와 체크 상태도 함께 교환
-      const activeItem = items.find(item => item.id === activeItemId);
-      const overItem = items.find(item => item.id === overItemId);
-      
-      if (activeItem && overItem) {
-        const activeGridIndex = activeItem.index;
-        const overGridIndex = overItem.index;
+      // 체크 상태도 위치에 따라 이동
+      setCheckedItems(prev => {
+        const activeIndex = items.findIndex(item => item.id === active.id);
+        const overIndex = items.findIndex(item => item.id === over.id);
         
-        // 확장 상태 교환 (subject === 3인 경우에만)
-        if (subject === 3) {
-          setExpandedItems(prev => {
-            const newSet = new Set(prev);
-            const activeExpanded = prev.has(activeGridIndex);
-            const overExpanded = prev.has(overGridIndex);
-            
-            // 기존 상태 제거
-            newSet.delete(activeGridIndex);
-            newSet.delete(overGridIndex);
-            
-            // 교환된 상태 적용
-            if (activeExpanded) {
-              newSet.add(overGridIndex);
-            }
-            if (overExpanded) {
-              newSet.add(activeGridIndex);
-            }
-            
-            return newSet;
-          });
-        }
-
-        // 체크 상태 교환
-        setCheckedItems(prev => {
-          const newCheckedItems = { ...prev };
-          const activeChecked = prev[activeItemId] || false;
-          const overChecked = prev[overItemId] || false;
-          
-          // 체크 상태 교환
-          newCheckedItems[activeItemId] = overChecked;
-          newCheckedItems[overItemId] = activeChecked;
-          
-          return newCheckedItems;
+        if (activeIndex === -1 || overIndex === -1) return prev;
+        
+        const reorderedItems = arrayMove(items, activeIndex, overIndex);
+        const newCheckedItems: Record<string, boolean> = {};
+        
+        reorderedItems.forEach((item, index) => {
+          const originalIndex = items.findIndex(originalItem => originalItem.id === item.id);
+          newCheckedItems[item.id] = prev[items[originalIndex].id] || false;
         });
-      }
+        
+        return newCheckedItems;
+      });
     }
 
     setActiveId(null);
@@ -270,8 +207,8 @@ function GridA({ subject }: GridAProps) {
     switch (count) {
       case 1:
         return {
-          className: "grid grid-cols-1 gap-3 w-full h-full",
-          style: { gridTemplateRows: "1fr" }
+          className: "grid grid-cols-1 w-full h-full",
+          style: { gridTemplateRows: "1fr", minHeight: "600px" }
         };
       case 2:
         return {
@@ -279,41 +216,13 @@ function GridA({ subject }: GridAProps) {
           style: { gridTemplateRows: "1fr 1fr" }
         };
       case 3:
-        return {
-          className: "grid grid-cols-2 gap-3 w-full h-full",
-          style: { 
-            gridTemplateRows: "1fr 1fr",
-            gridTemplateAreas: "'top top' 'bottom-left bottom-right'"
-          }
-        };
       case 4:
-        return {
-          className: "grid grid-cols-2 gap-3 w-full h-full",
-          style: { gridTemplateRows: "1fr 1fr" }
-        };
       default:
         return {
           className: "grid grid-cols-2 gap-3 w-full h-full",
-          style: { gridTemplateRows: "1fr 1fr" }
+          style: { gridTemplateRows: "auto auto" }
         };
     }
-  };
-
-  // 3개일 때 특별한 그리드 에어리어 스타일 적용
-  const getItemStyle = (index: number) => {
-    if (subject === 3) {
-      switch (index) {
-        case 1:
-          return { gridArea: "top" };
-        case 2:
-          return { gridArea: "bottom-left" };
-        case 3:
-          return { gridArea: "bottom-right" };
-        default:
-          return {};
-      }
-    }
-    return {};
   };
 
   // 그리드 아이템들을 렌더링하는 함수
@@ -323,14 +232,14 @@ function GridA({ subject }: GridAProps) {
         key={item.id}
         id={item.id}
         index={item.index}
-        style={getItemStyle(item.index)}
+        style={{ gridColumn: item.colSpan === 2 ? "span 2" : "span 1" }}
         checked={checkedItems[item.id] || false}
         onCheckedChange={(checked: boolean) => handleCheckedChange(item.id, checked)}
         category={item.category}
         images={item.images}
         placeholderText={`ex) 아이들과 ${item.category}를 했어요`}
         cardType={item.cardType}
-        isExpanded={expandedItems.has(item.index)}
+        isExpanded={item.colSpan === 2}
       />
     ));
   };
@@ -341,7 +250,7 @@ function GridA({ subject }: GridAProps) {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={customCollisionDetection}
+      collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
