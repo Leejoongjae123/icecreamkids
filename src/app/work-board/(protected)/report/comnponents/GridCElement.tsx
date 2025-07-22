@@ -1,0 +1,144 @@
+"use client";
+import * as React from "react";
+import Image from "next/image";
+import AddPicture from "./AddPicture";
+import { ClipPathItem } from "../dummy/types";
+
+interface GridCElementProps {
+  index: number;
+  gridId: string;
+  clipPathData: ClipPathItem;
+  imageUrl: string;
+  isClippingEnabled: boolean;
+  isDragging?: boolean;
+  dragAttributes?: any;
+  dragListeners?: any;
+  onImageUpload: (gridId: string, imageUrl: string) => void;
+}
+
+function GridCElement({
+  index,
+  gridId,
+  clipPathData,
+  imageUrl,
+  isClippingEnabled,
+  isDragging = false,
+  dragAttributes,
+  dragListeners,
+  onImageUpload,
+}: GridCElementProps) {
+  const [imageLoadError, setImageLoadError] = React.useState(false);
+
+  // 이미지 로드 에러 핸들러
+  const handleImageError = () => {
+    setImageLoadError(true);
+  };
+
+  const handleImageLoad = () => {
+    setImageLoadError(false);
+  };
+
+  // 이미지 클릭 핸들러 (이벤트 전파 방지)
+  const handleImageClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
+  };
+
+  // 파일 업로드 핸들러 (기존 파일 업로드도 유지)
+  const handleFileUpload = (file: File) => {
+    const imageUrl = URL.createObjectURL(file);
+    onImageUpload(gridId, imageUrl);
+  };
+
+  // 드래그 상태에 따른 스타일
+  const containerClass = isDragging 
+    ? "" // DragOverlay에서는 별도 스타일 적용하지 않음
+    : "";
+
+  return (
+    <div className="relative w-full h-full">
+      <div
+        className={`relative w-full h-full min-h-[180px] ${!isClippingEnabled ? 'bg-white rounded-xl' : 'bg-transparent'} overflow-hidden ${containerClass} ${isDragging ? 'opacity-100' : ''} transition-all duration-200 ${!isDragging ? 'cursor-grab active:cursor-grabbing' : ''}`}
+        data-grid-id={gridId}
+        {...(!isDragging ? dragAttributes : {})}
+        {...(!isDragging ? dragListeners : {})}
+      >
+        {/* SVG 클리핑 마스크 정의 */}
+        <svg width="0" height="0" className="absolute">
+          <defs>
+            <clipPath id={`clip-${clipPathData.id}-${gridId}`} clipPathUnits="objectBoundingBox">
+              <path d={clipPathData.pathData} />
+            </clipPath>
+          </defs>
+        </svg>
+        
+        {/* 클리핑된 이미지 컨테이너 - AddPicture로 감싸기 */}
+        <AddPicture>
+          <div 
+            className="w-full h-full relative overflow-hidden transition-all duration-200 hover:scale-105"
+            style={{
+              clipPath: isClippingEnabled ? `url(#clip-${clipPathData.id}-${gridId})` : 'none'
+            }}
+            onClick={handleImageClick}
+          >
+            {/* 기존 파일 입력은 숨겨진 상태로 유지 (백업용) */}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  handleFileUpload(file);
+                }
+              }}
+              className="hidden"
+              id={`file-input-${gridId}`}
+            />
+            
+            <div className="relative w-full h-full group">
+              <Image 
+                src={imageLoadError ? "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" : imageUrl}
+                alt={`클리핑된 이미지 - ${clipPathData.name}`}
+                fill
+                className="object-cover w-full h-full"
+                onError={handleImageError}
+                onLoad={handleImageLoad}
+              />
+              
+              {/* 호버 시 오버레이 */}
+              <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                {/* Upload icon */}
+                <Image
+                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
+                  width={24}
+                  height={24}
+                  className="object-contain mb-2"
+                  alt="Upload icon"
+                />
+                {/* Upload text */}
+                <div className="text-white text-xs font-medium text-center mb-2 px-2">
+                  이미지를 드래그하거나<br />클릭하여 업로드
+                </div>
+                {/* File select button - AddPicture로 감싸기 */}
+                <AddPicture>
+                  <button 
+                    className="bg-primary text-white text-xs px-3 py-1.5 rounded hover:bg-primary/80 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    파일선택
+                  </button>
+                </AddPicture>
+              </div>
+            </div>
+          </div>
+        </AddPicture>
+        
+        {/* 클리핑 형태 이름 라벨 */}
+
+      </div>
+    </div>
+  );
+}
+
+export default GridCElement; 

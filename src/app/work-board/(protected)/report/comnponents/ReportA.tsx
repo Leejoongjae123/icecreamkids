@@ -26,11 +26,11 @@ function ReportAContent() {
   const [showCircles, setShowCircles] = React.useState(false);
   const [isAnimating, setIsAnimating] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);
-  
+
   // searchParams에서 subject 값 가져오기 (1-4 범위, 기본값 3)
-  const subjectParam = searchParams.get('subject');
+  const subjectParam = searchParams.get("subject");
   const subject = React.useMemo(() => {
-    const parsed = parseInt(subjectParam || '3', 10);
+    const parsed = parseInt(subjectParam || "3", 10);
     return parsed >= 1 && parsed <= 4 ? parsed : 3;
   }, [subjectParam]);
 
@@ -38,11 +38,11 @@ function ReportAContent() {
   const handleIconClick = (index: number) => {
     const tooltipTexts = [
       "사진틀 변경",
-      "텍스트 스티커", 
+      "텍스트 스티커",
       "꾸미기 스티커",
       "사진 배경 제거",
       "사진 틀 삭제",
-      "표 추가"
+      "표 추가",
     ];
     console.log(`${tooltipTexts[index]} 클릭됨`);
     // 여기에 각 아이콘에 대한 로직 추가
@@ -69,12 +69,12 @@ function ReportAContent() {
         // 툴바가 숨겨진 상태라면 보이기
         setIsAnimating(true);
         setShowCircles(true);
-        
+
         // 약간의 지연 후 펼치기 애니메이션 시작
         setTimeout(() => {
           setIsExpanded(true);
         }, 50);
-        
+
         // 애니메이션 완료 후 상태 초기화 (showCircles는 유지)
         setTimeout(() => {
           setIsAnimating(false);
@@ -87,13 +87,8 @@ function ReportAContent() {
     <TooltipProvider>
       <div className="w-full relative">
         {/* Header with A4 Template */}
-        <div 
-          className="bg-image w-full shadow-custom border border-gray-200 rounded-xl p-4 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: 'url(https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg.jpg)'
-          }}
-        >
-          <div className="flex flex-row justify-between mb-4">
+        <div className="bg-image w-full shadow-custom border border-gray-200 rounded-xl pt-4 bg-cover bg-center bg-no-repeat">
+          <div className="flex flex-row justify-between mb-4 px-4">
             <div className="flex gap-1 my-auto text-base tracking-tight">
               <img
                 src="https://cdn.builder.io/api/v1/image/assets/TEMP/4f51a14975a94c7325e6dc9e46203e3be3439720?placeholderIfAbsent=true&apiKey=304aa4871c104446b0f8164e96d049f4"
@@ -147,7 +142,13 @@ function ReportAContent() {
             </div>
           </div>
 
-          <div className="flex flex-col w-full justify-between gap-y-3">
+          <div
+            className="flex flex-col w-full justify-between gap-y-3 px-4 py-8 rounded-br-xl rounded-bl-xl"
+            style={{
+              backgroundImage:
+                "url(https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg.jpg)",
+            }}
+          >
             <ReportTitleSection />
 
             {/* 이미지 그리드 */}
@@ -157,8 +158,6 @@ function ReportAContent() {
 
             {/* 하단 텍스트 부위 */}
             <ReportBottomSection type="A" />
-
-
           </div>
         </div>
       </div>
@@ -169,7 +168,13 @@ function ReportAContent() {
 // Suspense로 감싼 메인 컴포넌트
 function ReportA() {
   return (
-    <Suspense fallback={<div className="w-full h-96 flex items-center justify-center">로딩 중...</div>}>
+    <Suspense
+      fallback={
+        <div className="w-full h-96 flex items-center justify-center">
+          로딩 중...
+        </div>
+      }
+    >
       <ReportAContent />
     </Suspense>
   );

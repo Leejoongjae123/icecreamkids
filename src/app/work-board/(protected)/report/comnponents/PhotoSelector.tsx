@@ -35,19 +35,19 @@ function PhotoSelectorContent({
   };
 
   return (
-    <div className="flex overflow-hidden flex-col px-4 py-5 text-sm font-medium leading-none text-center text-gray-700 bg-white max-w-[78px] rounded-xl">
+    <div className="flex overflow-hidden flex-col px-4 py-5 text-sm font-medium leading-none text-center text-gray-700 bg-white max-w-[90px] rounded-xl">
       <div className="self-start text-xs leading-none text-amber-400">
         사진 개수를<br />
         선택해주세요
       </div>
-      <div className="flex flex-col mt-5 w-full max-h-[200px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+      <div className="flex flex-col mt-5 w-full items-center">
         {photos.map((photo, index) => (
           <button
             key={photo}
             onClick={() => handlePhotoSelect(photo)}
             className={`
-              flex overflow-hidden flex-col justify-center items-center w-full whitespace-nowrap h-[46px] rounded-[50px] transition-colors px-2
-              ${index === 0 ? "" : "mt-2.5"}
+              flex justify-center items-center w-[50px] h-[50px] rounded-full transition-colors
+              ${index === 0 ? "" : "mt-2"}
               ${
                 selectedPhoto === photo
                   ? "font-semibold text-white bg-amber-400 hover:bg-amber-500"

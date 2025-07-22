@@ -57,7 +57,7 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
       {/* "이렇게 놀이했어요" 부분 - typeC에서만 보임 */}
       {type === "C" && (
         <div 
-          className={`relative flex flex-col w-full h-[174px] border rounded-[15px] cursor-pointer ${
+          className={`bg-white relative flex flex-col w-full h-[174px] border rounded-[15px] cursor-pointer ${
             activeSection === "playActivity"
               ? "border-solid border-primary border-2" 
               : "border-dashed border-zinc-400"

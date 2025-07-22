@@ -54,7 +54,7 @@ export default function SubjectSelector({
         <br />
         선택해주세요
       </div>
-      <div className="flex flex-col mt-5 w-full max-h-[200px] overflow-y-auto scrollbar-hide">
+      <div className="flex flex-col mt-5 w-full h-full ">
         {subjects.map((subject, index) => (
           <button
             key={subject}
