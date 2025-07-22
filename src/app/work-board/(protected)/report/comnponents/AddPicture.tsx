@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import FileUpload from "./FileUpload";
+import ImageEditModal from "./ImageEditModal";
 import { AddPictureProps, UploadedFile } from "./types";
 
 function AddPicture({ children }: AddPictureProps) {
@@ -16,6 +17,9 @@ function AddPicture({ children }: AddPictureProps) {
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [selectedUploadedFiles, setSelectedUploadedFiles] = useState<Set<number>>(new Set());
+  const [showImageEditModal, setShowImageEditModal] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string>("");
+  const [isAddPictureModalOpen, setIsAddPictureModalOpen] = useState(false);
 
   const tabs = [
     { id: "추천자료", label: "추천자료" },
@@ -75,6 +79,38 @@ function AddPicture({ children }: AddPictureProps) {
     return selectedImages.size;
   };
 
+  const getSelectedImageUrl = () => {
+    if (activeTab === "내컴퓨터" && selectedUploadedFiles.size > 0) {
+      const firstSelectedIndex = Array.from(selectedUploadedFiles)[0];
+      return uploadedFiles[firstSelectedIndex]?.preview || "";
+    } else if (activeTab !== "내컴퓨터" && selectedImages.size > 0) {
+      // 추천자료나 자료보드의 경우 샘플 이미지 URL 사용
+      return "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload_sample.png";
+    }
+    return "";
+  };
+
+  const handleApplyImages = () => {
+    const imageUrl = getSelectedImageUrl();
+    if (imageUrl && getTotalSelectedCount() > 0) {
+      setSelectedImageUrl(imageUrl);
+      setIsAddPictureModalOpen(false); // AddPicture 모달 닫기
+      setShowImageEditModal(true); // ImageEdit 모달 열기
+    }
+  };
+
+  const handleImageEditApply = (editedImageData: string) => {
+    // 여기서 편집된 이미지 데이터를 실제로 적용하는 로직을 구현
+    console.log("편집된 이미지 적용:", editedImageData);
+    setShowImageEditModal(false);
+    // 필요에 따라 부모 컴포넌트로 데이터 전달
+  };
+
+  const handleImageEditClose = () => {
+    setShowImageEditModal(false);
+    setIsAddPictureModalOpen(true); // AddPicture 모달 다시 열기
+  };
+
   // 메모리 누수 방지를 위한 cleanup
   useEffect(() => {
     return () => {
@@ -85,10 +121,11 @@ function AddPicture({ children }: AddPictureProps) {
   }, [uploadedFiles]);
 
   return (
-    <Dialog>
-      <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
-        {children}
-      </DialogTrigger>
+    <>
+      <Dialog open={isAddPictureModalOpen} onOpenChange={setIsAddPictureModalOpen}>
+        <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
+          {children}
+        </DialogTrigger>
       <DialogContent className="max-w-[1200px] p-0 border-none bg-transparent shadow-none z-[60]" style={{ zIndex: 60 }}>
         <div className="flex overflow-hidden flex-col items-start py-10 pl-10 bg-white rounded-2xl max-md:pl-5">
           <div className="flex flex-wrap gap-5 justify-between w-full text-xl font-semibold tracking-tight leading-none text-gray-700 whitespace-nowrap max-w-[1120px] max-md:max-w-full">
@@ -181,7 +218,10 @@ function AddPicture({ children }: AddPictureProps) {
                     <div>닫기</div>
                   </div>
                 </DialogClose>
-                <div className="flex overflow-hidden flex-col justify-center px-5 py-3.5 text-white bg-amber-400 rounded-md cursor-pointer hover:bg-amber-500 transition-colors">
+                <div 
+                  className="flex overflow-hidden flex-col justify-center px-5 py-3.5 text-white bg-amber-400 rounded-md cursor-pointer hover:bg-amber-500 transition-colors"
+                  onClick={handleApplyImages}
+                >
                   <div>적용({getTotalSelectedCount()})</div>
                 </div>
               </div>
@@ -191,6 +231,21 @@ function AddPicture({ children }: AddPictureProps) {
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* 이미지 편집 모달 */}
+    <ImageEditModal
+      isOpen={showImageEditModal}
+      onClose={handleImageEditClose}
+      imageUrl={selectedImageUrl}
+      onApply={handleImageEditApply}
+      targetFrame={{
+        width: 300,
+        height: 200,
+        x: 250,
+        y: 200
+      }}
+    />
+    </>
   );
 }
 

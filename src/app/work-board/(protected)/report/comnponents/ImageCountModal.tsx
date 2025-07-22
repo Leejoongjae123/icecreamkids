@@ -96,6 +96,15 @@ export default function ImageCountModal({
       <DialogContent 
         ref={modalRef}
         className="gap-y-4 w-full max-w-[350px]"
+        onClick={(e) => e.stopPropagation()}
+        onInteractOutside={(e) => {
+          // 모달 외부 클릭시만 닫기
+          handleCancel();
+        }}
+        onEscapeKeyDown={(e) => {
+          // ESC 키 동작은 허용
+          handleCancel();
+        }}
       >
         <DialogHeader>
           <DialogTitle className="text-center">{title}</DialogTitle>

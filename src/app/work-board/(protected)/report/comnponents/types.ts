@@ -190,3 +190,67 @@ export interface GridBElementDndProps {
   dragAttributes?: any;
   dragListeners?: any;
 }
+
+// ImageEditModal 관련 타입들
+export interface ImageEditModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  imageUrl: string;
+  onApply: (editedImageData: string) => void;
+  targetFrame?: {
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+  };
+}
+
+export interface CustomControl {
+  x: number;
+  y: number;
+  offsetX?: number;
+  offsetY?: number;
+  cursorStyle: string;
+  actionHandler: any;
+  render: any;
+  cornerSize: number;
+  touchCornerSize: number;
+}
+
+export interface FabricImageObject {
+  width?: number;
+  height?: number;
+  scaleX?: number;
+  scaleY?: number;
+  angle?: number;
+  left?: number;
+  top?: number;
+  set: (options: any) => void;
+  setControlsVisibility: (controls: any) => void;
+  controls?: any;
+}
+
+export interface FabricCanvasType {
+  width?: number;
+  height?: number;
+  add: (object: any) => void;
+  remove: (object: any) => void;
+  setActiveObject: (object: any) => void;
+  renderAll: () => void;
+  clear: () => void;
+  dispose: () => void;
+  getElement: () => HTMLCanvasElement;
+}
+
+export interface ImagePosition {
+  x: number;
+  y: number;
+}
+
+export interface ImageTransform {
+  scale: number;
+  rotation: number;
+  position: ImagePosition;
+}
+
+export type EditMode = 'move' | 'crop';

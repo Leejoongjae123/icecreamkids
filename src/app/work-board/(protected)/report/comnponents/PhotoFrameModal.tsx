@@ -37,6 +37,15 @@ const PhotoFrameModal: React.FC<PhotoFrameModalProps> = ({
           "max-sm:rounded-2xl max-sm:w-[95vw]",
           "flex flex-col overflow-hidden"
         )}
+        onClick={(e) => e.stopPropagation()}
+        onInteractOutside={(e) => {
+          // 모달 외부 클릭시만 닫기
+          onClose();
+        }}
+        onEscapeKeyDown={(e) => {
+          // ESC 키 동작은 허용
+          onClose();
+        }}
       >
         {/* Header */}
         <div className="flex justify-between items-center p-10 pb-6 max-md:px-5 max-sm:px-4 flex-shrink-0">

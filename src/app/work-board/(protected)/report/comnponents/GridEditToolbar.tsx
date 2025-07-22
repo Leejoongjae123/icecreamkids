@@ -67,7 +67,6 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
     "꾸미기 스티커",
     "사진 배경 제거",
     "사진 틀 삭제",
-    "표 추가",
   ];
 
   // 아이콘 클릭 핸들러
@@ -159,7 +158,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
           className="relative flex items-center justify-center"
           style={{ width: "290px", height: "38px" }}
         >
-          {[...Array(6)].map((_, index) => (
+          {[...Array(5)].map((_, index) => (
             <Tooltip key={index}>
               <TooltipTrigger asChild>
                 <div
