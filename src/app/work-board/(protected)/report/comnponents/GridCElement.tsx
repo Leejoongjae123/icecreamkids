@@ -2,6 +2,7 @@
 import * as React from "react";
 import Image from "next/image";
 import AddPicture from "./AddPicture";
+import GridEditToolbar from "./GridEditToolbar";
 import { ClipPathItem } from "../dummy/types";
 
 interface GridCElementProps {
@@ -28,6 +29,12 @@ function GridCElement({
   onImageUpload,
 }: GridCElementProps) {
   const [imageLoadError, setImageLoadError] = React.useState(false);
+  
+  // 툴바 상태 관리
+  const [toolbarState, setToolbarState] = React.useState({
+    show: false,
+    isExpanded: false,
+  });
 
   // 이미지 로드 에러 핸들러
   const handleImageError = () => {
@@ -43,24 +50,75 @@ function GridCElement({
     event.stopPropagation();
   };
 
+  // 이미지가 아닌 영역 클릭 핸들러 - 툴바 표시
+  const handleNonImageClick = (event: React.MouseEvent) => {
+    event.stopPropagation(); // 이벤트 전파 방지
+    
+    // 툴바 표시
+    setToolbarState({
+      show: true,
+      isExpanded: true,
+    });
+  };
+
   // 파일 업로드 핸들러 (기존 파일 업로드도 유지)
   const handleFileUpload = (file: File) => {
     const imageUrl = URL.createObjectURL(file);
     onImageUpload(gridId, imageUrl);
   };
 
+  // 툴바 숨기기 핸들러
+  const handleHideToolbar = () => {
+    setToolbarState({
+      show: false,
+      isExpanded: false,
+    });
+  };
+
+  // 툴바 아이콘 클릭 핸들러
+  const handleToolbarIconClick = (iconIndex: number, data?: any) => {
+    console.log(`툴바 아이콘 ${iconIndex} 클릭됨, Grid ${index}`, data);
+    
+    // 여기에 각 아이콘별 로직 구현
+  };
+
+  // 전역 클릭 이벤트로 툴바 숨기기
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      // 현재 GridCElement 외부 클릭 시 툴바 숨기기
+      if (!target.closest(`[data-grid-id="${gridId}"]`) && !target.closest('.grid-edit-toolbar')) {
+        handleHideToolbar();
+      }
+    };
+
+    if (toolbarState.show) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [toolbarState.show, gridId]);
+
   // 드래그 상태에 따른 스타일
   const containerClass = isDragging 
     ? "" // DragOverlay에서는 별도 스타일 적용하지 않음
     : "";
 
+  // 툴바 표시 상태에 따른 border 스타일 결정
+  const borderClass = toolbarState.show
+    ? 'border-solid border-primary border-2' 
+    : 'border-none';
+
   return (
     <div className="relative w-full h-full">
       <div
-        className={`relative w-full h-full min-h-[180px] ${!isClippingEnabled ? 'bg-white rounded-xl' : 'bg-transparent'} overflow-hidden ${containerClass} ${isDragging ? 'opacity-100' : ''} transition-all duration-200 ${!isDragging ? 'cursor-grab active:cursor-grabbing' : ''}`}
+        className={`relative w-full h-full min-h-[180px] ${!isClippingEnabled ? 'bg-white rounded-xl' : 'bg-transparent'} overflow-hidden ${containerClass} ${isDragging ? 'opacity-100' : ''} transition-all duration-200 ${!isDragging ? 'cursor-grab active:cursor-grabbing' : ''} ${borderClass}`}
         data-grid-id={gridId}
         {...(!isDragging ? dragAttributes : {})}
         {...(!isDragging ? dragListeners : {})}
+        onClick={handleNonImageClick}
       >
         {/* SVG 클리핑 마스크 정의 */}
         <svg width="0" height="0" className="absolute">
@@ -137,6 +195,19 @@ function GridCElement({
         {/* 클리핑 형태 이름 라벨 */}
 
       </div>
+
+      {/* GridEditToolbar - element 하단 좌측에 위치 */}
+      {toolbarState.show && (
+        <div className="grid-edit-toolbar">
+          <GridEditToolbar
+            show={toolbarState.show}
+            isExpanded={toolbarState.isExpanded}
+            position={{ left: "8px", top: "calc(100% + 8px)" }}
+            onIconClick={handleToolbarIconClick}
+            targetGridId={gridId}
+          />
+        </div>
+      )}
     </div>
   );
 }
