@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import Image from "next/image";
+import { Checkbox } from "@/components/ui/checkbox";
 import AddPicture from "./AddPicture";
 import GridEditToolbar from "./GridEditToolbar";
 import { ClipPathItem } from "../dummy/types";
@@ -14,6 +15,9 @@ interface GridCElementProps {
   isDragging?: boolean;
   dragAttributes?: any;
   dragListeners?: any;
+  isSelected?: boolean;
+  onSelectChange?: (isSelected: boolean) => void;
+  onDelete?: () => void;
   onImageUpload: (gridId: string, imageUrl: string) => void;
 }
 
@@ -26,6 +30,9 @@ function GridCElement({
   isDragging = false,
   dragAttributes,
   dragListeners,
+  isSelected = false,
+  onSelectChange,
+  onDelete,
   onImageUpload,
 }: GridCElementProps) {
   const [imageLoadError, setImageLoadError] = React.useState(false);
@@ -59,6 +66,20 @@ function GridCElement({
       show: true,
       isExpanded: true,
     });
+  };
+
+  // 체크박스 변경 핸들러
+  const handleCheckboxChange = (checked: boolean) => {
+    if (onSelectChange) {
+      onSelectChange(checked);
+    }
+  };
+
+  // 삭제 핸들러
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete();
+    }
   };
 
   // 파일 업로드 핸들러 (기존 파일 업로드도 유지)
@@ -106,8 +127,8 @@ function GridCElement({
     ? "" // DragOverlay에서는 별도 스타일 적용하지 않음
     : "";
 
-  // 툴바 표시 상태에 따른 border 스타일 결정
-  const borderClass = toolbarState.show
+  // 툴바 표시 상태 또는 선택 상태에 따른 border 스타일 결정
+  const borderClass = (toolbarState.show || isSelected)
     ? 'border-solid border-primary border-2' 
     : 'border-none';
 
@@ -120,6 +141,40 @@ function GridCElement({
         {...(!isDragging ? dragListeners : {})}
         onClick={handleNonImageClick}
       >
+        {/* 체크박스 - 좌측 상단 */}
+        <div 
+          className="absolute top-2 left-2 z-30"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleCheckboxChange(!isSelected);
+          }}
+        >
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={handleCheckboxChange}
+            className="w-5 h-5 bg-white border-2 border-gray-300 rounded-full data-[state=checked]:bg-primary data-[state=checked]:border-primary cursor-pointer"
+          />
+        </div>
+
+        {/* 삭제 버튼 - 우측 상단 */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onDelete) {
+              handleDelete();
+            }
+          }}
+          className="absolute top-2 right-2 w-7 h-7 bg-white border border-[#F0F0F0] rounded-md flex items-center justify-center z-30 shadow-sm hover:shadow-md transition-shadow"
+        >
+          <Image
+            src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/trash.svg"
+            width={14}
+            height={14}
+            className="object-contain hover:opacity-80"
+            alt="Delete"
+          />
+        </button>
+
         {/* SVG 클리핑 마스크 정의 */}
         <svg width="0" height="0" className="absolute">
           <defs>
