@@ -36,7 +36,8 @@ function GridCElement({
   onImageUpload,
 }: GridCElementProps) {
   const [imageLoadError, setImageLoadError] = React.useState(false);
-  
+  const [activityKeyword, setActivityKeyword] = React.useState("");
+
   // 툴바 상태 관리
   const [toolbarState, setToolbarState] = React.useState({
     show: false,
@@ -60,7 +61,7 @@ function GridCElement({
   // 이미지가 아닌 영역 클릭 핸들러 - 툴바 표시
   const handleNonImageClick = (event: React.MouseEvent) => {
     event.stopPropagation(); // 이벤트 전파 방지
-    
+
     // 툴바 표시
     setToolbarState({
       show: true,
@@ -99,7 +100,7 @@ function GridCElement({
   // 툴바 아이콘 클릭 핸들러
   const handleToolbarIconClick = (iconIndex: number, data?: any) => {
     console.log(`툴바 아이콘 ${iconIndex} 클릭됨, Grid ${index}`, data);
-    
+
     // 여기에 각 아이콘별 로직 구현
   };
 
@@ -123,26 +124,26 @@ function GridCElement({
   }, [toolbarState.show, gridId]);
 
   // 드래그 상태에 따른 스타일
-  const containerClass = isDragging 
+  const containerClass = isDragging
     ? "" // DragOverlay에서는 별도 스타일 적용하지 않음
     : "";
 
   // 툴바 표시 상태 또는 선택 상태에 따른 border 스타일 결정
   const borderClass = (toolbarState.show || isSelected)
-    ? 'border-solid border-primary border-2' 
+    ? 'border-solid border-primary border-2 rounded-xl border-2'
     : 'border-none';
 
   return (
     <div className="relative w-full h-full">
       <div
-        className={`relative w-full h-full min-h-[180px] ${!isClippingEnabled ? 'bg-white rounded-xl' : 'bg-transparent'} overflow-hidden ${containerClass} ${isDragging ? 'opacity-100' : ''} transition-all duration-200 ${!isDragging ? 'cursor-grab active:cursor-grabbing' : ''} ${borderClass}`}
+        className={`relative w-full h-full min-h-[250px] ${!isClippingEnabled ? 'bg-white rounded-xl' : 'bg-transparent'} overflow-hidden ${containerClass} ${isDragging ? 'opacity-100' : ''} transition-all duration-200 ${!isDragging ? 'cursor-grab active:cursor-grabbing' : ''} ${borderClass}`}
         data-grid-id={gridId}
         {...(!isDragging ? dragAttributes : {})}
         {...(!isDragging ? dragListeners : {})}
         onClick={handleNonImageClick}
       >
         {/* 체크박스 - 좌측 상단 */}
-        <div 
+        <div
           className="absolute top-2 left-2 z-30"
           onClick={(e) => {
             e.stopPropagation();
@@ -183,10 +184,10 @@ function GridCElement({
             </clipPath>
           </defs>
         </svg>
-        
+
         {/* 클리핑된 이미지 컨테이너 - AddPicture로 감싸기 */}
         <AddPicture>
-          <div 
+          <div
             className="w-full h-full relative overflow-hidden transition-all duration-200 hover:scale-105"
             style={{
               clipPath: isClippingEnabled ? `url(#clip-${clipPathData.id}-${gridId})` : 'none'
@@ -206,9 +207,9 @@ function GridCElement({
               className="hidden"
               id={`file-input-${gridId}`}
             />
-            
+
             <div className="relative w-full h-full group">
-              <Image 
+              <Image
                 src={imageLoadError ? "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" : imageUrl}
                 alt={`클리핑된 이미지 - ${clipPathData.name}`}
                 fill
@@ -216,7 +217,7 @@ function GridCElement({
                 onError={handleImageError}
                 onLoad={handleImageLoad}
               />
-              
+
               {/* 호버 시 오버레이 */}
               <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
                 {/* Upload icon */}
@@ -233,7 +234,7 @@ function GridCElement({
                 </div>
                 {/* File select button - AddPicture로 감싸기 */}
                 <AddPicture>
-                  <button 
+                  <button
                     className="bg-primary text-white text-xs px-3 py-1.5 rounded hover:bg-primary/80 transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -246,7 +247,7 @@ function GridCElement({
             </div>
           </div>
         </AddPicture>
-        
+
         {/* 클리핑 형태 이름 라벨 */}
 
       </div>
@@ -263,8 +264,37 @@ function GridCElement({
           />
         </div>
       )}
+
+      {/* Input Design Component at the bottom - 이미지 위에 표시 */}
+      <div className="absolute bottom-0 left-0 right-0 z-50 p-2">
+        <div className="flex overflow-hidden flex-col px-5 py-2.5 text-xs tracking-tight leading-none bg-white rounded-lg border border-dashed border-zinc-400 max-w-[225px] text-slate-300 shadow-lg">
+          <div className="flex overflow-hidden flex-col justify-center items-start p-2 w-full bg-white rounded-lg border border-solid border-zinc-100 text-zinc-400">
+            <input
+              type="text"
+              value={activityKeyword}
+              onChange={(e) => setActivityKeyword(e.target.value)}
+              placeholder="활동주제나 관련 키워드를 입력하세요"
+              className="text-[9px] w-full outline-none border-none bg-transparent placeholder-zinc-400 text-zinc-800"
+              style={{ letterSpacing: "-0.03em" }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="mt-2 text-[9px] " style={{ letterSpacing: "-0.03em" }}>
+            활동에 맞는 키워드를 입력하거나 메모를 드래그 또는
+          </div>
+          <div className="flex gap-1 self-center max-w-full w-[110px]">
+            <img
+              src="https://api.builder.io/api/v1/image/assets/304aa4871c104446b0f8164e96d049f4/08267f9c2a1decb54bf0e85f2a616d2c8d62c634?placeholderIfAbsent=true"
+              className="object-contain shrink-0 w-3 aspect-[0.92]"
+            />
+            <div className="my-auto text-[9px]" style={{ letterSpacing: "-0.03em" }}>
+              를 눌러서 업로드 해 주세요.
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-export default GridCElement; 
+export default GridCElement;
