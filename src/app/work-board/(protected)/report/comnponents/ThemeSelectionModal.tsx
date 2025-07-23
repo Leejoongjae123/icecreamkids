@@ -7,9 +7,60 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 interface ThemeSelectionModalProps {
   children: React.ReactNode;
+}
+
+// 드래그 스크롤 훅
+function useDragScroll() {
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const [startX, setStartX] = React.useState(0);
+  const [scrollLeft, setScrollLeft] = React.useState(0);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!scrollRef.current) return;
+    setIsDragging(true);
+    setStartX(e.pageX - scrollRef.current.offsetLeft);
+    setScrollLeft(scrollRef.current.scrollLeft);
+    scrollRef.current.style.cursor = 'grabbing';
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !scrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollRef.current.offsetLeft;
+    const walk = (x - startX) * 2; // 스크롤 속도 조절
+    scrollRef.current.scrollLeft = scrollLeft - walk;
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    if (scrollRef.current) {
+      scrollRef.current.style.cursor = 'grab';
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+    if (scrollRef.current) {
+      scrollRef.current.style.cursor = 'grab';
+    }
+  };
+
+  return {
+    scrollRef,
+    isDragging,
+    dragProps: {
+      onMouseDown: handleMouseDown,
+      onMouseMove: handleMouseMove,
+      onMouseUp: handleMouseUp,
+      onMouseLeave: handleMouseLeave,
+      style: { cursor: 'grab' }
+    }
+  };
 }
 
 function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
@@ -18,51 +69,23 @@ function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
   const [selectedImage, setSelectedImage] = React.useState<number | null>(null);
   const [selectedBgCategory, setSelectedBgCategory] = React.useState("카테고리1");
   const [selectedBgImage, setSelectedBgImage] = React.useState<number | null>(null);
-  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
-  const bgScrollContainerRef = React.useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = React.useState(false);
-  const [startX, setStartX] = React.useState(0);
-  const [scrollLeft, setScrollLeft] = React.useState(0);
 
-  const handleMouseDown = (e: React.MouseEvent, ref: React.RefObject<HTMLDivElement>) => {
-    if (!ref.current) return;
-    setIsDragging(true);
-    setStartX(e.pageX - ref.current.offsetLeft);
-    setScrollLeft(ref.current.scrollLeft);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent, ref: React.RefObject<HTMLDivElement>) => {
-    if (!isDragging || !ref.current) return;
-    e.preventDefault();
-    const x = e.pageX - ref.current.offsetLeft;
-    const walk = (x - startX) * 2;
-    ref.current.scrollLeft = scrollLeft - walk;
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleMouseLeave = () => {
-    setIsDragging(false);
-  };
+  // 드래그 스크롤 훅 사용
+  const categoryDragScroll = useDragScroll();
+  const bgCategoryDragScroll = useDragScroll();
 
   const categories = [
     "카테고리1",
     "카테고리2",
     "카테고리3",
-    "카테고리4",
-    "카테고리5",
-    "카테고리6",
+    "카테고리4"
   ];
 
   const bgCategories = [
     "카테고리1",
     "카테고리2",
     "카테고리3",
-    "카테고리4",
-    "카테고리5",
-    "카테고리6",
+    "카테고리4"
   ];
 
   // 3x4 그리드를 위한 12개 이미지 배열
@@ -137,37 +160,34 @@ function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
             {/* 탭 내용 */}
             {activeTab === "테마선택" && (
               <div className="space-y-0">
-                <div 
-                  ref={scrollContainerRef}
-                  className="flex gap-2.5 text-base font-medium tracking-tight text-gray-700 whitespace-nowrap max-md:max-w-full overflow-x-auto flex-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mb-5"
-                  style={{
-                    WebkitOverflowScrolling: 'touch',
-                    cursor: isDragging ? 'grabbing' : 'grab'
-                  }}
-                  onMouseDown={(e) => handleMouseDown(e, scrollContainerRef)}
-                  onMouseMove={(e) => handleMouseMove(e, scrollContainerRef)}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseLeave}
-                >
-                  {categories.map((category, index) => (
-                    <button
-                      key={index}
-                      onClick={(e) => {
-                        if (!isDragging) {
-                          setSelectedCategory(category);
-                        }
-                      }}
-                      className={`flex overflow-hidden flex-col justify-center w-[91px] h-[42px] rounded-[50px] transition-colors flex-shrink-0 select-none ${
-                        selectedCategory === category
-                          ? "text-white bg-primary"
-                          : "border border-solid border-zinc-100 hover:bg-gray-50"
-                      }`}
-                      style={{ pointerEvents: isDragging ? 'none' : 'auto' }}
-                    >
-                      <div>{category}</div>
-                    </button>
-                  ))}
-                </div>
+                <ScrollArea className="w-full whitespace-nowrap rounded-md mb-5">
+                  <div 
+                    ref={categoryDragScroll.scrollRef}
+                    {...categoryDragScroll.dragProps}
+                    className="flex gap-2.5 text-base font-medium tracking-tight text-gray-700 p-1 select-none"
+                  >
+                    {categories.map((category, index) => (
+                      <button
+                        key={index}
+                        onClick={(e) => {
+                          // 드래그 중일 때는 클릭 이벤트 방지
+                          if (!categoryDragScroll.isDragging) {
+                            setSelectedCategory(category);
+                          }
+                        }}
+                        className={`flex overflow-hidden flex-col justify-center min-w-[91px] w-[91px] h-[42px] rounded-[50px] transition-all duration-200 flex-shrink-0 pointer-events-auto ${
+                          selectedCategory === category
+                            ? "text-white bg-primary hover:bg-primary/80 shadow-md scale-105"
+                            : "border border-solid border-zinc-100 hover:bg-gray-50 hover:border-primary"
+                        }`}
+                        style={{ cursor: categoryDragScroll.isDragging ? 'grabbing' : 'pointer' }}
+                      >
+                        <div>{category}</div>
+                      </button>
+                    ))}
+                  </div>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
                 
                 {/* 이미지 그리드 3x4 - 화면 50vh 높이까지만 보여주고 스크롤 가능 */}
                 <div className="grid grid-cols-3 gap-3 w-full max-h-[50vh] overflow-y-auto overflow-x-hidden">
@@ -177,8 +197,8 @@ function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
                       onClick={() => setSelectedImage(item.id)}
                       className={`relative h-[196px] rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 ${
                         selectedImage === item.id
-                          ? "ring-2 ring-primary ring-offset-2"
-                          : "ring-1 ring-primary hover:ring-primary"
+                          ? "ring-2 ring-[#FAB83D] ring-offset-2"
+                          : "ring-1 ring-gray-200 hover:ring-[#FAB83D]"
                       }`}
                     >
                       <img
@@ -187,7 +207,7 @@ function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
                         className="w-full h-full object-cover"
                       />
                       {selectedImage === item.id && (
-                        <div className="absolute inset-0 bg-primary bg-opacity-20 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-[#FAB83D] bg-opacity-20 flex items-center justify-center">
                           
                         </div>
                       )}
@@ -199,37 +219,34 @@ function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
             
             {activeTab === "배경" && (
               <div className="space-y-0">
-                <div 
-                  ref={bgScrollContainerRef}
-                  className="flex gap-2.5 text-base font-medium tracking-tight text-gray-700 whitespace-nowrap max-md:max-w-full overflow-x-auto flex-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] mb-5"
-                  style={{
-                    WebkitOverflowScrolling: 'touch',
-                    cursor: isDragging ? 'grabbing' : 'grab'
-                  }}
-                  onMouseDown={(e) => handleMouseDown(e, bgScrollContainerRef)}
-                  onMouseMove={(e) => handleMouseMove(e, bgScrollContainerRef)}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseLeave}
-                >
-                  {bgCategories.map((category, index) => (
-                    <button
-                      key={index}
-                      onClick={(e) => {
-                        if (!isDragging) {
-                          setSelectedBgCategory(category);
-                        }
-                      }}
-                      className={`flex overflow-hidden flex-col justify-center w-[91px] h-[42px] rounded-[50px] transition-colors flex-shrink-0 select-none ${
-                        selectedBgCategory === category
-                          ? "text-white bg-primary"
-                          : "border border-solid border-zinc-100 hover:bg-gray-50"
-                      }`}
-                      style={{ pointerEvents: isDragging ? 'none' : 'auto' }}
-                    >
-                      <div>{category}</div>
-                    </button>
-                  ))}
-                </div>
+                <ScrollArea className="w-full whitespace-nowrap rounded-md mb-5">
+                  <div 
+                    ref={bgCategoryDragScroll.scrollRef}
+                    {...bgCategoryDragScroll.dragProps}
+                    className="flex gap-2.5 text-base font-medium tracking-tight text-gray-700 p-1 select-none"
+                  >
+                    {bgCategories.map((category, index) => (
+                      <button
+                        key={index}
+                        onClick={(e) => {
+                          // 드래그 중일 때는 클릭 이벤트 방지
+                          if (!bgCategoryDragScroll.isDragging) {
+                            setSelectedBgCategory(category);
+                          }
+                        }}
+                        className={`flex overflow-hidden flex-col justify-center min-w-[91px] w-[91px] h-[42px] rounded-[50px] transition-all duration-200 flex-shrink-0 pointer-events-auto ${
+                          selectedBgCategory === category
+                            ? "text-white bg-primary hover:bg-primary/80 shadow-md scale-105"
+                            : "border border-solid border-zinc-100 hover:bg-gray-50 hover:border-primary"
+                        }`}
+                        style={{ cursor: bgCategoryDragScroll.isDragging ? 'grabbing' : 'pointer' }}
+                      >
+                        <div>{category}</div>
+                      </button>
+                    ))}
+                  </div>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
                 
                 {/* 배경 이미지 그리드 3x4 - 화면 50vh 높이까지만 보여주고 스크롤 가능 */}
                 <div className="grid grid-cols-3 gap-3 w-full max-h-[50vh] overflow-y-auto overflow-x-hidden">
@@ -239,8 +256,8 @@ function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
                       onClick={() => setSelectedBgImage(item.id)}
                       className={`relative h-[196px] rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 ${
                         selectedBgImage === item.id
-                          ? "ring-2 ring-primary ring-offset-2"
-                          : "ring-1 ring-primary hover:ring-primary"
+                          ? "ring-2 ring-[#FAB83D] ring-offset-2"
+                          : "ring-1 ring-gray-200 hover:ring-[#FAB83D]"
                       }`}
                     >
                       <img
@@ -250,7 +267,7 @@ function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
                       />
                       
                       {selectedBgImage === item.id && (
-                        <div className="absolute inset-0 bg-primary bg-opacity-20 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-[#FAB83D] bg-opacity-20 flex items-center justify-center">
                           
                         </div>
                       )}
@@ -267,7 +284,7 @@ function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
                 <div>닫기</div>
               </button>
             </DialogClose>
-            <button className="flex items-center justify-center w-[100px] h-[42px] text-white bg-amber-400 rounded-md hover:bg-amber-500 transition-colors">
+            <button className="flex items-center justify-center w-[100px] h-[42px] text-white bg-[#FAB83D] rounded-md hover:bg-[#e5a635] transition-colors">
               <div>적용</div>
             </button>
           </div>

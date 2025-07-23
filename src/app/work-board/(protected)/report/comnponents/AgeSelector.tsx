@@ -10,7 +10,7 @@ export default function AgeSelector({
   selectedAge = "6세",
   onAgeSelect,
 }: AgeSelectorProps) {
-  const ages = ["7세", "6세", "5세", "0~2세"];
+  const ages = ["0~2세", "5세", "6세", "7세"];
   
   // 연령 문자열을 숫자로 매핑
   const ageToNumber = (ageString: string): number => {

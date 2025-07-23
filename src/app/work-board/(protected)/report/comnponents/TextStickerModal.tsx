@@ -124,7 +124,7 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
         <div className="flex-1 px-10 py-6 max-md:px-5 max-sm:px-4 overflow-y-auto min-h-0">
           {activeTab === "category1" ? (
             /* Text Type Selection */
-            <div className="space-y-4 min-h-[400px]">
+            <div className="space-y-4">
               <RadioGroup
                 value={selectedTextType}
                 onValueChange={(value: "title" | "subtitle" | "body") => setSelectedTextType(value)}
@@ -139,7 +139,7 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
                 >
                   <RadioGroupItem value="title" id="title" />
                   <Label htmlFor="title" className="text-base font-medium text-gray-700 cursor-pointer">
-                    제목텍스트추가
+                    제목 텍스트추가
                   </Label>
                 </div>
                 
@@ -172,7 +172,7 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
             </div>
           ) : (
             /* Frame Grid for 말풍선 tab */
-            <div className="grid grid-cols-4 gap-3 min-h-[400px]">
+            <div className="grid grid-cols-4 gap-3">
               {/* First Row */}
               {[0, 1, 2, 3].map((frameIndex) => (
                 <div

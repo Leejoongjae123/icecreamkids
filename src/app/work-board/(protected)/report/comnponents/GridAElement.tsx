@@ -53,6 +53,10 @@ function GridAElement({
   // 이미지 개수 상태 관리
   const [imageCount, setImageCount] = React.useState(initialImageCount);
   
+  // 카테고리 편집 상태 관리
+  const [isEditingCategory, setIsEditingCategory] = React.useState(false);
+  const [categoryValue, setCategoryValue] = React.useState(category);
+  
   // 이미지 배열을 imageCount에 맞게 조정
   const [currentImages, setCurrentImages] = React.useState<string[]>(() => {
     const newImages = [...images];
@@ -201,6 +205,30 @@ function GridAElement({
     ? "border-solid border-2 border-primary shadow-2xl" 
     : borderClass;
 
+  // 카테고리 편집 핸들러
+  const handleCategoryClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    setIsEditingCategory(true);
+  };
+
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCategoryValue(e.target.value);
+  };
+
+  const handleCategoryKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      setIsEditingCategory(false);
+    }
+    if (e.key === 'Escape') {
+      setCategoryValue(category); // 원래 값으로 복원
+      setIsEditingCategory(false);
+    }
+  };
+
+  const handleCategoryBlur = () => {
+    setIsEditingCategory(false);
+  };
+
   return (
     <div className="relative w-full h-full">
       <div
@@ -213,9 +241,33 @@ function GridAElement({
       >
         {/* 카테고리 섹션 - 고정 높이 */}
         <div className="flex gap-2.5 text-sm font-bold tracking-tight leading-none text-amber-400 whitespace-nowrap flex-shrink-0 mb-1">
-          <div className="flex overflow-hidden flex-col grow shrink-0 justify-center items-start px-2 py-1 rounded-md border border-solid basis-0 border-gray-300 w-fit">
-            <div className="text-[16px] pointer-events-none select-none leading-tight">{category}</div>
-            
+          <div className={`flex overflow-hidden flex-col grow shrink-0 justify-center items-start px-2 py-1 rounded-md border border-solid basis-0 w-fit transition-colors ${
+            isEditingCategory ? 'border-primary' : 'border-gray-300'
+          }`}>
+            {isEditingCategory ? (
+              <Input
+                type="text"
+                value={categoryValue}
+                onChange={handleCategoryChange}
+                onKeyDown={handleCategoryKeyDown}
+                onBlur={handleCategoryBlur}
+                className="text-[16px] font-bold text-amber-400 bg-transparent border-0 p-0 h-auto leading-tight focus:ring-0 focus-visible:ring-0 focus:outline-none shadow-none min-w-[60px] w-auto"
+                style={{ 
+                  borderRadius: '0px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  color: '#fbbf24' // text-amber-400
+                }}
+                autoFocus
+              />
+            ) : (
+              <div 
+                className="text-[16px] leading-tight cursor-text hover:bg-gray-50 px-1 py-0.5 rounded transition-colors"
+                onClick={handleCategoryClick}
+              >
+                {categoryValue}
+              </div>
+            )}
           </div>
         </div>
 

@@ -360,18 +360,12 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
     buttonPositions.forEach(({ between, row, position }) => {
       const [first, second] = between;
       
-      // 확장된 아이템이 있는 행에서는 플러스 버튼을 표시하지 않음
-      const hasExpandedInRow = Array.from(expandedItems).some(expandedIndex => {
-        const expandedRow = Math.floor((expandedIndex - 1) / 4);
-        return expandedRow === row;
-      });
-      
-      // 두 요소가 모두 표시되고 제거되지 않은 경우, 확장되지 않은 경우, 숨김처리되지 않은 경우, 그리고 해당 행에 확장된 아이템이 없는 경우에만 플러스 버튼 표시
+      // 두 요소가 모두 표시되고 제거되지 않은 경우, 확장되지 않은 경우, 숨김처리되지 않은 경우에만 플러스 버튼 표시
+      // 각 플러스 버튼을 개별적으로 판단 (행 전체가 아닌 해당 아이템들만 확인)
       if (first <= subjectCount && second <= subjectCount && 
           !removedItems.has(first) && !removedItems.has(second) &&
           !expandedItems.has(first) && !expandedItems.has(second) &&
-          !hiddenItems.has(first) && !hiddenItems.has(second) &&
-          !hasExpandedInRow) {
+          !hiddenItems.has(first) && !hiddenItems.has(second)) {
         // 240px 카드 높이 기준으로 각 행의 정확한 중앙 계산
         const topPosition = `${(row * 240) + 120 + (row * 12)}px`; // 카드 높이(240px) + gap(12px) 고려
         const leftPosition = position === 'left' ? '25%' : '75%'; // 좌측 또는 우측 중앙
