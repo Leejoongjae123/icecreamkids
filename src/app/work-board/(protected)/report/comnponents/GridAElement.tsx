@@ -4,6 +4,7 @@ import Image from "next/image";
 import AddPicture from "./AddPicture";
 import { Input } from "@/components/ui/input";
 import GridEditToolbar from "./GridEditToolbar";
+import { Loader2 } from "lucide-react";
 
 interface GridAElementProps {
   index: number;
@@ -57,6 +58,18 @@ function GridAElement({
   const [isEditingCategory, setIsEditingCategory] = React.useState(false);
   const [categoryValue, setCategoryValue] = React.useState(category);
   
+  // description-area 확장 상태 관리
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = React.useState(false);
+  
+  // AI 생성 로딩 상태 관리
+  const [isLoading, setIsLoading] = React.useState(false);
+  
+  // textarea focus 상태 관리 추가
+  const [isTextareaFocused, setIsTextareaFocused] = React.useState(false);
+  
+  // 텍스트 토글 상태 관리 (true: 애국가 1절, false: 애국가 2절)
+  const [isFirstVerse, setIsFirstVerse] = React.useState(true);
+  
   // 이미지 배열을 imageCount에 맞게 조정
   const [currentImages, setCurrentImages] = React.useState<string[]>(() => {
     const newImages = [...images];
@@ -78,6 +91,11 @@ function GridAElement({
       return newImages.slice(0, imageCount);
     });
   }, [imageCount]);
+
+  // isDescriptionExpanded 상태 변경 추적
+  React.useEffect(() => {
+    console.log("isDescriptionExpanded 상태 변경됨:", isDescriptionExpanded);
+  }, [isDescriptionExpanded]);
 
   // 이미지 그리드 레이아웃 클래스 결정
   const getImageGridClass = (count: number, cardType?: string) => {
@@ -118,20 +136,67 @@ function GridAElement({
 
   const displayImages = images.length > 0 ? images : defaultImages;
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     setInputValue(e.target.value);
   };
 
   const handleAIGenerate = () => {
-    if (onAIGenerate) {
-      onAIGenerate();
-    }
+    console.log("AI 생성 버튼 클릭됨");
+    console.log("현재 isDescriptionExpanded:", isDescriptionExpanded);
+    
+    // 로딩 상태 시작
+    setIsLoading(true);
+    
+    // 2초 후에 로딩 완료 및 내용 변경
+    setTimeout(() => {
+      // 제목을 "아이스크림키즈"로 변경
+      setCategoryValue("독도는 우리땅");
+      
+      // 설명 내용 변경 (애국가 1절로 초기화)
+      setInputValue("동해물과 백두산이\n마르고 닳도록\n하느님이 보우하사\n우리나라 만세");
+      setIsFirstVerse(true); // 1절 상태로 설정
+      
+      // description-area를 확장된 textarea로 변경
+      setIsDescriptionExpanded(true);
+      console.log("setIsDescriptionExpanded(true) 호출됨");
+      
+      // 로딩 상태 종료
+      setIsLoading(false);
+      
+      if (onAIGenerate) {
+        onAIGenerate();
+      }
+    }, 2000);
   };
 
   const handleImageUpload = () => {
     if (onImageUpload) {
       onImageUpload();
     }
+  };
+
+  // 텍스트 새로고침(토글) 핸들러
+  const handleTextRefresh = (event: React.MouseEvent) => {
+    event.stopPropagation(); // 이벤트 전파 방지
+    
+    // 로딩 상태 시작
+    setIsLoading(true);
+    
+    // 2초 후에 로딩 완료 및 내용 변경
+    setTimeout(() => {
+      if (isFirstVerse) {
+        // 애국가 2절로 변경
+        setInputValue("남산 위의 저 소나무\n철갑을 두른 듯\n바람서리 불변함은\n우리 기상일세");
+        setIsFirstVerse(false);
+      } else {
+        // 애국가 1절로 변경
+        setInputValue("동해물과 백두산이\n마르고 닳도록\n하느님이 보우하사\n우리나라 만세");
+        setIsFirstVerse(true);
+      }
+      
+      // 로딩 상태 종료
+      setIsLoading(false);
+    }, 2000);
   };
 
   // 이미지가 아닌 영역 클릭 핸들러 - 툴바 표시
@@ -251,7 +316,7 @@ function GridAElement({
                 onChange={handleCategoryChange}
                 onKeyDown={handleCategoryKeyDown}
                 onBlur={handleCategoryBlur}
-                className="text-[16px] font-bold text-amber-400 bg-transparent border-0 p-0 h-auto leading-tight focus:ring-0 focus-visible:ring-0 focus:outline-none shadow-none min-w-[60px] w-auto"
+                className="text-[16px] font-bold text-amber-400 bg-transparent border-0 p-0 h-auto leading-tight focus:ring-0 focus-visible:ring-0 focus:outline-none focus:border-primary shadow-none min-w-[60px] w-auto"
                 style={{ 
                   borderRadius: '0px',
                   fontSize: '16px',
@@ -331,60 +396,126 @@ function GridAElement({
         </div>
 
         {/* 하단 입력 영역 - 남은 공간을 더 효율적으로 사용 */}
-        <div className="flex overflow-hidden flex-col items-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 min-h-[90px] justify-center flex-shrink-0 mt-1">
-          <div className="flex gap-1.5 w-full mb-1.5"> 
-            <Input
-              type="text"
-              value={inputValue}
-              onChange={handleInputChange}
-              placeholder={placeholderText}
-              className="h-[26px] px-2 py-1 text-xs tracking-tight bg-white border border-gray-300 text-zinc-600 placeholder-zinc-400 flex-1 shadow-none !rounded-md focus:ring-0 focus-visible:ring-0 focus:outline-none focus:border-primary focus:border-2"
-              style={{ borderRadius: '6px', fontSize: '10px' }}
-              onClick={handleImageClick} // Input 클릭 시에도 이벤트 전파 방지
-            />
+        {console.log("렌더링 시점 isDescriptionExpanded:", isDescriptionExpanded)}
+        {isLoading ? (
+          // 로딩 중일 때
+          <div className="description-area flex flex-col items-center justify-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 min-h-[90px] flex-shrink-0 mt-1">
+            <Loader2 className="w-6 h-6 animate-spin text-primary mb-2" />
+            <div className="text-[#B4B4B4] text-xs">내용을 생성중입니다...</div>
+          </div>
+        ) : isDescriptionExpanded ? (
+          // 확장된 textarea 모드
+          <div className={`description-area flex overflow-hidden flex-col px-2 py-2 w-full leading-none bg-white rounded-md min-h-[90px] flex-shrink-0 mt-1 relative transition-colors ${
+            isTextareaFocused ? 'border border-solid border-primary' : 'border border-dashed border-zinc-400'
+          }`}>
+            {/* 새로고침 버튼 - 우측 상단 */}
             <button
-              onClick={(e) => {
-                e.stopPropagation(); // 이벤트 전파 방지
-                handleAIGenerate();
-              }}
-              className="flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight text-white rounded-md bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90 flex justify-center items-center w-[54px] h-[26px]"
+              onClick={handleTextRefresh}
+              className="absolute top-2 right-3 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-sm transition-colors z-10"
+              title="텍스트 새로고침"
             >
               <Image
-                src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/leaf.svg"
+                src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/refresh.svg"
+                width={20}
+                height={20}
+                alt="Refresh"
                 className="object-contain"
-                width={11}
-                height={11}
-                alt="AI icon"
               />
-              <div className="text-[10px] tracking-[-0.03em]">AI 생성</div>
             </button>
+            
+            <textarea
+              value={inputValue}
+              onChange={handleInputChange}
+              onFocus={() => setIsTextareaFocused(true)}
+              onBlur={() => setIsTextareaFocused(false)}
+              placeholder={placeholderText}
+              className="w-full h-full px-2 py-1 pr-8 text-xs tracking-tight bg-white border-0 text-zinc-600 placeholder-zinc-400 shadow-none rounded-md focus:ring-0 focus:outline-none resize-none flex-1 scrollbar-hide"
+              style={{ 
+                borderRadius: '6px', 
+                fontSize: '12px', 
+                lineHeight: '1.4', 
+                minHeight: '74px',
+                scrollbarWidth: 'none', /* Firefox */
+                msOverflowStyle: 'none' /* IE and Edge */
+              }}
+              onClick={handleImageClick}
+            />
+            
+            {/* 글자수 카운팅 - 우측하단 */}
+            <div className="absolute bottom-2 right-3 text-[9px] font-medium text-primary">
+              ({inputValue.length}/200)
+            </div>
           </div>
-
-          <div className="text-[10px] font-semibold tracking-tight text-slate-300 text-center mb-1 leading-tight px-1">
-            활동에 맞는 키워드를 입력하거나 메모를 드래그 또는
-          </div>
-
-          <div className="flex gap-1 text-xs font-semibold tracking-tight text-slate-300 items-center">
-            <AddPicture>
+        ) : (
+          // 기본 모드
+          <div className="description-area flex overflow-hidden flex-col px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 min-h-[90px] flex-shrink-0 mt-1 relative">
+            <div className="flex gap-1.5 w-full mb-1.5"> 
+              <Input
+                value={inputValue}
+                onChange={handleInputChange}
+                placeholder={placeholderText}
+                className="h-[26px] min-h-[26px] max-h-[26px] px-2 py-1 text-xs tracking-tight bg-white border border-dashed border-zinc-400 text-zinc-600 placeholder-zinc-400 flex-1 shadow-none rounded-md focus:ring-0 focus:outline-none focus:border-primary resize-none"
+                style={{ borderRadius: '6px', fontSize: '10px', lineHeight: '1.2' }}
+                onClick={handleImageClick}
+              />
               <button
                 onClick={(e) => {
                   e.stopPropagation(); // 이벤트 전파 방지
-                  handleImageUpload();
+                  if (!isLoading) {
+                    handleAIGenerate();
+                  }
                 }}
-                className="flex items-center gap-0.5 hover:text-slate-400 transition-colors cursor-pointer justify-center"
+                disabled={isLoading}
+                className={`flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight text-white rounded-md bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90 flex justify-center items-center w-[54px] h-[26px] self-start transition-opacity ${isLoading ? 'cursor-not-allowed opacity-75' : ''}`}
               >
-                <Image
-                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload.svg"
-                  width={10}
-                  height={10}
-                  className="object-contain"
-                  alt="Upload icon"
-                />
-                <div className="text-slate-300 text-[10px]">를 눌러서 업로드 해 주세요.</div>
+                {isLoading ? (
+                  <Loader2 className="w-3 h-3 animate-spin text-white" />
+                ) : (
+                  <>
+                    <Image
+                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/leaf.svg"
+                      className="object-contain"
+                      width={11}
+                      height={11}
+                      alt="AI icon"
+                    />
+                    <div className="text-[10px] tracking-[-0.03em]">AI 생성</div>
+                  </>
+                )}
               </button>
-            </AddPicture>
+            </div>
+
+            {/* 글자수 카운팅 - 우측하단 */}
+            <div className="absolute bottom-2 right-3 text-[9px] font-medium text-primary">
+              ({inputValue.length}/200)
+            </div>
+
+            <div className="text-[10px] font-semibold tracking-tight text-slate-300 text-center mb-1 leading-tight px-1">
+              활동에 맞는 키워드를 입력하거나 메모를 드래그 또는
+            </div>
+
+            <div className="flex gap-1 text-xs font-semibold tracking-tight text-slate-300 items-center justify-center">
+              <AddPicture>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // 이벤트 전파 방지
+                    handleImageUpload();
+                  }}
+                  className="flex items-center gap-0.5 hover:text-slate-400 transition-colors cursor-pointer justify-center"
+                >
+                  <Image
+                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload.svg"
+                    width={10}
+                    height={10}
+                    className="object-contain"
+                    alt="Upload icon"
+                  />
+                  <div className="text-slate-300 text-[10px]">를 눌러서 업로드 해 주세요.</div>
+                </button>
+              </AddPicture>
+            </div>
           </div>
-        </div>
+        )}
 
         {children && <div className="mt-1 flex-shrink-0">{children}</div>}
       </div>
