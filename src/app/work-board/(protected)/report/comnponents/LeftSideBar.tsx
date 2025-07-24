@@ -6,8 +6,52 @@ import { Plus } from "lucide-react";
 import ThemeSelectionModal from "./ThemeSelectionModal";
 
 function LeftSideBarContent() {
+  
   const searchParams = useSearchParams();
   const router = useRouter();
+  const imageUrls=[
+    {
+      id:0,
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg1.png",
+      isImage:true
+
+    },
+    {
+      id:1,
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg2.png",
+      isImage:true
+    },
+    {
+      id:2,
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg3.png",
+      isImage:true
+    },
+    {
+      id:3,
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg",
+      isImage:false
+    },
+    {
+      id:4,
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg",
+      isImage:false
+    },
+    {
+      id:5,
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg",
+      isImage:false
+    },
+    {
+      id:6,
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg",
+      isImage:false
+    },
+    {
+      id:7,
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg",
+      isImage:false
+    }
+  ]
 
   const [selectedTab, setSelectedTab] = useState<"theme" | "background">(
     "theme"
@@ -92,22 +136,30 @@ function LeftSideBarContent() {
           <div className="mt-3">
             {selectedTab === "theme" && (
               <div className="flex flex-col gap-2.5">
-                <div className="grid grid-cols-2 grid-rows-4 gap-2.5">
-                  {Array.from({ length: 8 }, (_, index) => (
+                <div className="grid grid-cols-2 gap-2.5">
+                  {imageUrls.map((image) => (
                     <div
-                      key={index}
-                      onClick={() => handleThemeSelect(index)}
+                      key={image.id}
+                      onClick={() => handleThemeSelect(image.id)}
                       className={`rounded bg-gray-50 flex flex-col overflow-hidden items-center justify-center aspect-[0.75] cursor-pointer transition-all duration-200 ${
-                        selectedTheme === index
+                        selectedTheme === image.id
                           ? "border-2 border-primary p-0 bg-transparent hover:bg-transparent"
-                          : "p-4 border border-gray-200 hover:bg-gray-100"
+                          : "p-2 border border-gray-200 hover:bg-gray-100"
                       }`}
                     >
-                      <img
-                        src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg"
-                        className="w-6 h-6 object-contain aspect-square"
-                        alt="추가 아이콘"
-                      />
+                      {image.isImage ? (
+                        <img
+                          src={image.url}
+                          className="w-full h-full object-cover rounded"
+                          alt={`테마 ${image.id + 1}`}
+                        />
+                      ) : (
+                        <img
+                          src={image.url}
+                          className="w-6 h-6"
+                          alt={`아이콘 ${image.id + 1}`}
+                        />
+                      )}
                     </div>
                   ))}
                 </div>
