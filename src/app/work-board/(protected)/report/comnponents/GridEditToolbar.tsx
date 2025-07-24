@@ -22,6 +22,8 @@ interface GridEditToolbarProps {
   };
   onIconClick: (index: number, data?: any) => void;
   targetGridId?: string; // 특정 그리드 식별을 위한 ID
+  limitedMode?: boolean; // 제한된 모드 - 특정 아이콘만 표시
+  allowedIcons?: number[]; // 표시할 아이콘 인덱스 배열
 }
 
 const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
@@ -30,6 +32,8 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
   position = { left: "8px", top: "calc(100% + 8px)" },
   onIconClick,
   targetGridId,
+  limitedMode = false,
+  allowedIcons = [0, 1, 2], // 기본값: 텍스트 스티커, 꾸미기 스티커, 표 추가
 }) => {
   const searchParams = useSearchParams();
   const type = searchParams.get("type");
@@ -69,9 +73,36 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
     "사진 틀 삭제",
   ];
 
+  // 제한된 모드용 툴팁 텍스트 (ReportBottomSection에서 사용)
+  const limitedTooltipTexts = [
+    "텍스트 스티커",
+    "꾸미기 스티커", 
+    "표 추가",
+  ];
+
+  // 제한된 모드용 아이콘 URL
+  const limitedIconUrls = [
+    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix2.svg", // 텍스트 스티커
+    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix3.svg", // 꾸미기 스티커
+    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix6.svg", // 표 추가
+  ];
+
+  // 현재 모드에 따른 설정
+  const currentTooltipTexts = limitedMode ? limitedTooltipTexts : tooltipTexts;
+  const iconCount = limitedMode ? allowedIcons.length : 5;
+  const containerWidth = limitedMode ? `${allowedIcons.length * (38 + 12) - 12}px` : "290px";
+
   // 아이콘 클릭 핸들러
   const handleIconClick = (index: number) => {
     console.log("아이콘 클릭됨:", index);
+    
+    if (limitedMode) {
+      // 제한된 모드에서는 부모 컴포넌트의 핸들러로 직접 전달
+      onIconClick(index);
+      return;
+    }
+
+    // 일반 모드의 기존 로직
     if (index === 0) {
       if (type === "A" || type === "B") {
         // 이미지 개수 선택 모달 열기
@@ -156,9 +187,9 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
       >
         <div
           className="relative flex items-center justify-center"
-          style={{ width: "290px", height: "38px" }}
+          style={{ width: containerWidth, height: "38px" }}
         >
-          {[...Array(5)].map((_, index) => (
+          {[...Array(iconCount)].map((_, index) => (
             <Tooltip key={index}>
               <TooltipTrigger asChild>
                 <div
@@ -173,7 +204,15 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
                   }}
                   onClick={() => handleIconClick(index)}
                 >
-                  {index === 0 && (type === "A" || type === "B") ? (
+                  {limitedMode ? (
+                    <Image
+                      src={limitedIconUrls[index]}
+                      alt={`limited-icon-${index}`}
+                      width={18}
+                      height={18}
+                      className="object-contain"
+                    />
+                  ) : index === 0 && (type === "A" || type === "B") ? (
                     <MdPhotoLibrary size={18} className="text-white" />
                   ) : (
                     <Image
@@ -190,7 +229,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
                 side="bottom"
                 className="bg-primary text-white text-sm px-2 py-1"
               >
-                {tooltipTexts[index]}
+                {currentTooltipTexts[index]}
               </TooltipContent>
             </Tooltip>
           ))}
