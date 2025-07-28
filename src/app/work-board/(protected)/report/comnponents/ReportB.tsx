@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Suspense } from "react";
+import { Suspense, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { HiOutlineViewColumns } from "react-icons/hi2";
 import Image from "next/image";
@@ -19,6 +19,8 @@ import GridEditToolbar from "./GridEditToolbar";
 import ReportBottomSection from "./ReportBottomSection";
 import ReportTitleSection from "./ReportTitleSection";
 import GridB from "./GridB";
+import { useStickerStore } from "@/hooks/store/useStickerStore";
+import DraggableSticker from "./DraggableSticker";
 
 // searchParams를 사용하는 컴포넌트 분리
 function ReportBContent() {
@@ -26,6 +28,10 @@ function ReportBContent() {
   const [showCircles, setShowCircles] = React.useState(false);
   const [isAnimating, setIsAnimating] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);
+  
+  // 스티커 관련
+  const { stickers } = useStickerStore();
+  const stickerContainerRef = useRef<HTMLDivElement>(null);
 
   // searchParams에서 gridCount 값 가져오기 (1-12 범위, 기본값 6)
   const gridCountParam = searchParams.get("gridCount");
@@ -44,7 +50,6 @@ function ReportBContent() {
       "사진 틀 삭제",
       "표 추가",
     ];
-    console.log(`${tooltipTexts[index]} 클릭됨`);
     // 여기에 각 아이콘에 대한 로직 추가
   };
 

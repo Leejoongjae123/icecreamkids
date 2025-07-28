@@ -2,11 +2,12 @@
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useStickerStore } from "@/hooks/store/useStickerStore";
 
 interface DecorationStickerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (selectedSticker: number) => void;
+  onApply?: (selectedSticker: number) => void; // 선택 사항으로 변경
 }
 
 const DecorationStickerModal: React.FC<DecorationStickerModalProps> = ({
@@ -15,18 +16,76 @@ const DecorationStickerModal: React.FC<DecorationStickerModalProps> = ({
   onApply,
 }) => {
   const [activeTab, setActiveTab] = useState<"category1" | "category2">(
-    "category2",
+    "category2"
   );
   const [selectedSticker, setSelectedSticker] = useState<number>(3); // Default to sticker 3
 
+  const { addSticker } = useStickerStore();
+
   const handleApply = () => {
-    onApply(selectedSticker);
-    onClose();
+    const sticker = stickerUrls[selectedSticker];
+    if (sticker) {
+      // 스토어에 스티커 추가
+      addSticker(selectedSticker, sticker.url);
+      
+      // 기존 onApply 콜백도 호출 (있을 경우)
+      if (onApply) {
+        onApply(selectedSticker);
+      }
+    }
+    
+    // 약간의 지연 후 모달 닫기 (스티커가 추가되는 것을 확인할 수 있도록)
+    setTimeout(() => {
+      onClose();
+    }, 100);
   };
 
   const handleStickerSelect = (stickerIndex: number) => {
     setSelectedSticker(stickerIndex);
   };
+
+  const stickerUrls = [
+    {
+      url: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker1_1.png",
+      isImage: true,
+    },
+    {
+      url: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker1_2.png",
+      isImage: true,
+    },
+    {
+      url: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker1_3.png",
+      isImage: true,
+    },
+    {
+      url: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker1_4.png",
+      isImage: true,
+    },
+    {
+      url: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker1_5.png",
+      isImage: true,
+    },
+    {
+      url: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker1_6.png",
+      isImage: true,
+    },
+    {
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker2_1.png",
+      isImage:true
+    },
+    {
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker2_2.png",
+      isImage:true
+    },
+    {
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker2_3.png",
+      isImage:true
+    },
+    {
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker2_4.png",
+      isImage:true
+    }
+  ];
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -81,7 +140,7 @@ const DecorationStickerModal: React.FC<DecorationStickerModalProps> = ({
                 "relative pb-2 text-base tracking-tight transition-colors",
                 activeTab === "category1"
                   ? "text-gray-700 font-medium"
-                  : "text-zinc-400",
+                  : "text-zinc-400"
               )}
               onClick={() => setActiveTab("category1")}
             >
@@ -95,7 +154,7 @@ const DecorationStickerModal: React.FC<DecorationStickerModalProps> = ({
                 "relative pb-2 text-base tracking-tight transition-colors",
                 activeTab === "category2"
                   ? "text-gray-700 font-medium"
-                  : "text-zinc-400",
+                  : "text-zinc-400"
               )}
               onClick={() => setActiveTab("category2")}
             >
@@ -110,53 +169,36 @@ const DecorationStickerModal: React.FC<DecorationStickerModalProps> = ({
         {/* Sticker Grid */}
         <div className="flex-1 px-10 py-6 max-md:px-5 max-sm:px-4 overflow-y-auto min-h-0">
           <div className="grid grid-cols-4 gap-3 min-h-[400px]">
-            {/* First Row */}
-            {[0, 1, 2, 3].map((stickerIndex) => (
-              <div
-                key={stickerIndex}
-                className={cn(
-                  "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors",
-                  selectedSticker === stickerIndex && "border-2 border-amber-400 border-solid",
-                )}
-                onClick={() => handleStickerSelect(stickerIndex)}
-              />
-            ))}
-            
-            {/* Second Row */}
-            {[4, 5, 6, 7].map((stickerIndex) => (
-              <div
-                key={stickerIndex}
-                className={cn(
-                  "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors",
-                  selectedSticker === stickerIndex && "border-2 border-amber-400 border-solid",
-                )}
-                onClick={() => handleStickerSelect(stickerIndex)}
-              />
-            ))}
-            
-            {/* Third Row */}
-            {[8, 9, 10, 11].map((stickerIndex) => (
-              <div
-                key={stickerIndex}
-                className={cn(
-                  "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors",
-                  selectedSticker === stickerIndex && "border-2 border-amber-400 border-solid",
-                )}
-                onClick={() => handleStickerSelect(stickerIndex)}
-              />
-            ))}
-            
-            {/* Fourth Row */}
-            {[12, 13, 14, 15].map((stickerIndex) => (
-              <div
-                key={stickerIndex}
-                className={cn(
-                  "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors",
-                  selectedSticker === stickerIndex && "border-2 border-amber-400 border-solid",
-                )}
-                onClick={() => handleStickerSelect(stickerIndex)}
-              />
-            ))}
+            {Array.from({ length: 16 }, (_, index) => {
+              const sticker = stickerUrls[index];
+              
+              return (
+                <div
+                  key={index}
+                  className={cn(
+                    "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors flex items-center justify-center overflow-hidden",
+                    selectedSticker === index &&
+                      "border-2 border-amber-400 border-solid",
+                    !sticker && "opacity-50"
+                  )}
+                  onClick={() => sticker && handleStickerSelect(index)}
+                >
+                  {sticker ? (
+                    <img
+                      src={sticker.url}
+                      alt={`스티커 ${index + 1}`}
+                      className="w-full h-full object-cover rounded-lg"
+                      onError={(e) => {
+                        // 이미지 로드 실패시 처리
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-100 rounded-lg" />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 

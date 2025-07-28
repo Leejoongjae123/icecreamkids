@@ -41,7 +41,9 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     const defaultImage = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
     
     for (let i = 0; i < photoCount; i++) {
-      const clipPath = clipPathItems[i] || clipPathItems[0]; // clipPathItems 배열을 초과하면 첫 번째 사용
+      // circle-1과 rounded-square-2 중에서 랜덤 선택
+      const randomIndex = Math.floor(Math.random() * clipPathItems.length);
+      const clipPath = clipPathItems[randomIndex];
       initialItems.push({
         id: `grid-c-${i}`,
         index: i,
@@ -58,7 +60,9 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     const newItems: GridCItem[] = [];
     
     for (let i = 0; i < photoCount; i++) {
-      const clipPath = clipPathItems[i] || clipPathItems[0];
+      // circle-1과 rounded-square-2 중에서 랜덤 선택
+      const randomIndex = Math.floor(Math.random() * clipPathItems.length);
+      const clipPath = clipPathItems[randomIndex];
       newItems.push({
         id: `grid-c-${i}`,
         index: i,

@@ -254,3 +254,29 @@ export interface ImageTransform {
 }
 
 export type EditMode = 'move' | 'crop';
+
+export interface StickerItem {
+  id: string;
+  stickerIndex: number;
+  url: string;
+  position: {
+    x: number;
+    y: number;
+  };
+  size: {
+    width: number;
+    height: number;
+  };
+  rotation: number;
+  zIndex: number;
+}
+
+export interface StickerStore {
+  stickers: StickerItem[];
+  addSticker: (stickerIndex: number, url: string) => void;
+  updateStickerPosition: (id: string, position: { x: number; y: number }) => void;
+  updateStickerSize: (id: string, size: { width: number; height: number }) => void;
+  updateStickerRotation: (id: string, rotation: number) => void;
+  removeSticker: (id: string) => void;
+  bringToFront: (id: string) => void;
+}

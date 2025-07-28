@@ -1,9 +1,8 @@
 "use client";
 import * as React from "react";
-import { Suspense } from "react";
+import { Suspense, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { HiOutlineViewColumns } from "react-icons/hi2";
-import Image from "next/image";
 import HomeIcon from "@/components/common/Icons/HomeIcon";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,13 +18,19 @@ import GridEditToolbar from "./GridEditToolbar";
 import ReportBottomSection from "./ReportBottomSection";
 import ReportTitleSection from "./ReportTitleSection";
 import GridA from "./GridA";
-
+import Image from "next/image";
+import { useStickerStore } from "@/hooks/store/useStickerStore";
+import DraggableSticker from "./DraggableSticker";
 // searchParams를 사용하는 컴포넌트 분리
 function ReportAContent() {
   const searchParams = useSearchParams();
   const [showCircles, setShowCircles] = React.useState(false);
   const [isAnimating, setIsAnimating] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);
+  
+  // 스티커 관련
+  const { stickers } = useStickerStore();
+  const stickerContainerRef = useRef<HTMLDivElement>(null);
 
   // searchParams에서 subject 값 가져오기 (1-4 범위, 기본값 3)
   const subjectParam = searchParams.get("subject");
@@ -56,7 +61,6 @@ function ReportAContent() {
       "사진 틀 삭제",
       "표 추가",
     ];
-    console.log(`${tooltipTexts[index]} 클릭됨`);
     // 여기에 각 아이콘에 대한 로직 추가
   };
 
@@ -98,6 +102,7 @@ function ReportAContent() {
   return (
     <TooltipProvider>
       <div className="w-full relative">
+        
         {/* Header with A4 Template */}
         <div className="bg-image w-full shadow-custom border border-gray-200 rounded-xl pt-4 bg-cover bg-center bg-no-repeat">
           <div className="flex flex-row justify-between mb-4 px-4">
@@ -155,13 +160,14 @@ function ReportAContent() {
           </div>
 
           <div
-            className="flex flex-col w-full justify-between gap-y-3 px-4 py-8 rounded-br-xl rounded-bl-xl"
+            ref={stickerContainerRef}
+            className="flex flex-col w-full justify-between gap-y-3 px-4 py-8 rounded-br-xl rounded-bl-xl relative"
             style={{
               backgroundImage: backgroundImageUrl,
             }}
           >
             <ReportTitleSection />
-
+            
             {/* 이미지 그리드 */}
             <div className="flex-1 w-full h-full min-h-[600px]">
               <GridA subject={subject} />
@@ -169,6 +175,15 @@ function ReportAContent() {
 
             {/* 하단 텍스트 부위 */}
             <ReportBottomSection type="A" />
+            
+            {/* 스티커 렌더링 */}
+            {stickers.map((sticker) => (
+              <DraggableSticker
+                key={sticker.id}
+                sticker={sticker}
+                containerRef={stickerContainerRef}
+              />
+            ))}
           </div>
         </div>
       </div>
