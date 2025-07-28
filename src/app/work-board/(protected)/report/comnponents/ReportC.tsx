@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Suspense } from "react";
+import { Suspense, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -13,11 +13,17 @@ import {
 import ReportBottomSection from "./ReportBottomSection";
 import ReportTitleSection from "./ReportTitleSection";
 import GridC from "./GridC";
+import { useStickerStore } from "@/hooks/store/useStickerStore";
+import DraggableSticker from "./DraggableSticker";
 
 // searchParams를 사용하는 컴포넌트 분리
 function ReportCContent() {
   const searchParams = useSearchParams();
   const [isClippingEnabled, setIsClippingEnabled] = React.useState(true);
+  
+  // 스티커 관련
+  const { stickers } = useStickerStore();
+  const stickerContainerRef = useRef<HTMLDivElement>(null);
 
   // searchParams에서 photo 값 가져오기 (1-9 범위, 기본값 9)
   const photoParam = searchParams.get("photo");
@@ -25,6 +31,18 @@ function ReportCContent() {
     const parsed = parseInt(photoParam || "9", 10);
     return parsed >= 1 && parsed <= 9 ? parsed : 9;
   }, [photoParam]);
+
+  // searchParams에서 theme 값 가져오기 (기본값 0)
+  const themeParam = searchParams.get("theme");
+  const theme = React.useMemo(() => {
+    const parsed = parseInt(themeParam || "0", 10);
+    return parsed >= 0 ? parsed : 0;
+  }, [themeParam]);
+
+  // theme 값에 따른 배경이미지 URL 생성
+  const backgroundImageUrl = React.useMemo(() => {
+    return `url(https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg${theme + 1}.png)`;
+  }, [theme]);
 
   // 이미지 로드 상태 확인을 위한 핸들러
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -107,10 +125,10 @@ function ReportCContent() {
           </div>
 
           <div
+            ref={stickerContainerRef}
             className="flex flex-col w-full min-h-[1130px] justify-between gap-y-3 px-4 py-8 rounded-br-xl rounded-bl-xl"
             style={{
-              backgroundImage:
-                "url(https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg.jpg)",
+              backgroundImage: backgroundImageUrl,
             }}
           >
             <ReportTitleSection />
@@ -121,6 +139,15 @@ function ReportCContent() {
             </div>
 
             <ReportBottomSection type="C" />
+            
+            {/* 스티커 렌더링 */}
+            {stickers.map((sticker) => (
+              <DraggableSticker
+                key={sticker.id}
+                sticker={sticker}
+                containerRef={stickerContainerRef}
+              />
+            ))}
           </div>
         </div>
       </div>

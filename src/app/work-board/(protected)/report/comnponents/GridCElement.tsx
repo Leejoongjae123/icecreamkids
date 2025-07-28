@@ -2,6 +2,12 @@
 import * as React from "react";
 import Image from "next/image";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
 import AddPicture from "./AddPicture";
 import GridEditToolbar from "./GridEditToolbar";
 import { ClipPathItem } from "../dummy/types";
@@ -37,6 +43,9 @@ function GridCElement({
 }: GridCElementProps) {
   const [imageLoadError, setImageLoadError] = React.useState(false);
   const [activityKeyword, setActivityKeyword] = React.useState("");
+  const [isKeywordExpanded, setIsKeywordExpanded] = React.useState(false);
+  const [isInputFocused, setIsInputFocused] = React.useState(false);
+  const [selectedKeyword, setSelectedKeyword] = React.useState<string>("");
 
   // 툴바 상태 관리
   const [toolbarState, setToolbarState] = React.useState({
@@ -70,8 +79,8 @@ function GridCElement({
   };
 
   // 체크박스 변경 핸들러
-  const handleCheckboxChange = (checked: boolean) => {
-    if (onSelectChange) {
+  const handleCheckboxChange = (checked: boolean | "indeterminate") => {
+    if (onSelectChange && typeof checked === "boolean") {
       onSelectChange(checked);
     }
   };
@@ -109,17 +118,20 @@ function GridCElement({
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
       // 현재 GridCElement 외부 클릭 시 툴바 숨기기
-      if (!target.closest(`[data-grid-id="${gridId}"]`) && !target.closest('.grid-edit-toolbar')) {
+      if (
+        !target.closest(`[data-grid-id="${gridId}"]`) &&
+        !target.closest(".grid-edit-toolbar")
+      ) {
         handleHideToolbar();
       }
     };
 
     if (toolbarState.show) {
-      document.addEventListener('click', handleClickOutside);
+      document.addEventListener("click", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener("click", handleClickOutside);
     };
   }, [toolbarState.show, gridId]);
 
@@ -129,14 +141,38 @@ function GridCElement({
     : "";
 
   // 툴바 표시 상태 또는 선택 상태에 따른 border 스타일 결정
-  const borderClass = (toolbarState.show || isSelected)
-    ? 'border-solid border-primary border-2 rounded-xl border-2'
-    : 'border-none';
+  const borderClass =
+    toolbarState.show || isSelected
+      ? "border-solid border-primary border-2 rounded-xl border-2"
+      : "border-none";
+
+  // 키워드 버튼 클릭 핸들러
+  const handleKeywordClick = (keyword: string) => {
+    // 이미 선택된 키워드인지 확인
+    if (selectedKeyword === keyword) {
+      // 이미 선택된 경우 제거
+      setSelectedKeyword("");
+      setActivityKeyword("");
+    } else {
+      // 새로 선택하는 경우 기존 선택을 덮어쓰기
+      setSelectedKeyword(keyword);
+      setActivityKeyword(keyword);
+    }
+  };
+
+  // input 변경시 선택된 키워드 상태도 업데이트
+  const handleKeywordInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setActivityKeyword(value);
+    
+    // 현재 input의 키워드를 selectedKeyword에 설정
+    setSelectedKeyword(value.trim());
+  };
 
   return (
     <div className="relative w-full h-full">
       <div
-        className={`relative w-full h-full min-h-[250px] ${!isClippingEnabled ? 'bg-white rounded-xl' : 'bg-transparent'} overflow-hidden ${containerClass} ${isDragging ? 'opacity-100' : ''} transition-all duration-200 ${!isDragging ? 'cursor-grab active:cursor-grabbing' : ''} ${borderClass}`}
+        className={`relative w-full h-full min-h-[250px] ${!isClippingEnabled ? "bg-white rounded-xl" : "bg-transparent"} overflow-hidden ${containerClass} ${isDragging ? "opacity-100" : ""} transition-all duration-200 ${!isDragging ? "cursor-grab active:cursor-grabbing" : ""} ${borderClass}`}
         data-grid-id={gridId}
         {...(!isDragging ? dragAttributes : {})}
         {...(!isDragging ? dragListeners : {})}
@@ -153,7 +189,7 @@ function GridCElement({
           <Checkbox
             checked={isSelected}
             onCheckedChange={handleCheckboxChange}
-            className="w-5 h-5 bg-white border-2 border-gray-300 rounded-full data-[state=checked]:bg-primary data-[state=checked]:border-primary cursor-pointer"
+            className="w-5 h-5 bg-white border-2 border-gray-300 rounded-full data-[state=checked]:bg-white data-[state=checked]:border-primary cursor-pointer"
           />
         </div>
 
@@ -179,7 +215,10 @@ function GridCElement({
         {/* SVG 클리핑 마스크 정의 */}
         <svg width="0" height="0" className="absolute">
           <defs>
-            <clipPath id={`clip-${clipPathData.id}-${gridId}`} clipPathUnits="objectBoundingBox">
+            <clipPath
+              id={`clip-${clipPathData.id}-${gridId}`}
+              clipPathUnits="objectBoundingBox"
+            >
               <path d={clipPathData.pathData} />
             </clipPath>
           </defs>
@@ -190,7 +229,9 @@ function GridCElement({
           <div
             className="w-full h-full relative overflow-hidden transition-all duration-200 hover:scale-105"
             style={{
-              clipPath: isClippingEnabled ? `url(#clip-${clipPathData.id}-${gridId})` : 'none'
+              clipPath: isClippingEnabled
+                ? `url(#clip-${clipPathData.id}-${gridId})`
+                : "none",
             }}
             onClick={handleImageClick}
           >
@@ -210,7 +251,11 @@ function GridCElement({
 
             <div className="relative w-full h-full group">
               <Image
-                src={imageLoadError ? "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" : imageUrl}
+                src={
+                  imageLoadError
+                    ? "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+                    : imageUrl
+                }
                 alt={`클리핑된 이미지 - ${clipPathData.name}`}
                 fill
                 className="object-cover w-full h-full"
@@ -230,7 +275,9 @@ function GridCElement({
                 />
                 {/* Upload text */}
                 <div className="text-white text-xs font-medium text-center mb-2 px-2">
-                  이미지를 드래그하거나<br />클릭하여 업로드
+                  이미지를 드래그하거나
+                  <br />
+                  클릭하여 업로드
                 </div>
                 {/* File select button - AddPicture로 감싸기 */}
                 <AddPicture>
@@ -249,7 +296,6 @@ function GridCElement({
         </AddPicture>
 
         {/* 클리핑 형태 이름 라벨 */}
-
       </div>
 
       {/* GridEditToolbar - element 하단 좌측에 위치 */}
@@ -265,32 +311,266 @@ function GridCElement({
         </div>
       )}
 
-      {/* Input Design Component at the bottom - 이미지 위에 표시 */}
-      <div className="absolute bottom-0 left-0 right-0 z-50 p-2">
-        <div className="flex overflow-hidden flex-col px-5 py-2.5 text-xs tracking-tight leading-none bg-white rounded-lg border border-dashed border-zinc-400 max-w-[225px] text-slate-300 shadow-lg">
-          <div className="flex overflow-hidden flex-col justify-center items-start p-2 w-full bg-white rounded-lg border border-solid border-zinc-100 text-zinc-400">
-            <input
-              type="text"
-              value={activityKeyword}
-              onChange={(e) => setActivityKeyword(e.target.value)}
-              placeholder="활동주제나 관련 키워드를 입력하세요"
-              className="text-[9px] w-full outline-none border-none bg-transparent placeholder-zinc-400 text-zinc-800"
-              style={{ letterSpacing: "-0.03em" }}
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-          <div className="mt-2 text-[9px] " style={{ letterSpacing: "-0.03em" }}>
-            활동에 맞는 키워드를 입력하거나 메모를 드래그 또는
-          </div>
-          <div className="flex gap-1 self-center max-w-full w-[110px]">
-            <img
-              src="https://api.builder.io/api/v1/image/assets/304aa4871c104446b0f8164e96d049f4/08267f9c2a1decb54bf0e85f2a616d2c8d62c634?placeholderIfAbsent=true"
-              className="object-contain shrink-0 w-3 aspect-[0.92]"
-            />
-            <div className="my-auto text-[9px]" style={{ letterSpacing: "-0.03em" }}>
-              를 눌러서 업로드 해 주세요.
+      {/* Keyword Input Component at the bottom - 이미지 위에 표시 */}
+      <div className="absolute bottom-0 left-0 right-0 z-50 p-2 photo-description-input">
+        <div className="flex overflow-hidden flex-col px-3.5 py-3.5 text-xs tracking-tight leading-none text-gray-700 bg-white rounded-lg w-full shadow-[1px_1px_10px_rgba(0,0,0,0.1)]">
+          {/* 검색 입력 */}
+          <Collapsible
+            open={isKeywordExpanded}
+            onOpenChange={setIsKeywordExpanded}
+          >
+            <div className="flex gap-2.5 text-zinc-400 w-full">
+              <div className={`flex-1 flex overflow-hidden flex-col justify-center items-start px-3 py-2.5 bg-white rounded-md border border-solid transition-colors ${isInputFocused ? 'border-primary' : 'border-zinc-100'}`}>
+                <input
+                  type="text"
+                  value={activityKeyword}
+                  onChange={handleKeywordInputChange}
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => setIsInputFocused(false)}
+                  placeholder="활동주제나 관련 키워드를 입력하세요."
+                  className="w-full outline-none border-none bg-transparent placeholder-zinc-400 text-zinc-800"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+              <CollapsibleTrigger asChild>
+                <button
+                  className="flex-shrink-0 p-2 hover:bg-gray-100 rounded transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform duration-200 ${
+                      isKeywordExpanded ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+              </CollapsibleTrigger>
             </div>
-          </div>
+
+            {/* 모든 키워드들 (펼쳤을 때만 표시) */}
+            <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+              {/* 추천 키워드 섹션 */}
+              <div className="flex items-center mt-3.5">
+                <div className="font-semibold">추천 키워드</div>
+              </div>
+              {/* 첫 번째 키워드 행 */}
+              <div className="mt-2 w-full bg-white">
+                <div className="flex gap-1.5 font-medium overflow-x-auto scrollbar-hide">
+                  <div className="flex gap-1.5 min-w-max">
+                    <div 
+                      className={`flex overflow-hidden flex-col justify-center px-2.5 py-1.5 whitespace-nowrap rounded-[50px] cursor-pointer transition-colors ${
+                        selectedKeyword === '촉감놀이' 
+                          ? 'bg-primary text-white hover:bg-primary/80' 
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleKeywordClick('촉감놀이');
+                      }}
+                    >
+                      <div>촉감놀이</div>
+                    </div>
+                    <div 
+                      className={`flex overflow-hidden flex-col justify-center px-2.5 py-1.5 whitespace-nowrap rounded-[50px] cursor-pointer transition-colors ${
+                        selectedKeyword === '친구와 촉감놀이' 
+                          ? 'bg-primary text-white hover:bg-primary/80' 
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleKeywordClick('친구와 촉감놀이');
+                      }}
+                    >
+                      <div>친구와 촉감놀이</div>
+                    </div>
+                    <div 
+                      className={`flex overflow-hidden flex-col justify-center px-2.5 py-1.5 whitespace-nowrap rounded-[50px] cursor-pointer transition-colors ${
+                        selectedKeyword === '선생님과 촉감놀이' 
+                          ? 'bg-primary text-white hover:bg-primary/80' 
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleKeywordClick('선생님과 촉감놀이');
+                      }}
+                    >
+                      <div>선생님과 촉감놀이</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent mt-1.5">
+                <div className="flex gap-1.5 mb-1.5 w-full overflow-x-auto scrollbar-hide">
+                  <div className="flex gap-1.5 min-w-max">
+                    <div 
+                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 whitespace-nowrap rounded-[50px] cursor-pointer transition-colors ${
+                        selectedKeyword === '촉감' 
+                          ? 'bg-primary text-white hover:bg-primary/80' 
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleKeywordClick('촉감');
+                      }}
+                    >
+                      <div className="self-stretch my-auto">촉감</div>
+                    </div>
+                    <div 
+                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 whitespace-nowrap rounded-[50px] cursor-pointer transition-colors ${
+                        selectedKeyword === '눅눅한' 
+                          ? 'bg-primary text-white hover:bg-primary/80' 
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleKeywordClick('눅눅한');
+                      }}
+                    >
+                      <div className="self-stretch my-auto">눅눅한</div>
+                    </div>
+                    <div 
+                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 rounded-[50px] cursor-pointer transition-colors ${
+                        selectedKeyword === '촉촉촉촉 촉촉촉촉' 
+                          ? 'bg-primary text-white hover:bg-primary/80' 
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleKeywordClick('촉촉촉촉 촉촉촉촉');
+                      }}
+                    >
+                      <div className="self-stretch my-auto">
+                        촉촉촉촉 촉촉촉촉
+                      </div>
+                    </div>
+                    <div 
+                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 whitespace-nowrap rounded-[50px] cursor-pointer transition-colors ${
+                        selectedKeyword === '사후르' 
+                          ? 'bg-primary text-white hover:bg-primary/80' 
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleKeywordClick('사후르');
+                      }}
+                    >
+                      <div className="self-stretch my-auto">사후르</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-1.5 mb-1.5 w-full whitespace-nowrap overflow-x-auto scrollbar-hide">
+                  <div className="flex gap-1.5 min-w-max">
+                    <div 
+                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 rounded-[50px] cursor-pointer transition-colors ${
+                        selectedKeyword === '발레리나카푸치나' 
+                          ? 'bg-primary text-white hover:bg-primary/80' 
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleKeywordClick('발레리나카푸치나');
+                      }}
+                    >
+                      <div className="self-stretch my-auto">
+                        발레리나카푸치나
+                      </div>
+                    </div>
+                    <div 
+                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 rounded-[50px] cursor-pointer transition-colors ${
+                        selectedKeyword === '트랄라레오트랄랄라' 
+                          ? 'bg-primary text-white hover:bg-primary/80' 
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleKeywordClick('트랄라레오트랄랄라');
+                      }}
+                    >
+                      <div className="self-stretch my-auto">
+                        트랄라레오트랄랄라
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-1.5 mb-1.5 w-full whitespace-nowrap overflow-x-auto scrollbar-hide">
+                  <div className="flex gap-1.5 min-w-max">
+                    <div 
+                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 rounded-[50px] cursor-pointer transition-colors ${
+                        selectedKeyword === '봄바르딜로크로코딜로' 
+                          ? 'bg-primary text-white hover:bg-primary/80' 
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleKeywordClick('봄바르딜로크로코딜로');
+                      }}
+                    >
+                      <div className="self-stretch my-auto">
+                        봄바르딜로크로코딜로
+                      </div>
+                    </div>
+                    <div 
+                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 rounded-[50px] cursor-pointer transition-colors ${
+                        selectedKeyword === '촉감' 
+                          ? 'bg-primary text-white hover:bg-primary/80' 
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleKeywordClick('촉감');
+                      }}
+                    >
+                      <div className="self-stretch my-auto">촉감</div>
+                    </div>
+                    <div 
+                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 rounded-[50px] cursor-pointer transition-colors ${
+                        selectedKeyword === '눅눅한' 
+                          ? 'bg-primary text-white hover:bg-primary/80' 
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleKeywordClick('눅눅한');
+                      }}
+                    >
+                      <div className="self-stretch my-auto">눅눅한</div>
+                    </div>
+                    <div 
+                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 rounded-[50px] cursor-pointer transition-colors ${
+                        selectedKeyword === '사후르' 
+                          ? 'bg-primary text-white hover:bg-primary/80' 
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleKeywordClick('사후르');
+                      }}
+                    >
+                      <div className="self-stretch my-auto">사후르</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 하단 안내 텍스트 */}
+              <div className="self-center mt-3 text-xs font-semibold tracking-tight text-slate-300 text-center">
+                활동에 맞는 키워드를 입력하거나 메모를 드래그 또는
+              </div>
+              <div className="flex items-center gap-1.5 self-center mt-1 w-full text-xs font-semibold tracking-tight text-slate-300 text-center justify-center">
+                <div className="flex items-center gap-1.5">
+                  <img
+                    src="https://api.builder.io/api/v1/image/assets/TEMP/a8776df634680d6cea6086a76446c2b3a2d48eb2?placeholderIfAbsent=true&apiKey=304aa4871c104446b0f8164e96d049f4"
+                    className="object-contain shrink-0 aspect-square w-[15px] my-auto"
+                    alt="Upload icon"
+                  />
+                  <div className="grow shrink w-full ">
+                    를 눌러서 업로드 해 주세요.
+                  </div>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
       </div>
     </div>

@@ -40,6 +40,18 @@ function ReportBContent() {
     return parsed >= 1 && parsed <= 12 ? parsed : 6;
   }, [gridCountParam]);
 
+  // searchParams에서 theme 값 가져오기 (기본값 0)
+  const themeParam = searchParams.get("theme");
+  const theme = React.useMemo(() => {
+    const parsed = parseInt(themeParam || "0", 10);
+    return parsed >= 0 ? parsed : 0;
+  }, [themeParam]);
+
+  // theme 값에 따른 배경이미지 URL 생성
+  const backgroundImageUrl = React.useMemo(() => {
+    return `url(https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg${theme + 1}.png)`;
+  }, [theme]);
+
   // 툴바 아이콘 클릭 핸들러
   const handleIconClick = (index: number) => {
     const tooltipTexts = [
@@ -148,10 +160,10 @@ function ReportBContent() {
           </div>
 
           <div
+            ref={stickerContainerRef}
             className="flex flex-col w-full rounded-br-xl rounded-bl-xl px-4 py-8"
             style={{
-              backgroundImage:
-                "url(https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg.jpg)",
+              backgroundImage: backgroundImageUrl,
             }}
           >
             <ReportTitleSection />
@@ -165,6 +177,15 @@ function ReportBContent() {
             <div className="mt-3 h-[174px]">
               <ReportBottomSection type="B" />
             </div>
+            
+            {/* 스티커 렌더링 */}
+            {stickers.map((sticker) => (
+              <DraggableSticker
+                key={sticker.id}
+                sticker={sticker}
+                containerRef={stickerContainerRef}
+              />
+            ))}
           </div>
         </div>
       </div>

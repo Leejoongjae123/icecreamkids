@@ -54,6 +54,9 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     return initialItems;
   });
 
+  // 선택된 아이템들 관리
+  const [selectedItems, setSelectedItems] = React.useState<Set<string>>(new Set());
+
   // photoCount가 변경되면 items 재생성
   React.useEffect(() => {
     const defaultImage = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
@@ -71,6 +74,8 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
       });
     }
     setItems(newItems);
+    // 아이템이 변경되면 선택 상태 초기화
+    setSelectedItems(new Set());
   }, [photoCount]);
 
   // 현재 드래그 중인 아이템
@@ -129,6 +134,29 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     );
   };
 
+  // 선택 상태 변경 핸들러
+  const handleSelectChange = (gridId: string, isSelected: boolean) => {
+    setSelectedItems(prev => {
+      const newSelected = new Set(prev);
+      if (isSelected) {
+        newSelected.add(gridId);
+      } else {
+        newSelected.delete(gridId);
+      }
+      return newSelected;
+    });
+  };
+
+  // 아이템 삭제 핸들러
+  const handleDelete = (gridId: string) => {
+    setItems(prevItems => prevItems.filter(item => item.id !== gridId));
+    setSelectedItems(prev => {
+      const newSelected = new Set(prev);
+      newSelected.delete(gridId);
+      return newSelected;
+    });
+  };
+
   const activeItem = items.find(item => item.id === activeId);
 
   // 그리드 컬럼 수 계산 (최대 3컬럼)
@@ -165,6 +193,9 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
                 clipPathData={item.clipPathData}
                 imageUrl={item.imageUrl}
                 isClippingEnabled={isClippingEnabled}
+                isSelected={selectedItems.has(item.id)}
+                onSelectChange={(isSelected) => handleSelectChange(item.id, isSelected)}
+                onDelete={() => handleDelete(item.id)}
                 onImageUpload={handleImageUpload}
               />
             ))}
@@ -182,6 +213,7 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
               imageUrl={activeItem.imageUrl}
               isClippingEnabled={isClippingEnabled}
               isDragging={true}
+              isSelected={selectedItems.has(activeItem.id)}
               onImageUpload={() => {}}
             />
           </div>

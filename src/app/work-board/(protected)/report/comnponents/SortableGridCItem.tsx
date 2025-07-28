@@ -11,6 +11,9 @@ interface SortableGridCItemProps {
   clipPathData: ClipPathItem;
   imageUrl: string;
   isClippingEnabled: boolean;
+  isSelected?: boolean;
+  onSelectChange?: (isSelected: boolean) => void;
+  onDelete?: () => void;
   onImageUpload: (gridId: string, imageUrl: string) => void;
   isOverlay?: boolean;
 }
@@ -21,6 +24,9 @@ function SortableGridCItem({
   clipPathData,
   imageUrl,
   isClippingEnabled,
+  isSelected = false,
+  onSelectChange,
+  onDelete,
   onImageUpload,
   isOverlay = false,
 }: SortableGridCItemProps) {
@@ -54,6 +60,9 @@ function SortableGridCItem({
         isDragging={isDragging}
         dragAttributes={attributes}
         dragListeners={listeners}
+        isSelected={isSelected}
+        onSelectChange={onSelectChange}
+        onDelete={onDelete}
         onImageUpload={onImageUpload}
       />
     </div>
