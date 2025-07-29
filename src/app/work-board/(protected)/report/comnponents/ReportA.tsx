@@ -20,7 +20,9 @@ import ReportTitleSection from "./ReportTitleSection";
 import GridA from "./GridA";
 import Image from "next/image";
 import { useStickerStore } from "@/hooks/store/useStickerStore";
+import { useTextStickerStore } from "@/hooks/store/useTextStickerStore";
 import DraggableSticker from "./DraggableSticker";
+import DraggableTextSticker from "./DraggableTextSticker";
 // searchParams를 사용하는 컴포넌트 분리
 function ReportAContent() {
   const searchParams = useSearchParams();
@@ -30,6 +32,7 @@ function ReportAContent() {
   
   // 스티커 관련
   const { stickers } = useStickerStore();
+  const { textStickers } = useTextStickerStore();
   const stickerContainerRef = useRef<HTMLDivElement>(null);
 
   // searchParams에서 subject 값 가져오기 (1-4 범위, 기본값 3)
@@ -176,11 +179,20 @@ function ReportAContent() {
             {/* 하단 텍스트 부위 */}
             <ReportBottomSection type="A" />
             
-            {/* 스티커 렌더링 */}
+            {/* 일반 스티커 렌더링 */}
             {stickers.map((sticker) => (
               <DraggableSticker
                 key={sticker.id}
                 sticker={sticker}
+                containerRef={stickerContainerRef}
+              />
+            ))}
+            
+            {/* 텍스트 스티커 렌더링 */}
+            {textStickers.map((textSticker) => (
+              <DraggableTextSticker
+                key={textSticker.id}
+                sticker={textSticker}
                 containerRef={stickerContainerRef}
               />
             ))}

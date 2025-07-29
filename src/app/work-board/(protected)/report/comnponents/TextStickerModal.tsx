@@ -4,11 +4,12 @@ import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useTextStickerStore } from "@/hooks/store/useTextStickerStore";
 
 interface TextStickerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (selectedFrame: number) => void;
+  onApply?: (selectedFrame: number) => void; // 선택 사항으로 변경
 }
 
 const TextStickerModal: React.FC<TextStickerModalProps> = ({
@@ -19,22 +20,63 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
   const [activeTab, setActiveTab] = useState<"category1" | "category2">(
     "category1",
   );
-  const [selectedFrame, setSelectedFrame] = useState<number>(3); // Default to frame 3
+  const [selectedFrame, setSelectedFrame] = useState<number>(0); // bubble.png가 첫 번째
   const [selectedTextType, setSelectedTextType] = useState<"title" | "subtitle" | "body">("title");
+
+  const { addTextSticker } = useTextStickerStore();
+
+  // 말풍선 이미지 URL들 - bubble.png를 첫 번째로
+  const bubbleUrls = [
+    {
+      url: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bubble.png",
+      isImage: true,
+    },
+    // 나머지 15개는 빈 슬롯
+    ...Array.from({ length: 15 }, () => ({
+      url: "",
+      isImage: false,
+    })),
+  ];
 
   const handleApply = () => {
     if (activeTab === "category1") {
-      // 텍스트 타입을 숫자로 변환 (임시)
-      const textTypeToNumber = {
-        title: 0,
-        subtitle: 1,
-        body: 2,
-      };
-      onApply(textTypeToNumber[selectedTextType]);
+      // 기본 텍스트 스티커 추가
+      addTextSticker({
+        type: 'basic',
+        textType: selectedTextType,
+        text: '',
+        position: { x: 50, y: 50 },
+        size: { width: 150, height: 50 },
+        rotation: 0,
+      });
     } else {
-      onApply(selectedFrame);
+      // 말풍선 텍스트 스티커 추가
+      const bubbleUrl = bubbleUrls[selectedFrame];
+      if (bubbleUrl.isImage) {
+        addTextSticker({
+          type: 'bubble',
+          bubbleIndex: selectedFrame,
+          text: '',
+          position: { x: 50, y: 50 },
+          size: { width: 120, height: 120 },
+          rotation: 0,
+          backgroundUrl: bubbleUrl.url,
+        });
+      }
     }
-    onClose();
+    
+    // 기존 onApply 콜백도 호출 (있을 경우)
+    if (onApply) {
+      onApply(activeTab === "category1" ? 
+        { title: 0, subtitle: 1, body: 2 }[selectedTextType] : 
+        selectedFrame
+      );
+    }
+    
+    // 약간의 지연 후 모달 닫기
+    setTimeout(() => {
+      onClose();
+    }, 100);
   };
 
   const handleFrameSelect = (frameIndex: number) => {
@@ -171,55 +213,38 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
               </RadioGroup>
             </div>
           ) : (
-            /* Frame Grid for 말풍선 tab */
-            <div className="grid grid-cols-4 gap-3">
-              {/* First Row */}
-              {[0, 1, 2, 3].map((frameIndex) => (
-                <div
-                  key={frameIndex}
-                  className={cn(
-                    "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors",
-                    selectedFrame === frameIndex && "border-2 border-amber-400 border-solid",
-                  )}
-                  onClick={() => handleFrameSelect(frameIndex)}
-                />
-              ))}
-              
-              {/* Second Row */}
-              {[4, 5, 6, 7].map((frameIndex) => (
-                <div
-                  key={frameIndex}
-                  className={cn(
-                    "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors",
-                    selectedFrame === frameIndex && "border-2 border-amber-400 border-solid",
-                  )}
-                  onClick={() => handleFrameSelect(frameIndex)}
-                />
-              ))}
-              
-              {/* Third Row */}
-              {[8, 9, 10, 11].map((frameIndex) => (
-                <div
-                  key={frameIndex}
-                  className={cn(
-                    "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors",
-                    selectedFrame === frameIndex && "border-2 border-amber-400 border-solid",
-                  )}
-                  onClick={() => handleFrameSelect(frameIndex)}
-                />
-              ))}
-              
-              {/* Fourth Row */}
-              {[12, 13, 14, 15].map((frameIndex) => (
-                <div
-                  key={frameIndex}
-                  className={cn(
-                    "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors",
-                    selectedFrame === frameIndex && "border-2 border-amber-400 border-solid",
-                  )}
-                  onClick={() => handleFrameSelect(frameIndex)}
-                />
-              ))}
+            /* Bubble Grid for 말풍선 tab */
+            <div className="grid grid-cols-4 gap-3 min-h-[400px]">
+              {Array.from({ length: 16 }, (_, index) => {
+                const bubble = bubbleUrls[index];
+                
+                return (
+                  <div
+                    key={index}
+                    className={cn(
+                      "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors flex items-center justify-center overflow-hidden",
+                      selectedFrame === index &&
+                        "border-2 border-amber-400 border-solid",
+                      !bubble?.isImage && "opacity-50"
+                    )}
+                    onClick={() => bubble?.isImage && handleFrameSelect(index)}
+                  >
+                    {bubble?.isImage ? (
+                      <img
+                        src={bubble.url}
+                        alt={`말풍선 ${index + 1}`}
+                        className="w-full h-full object-contain rounded-lg p-2"
+                        onError={(e) => {
+                          // 이미지 로드 실패시 처리
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-100 rounded-lg" />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

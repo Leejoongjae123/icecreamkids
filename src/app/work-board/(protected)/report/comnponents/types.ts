@@ -280,3 +280,34 @@ export interface StickerStore {
   removeSticker: (id: string) => void;
   bringToFront: (id: string) => void;
 }
+
+// 텍스트 스티커 관련 타입들
+export interface TextStickerItem {
+  id: string;
+  type: 'basic' | 'bubble';
+  textType?: 'title' | 'subtitle' | 'body'; // 기본 탭에서만 사용
+  bubbleIndex?: number; // 말풍선 탭에서만 사용
+  text: string;
+  position: {
+    x: number;
+    y: number;
+  };
+  size: {
+    width: number;
+    height: number;
+  };
+  rotation: number;
+  zIndex: number;
+  backgroundUrl?: string; // 말풍선 이미지 URL
+}
+
+export interface TextStickerStore {
+  textStickers: TextStickerItem[];
+  addTextSticker: (sticker: Omit<TextStickerItem, 'id' | 'zIndex'>) => void;
+  updateTextStickerPosition: (id: string, position: { x: number; y: number }) => void;
+  updateTextStickerSize: (id: string, size: { width: number; height: number }) => void;
+  updateTextStickerRotation: (id: string, rotation: number) => void;
+  updateTextStickerText: (id: string, text: string) => void;
+  removeTextSticker: (id: string) => void;
+  bringTextStickerToFront: (id: string) => void;
+}

@@ -19,6 +19,7 @@ interface GridAElementProps {
   images?: string[];
   onAIGenerate?: () => void;
   onImageUpload?: () => void;
+  onDelete?: () => void; // 삭제 핸들러 추가
   placeholderText?: string;
   isDragging?: boolean; // 드래그 상태 추가
   dragAttributes?: any; // 드래그 속성 추가
@@ -42,6 +43,7 @@ function GridAElement({
   images = [],
   onAIGenerate,
   onImageUpload,
+  onDelete, // 삭제 핸들러 추가
   placeholderText = "ex) 아이들과 촉감놀이를 했어요",
   isDragging = false, // 드래그 상태 추가
   dragAttributes, // 드래그 속성 추가
@@ -63,6 +65,9 @@ function GridAElement({
   
   // AI 생성 로딩 상태 관리
   const [isLoading, setIsLoading] = React.useState(false);
+  
+  // AI 생성 버튼을 클릭한 적이 있는지 추적
+  const [hasClickedAIGenerate, setHasClickedAIGenerate] = React.useState(false);
   
   // textarea focus 상태 관리 추가
   const [isTextareaFocused, setIsTextareaFocused] = React.useState(false);
@@ -144,6 +149,9 @@ function GridAElement({
     console.log("AI 생성 버튼 클릭됨");
     console.log("현재 isDescriptionExpanded:", isDescriptionExpanded);
     
+    // AI 생성 버튼을 클릭했다고 표시
+    setHasClickedAIGenerate(true);
+    
     // 로딩 상태 시작
     setIsLoading(true);
     
@@ -197,6 +205,18 @@ function GridAElement({
       // 로딩 상태 종료
       setIsLoading(false);
     }, 2000);
+  };
+
+  // 삭제 핸들러
+  const handleDelete = (event: React.MouseEvent) => {
+    event.stopPropagation(); // 이벤트 전파 방지
+    
+    // 삭제 확인 대화상자
+    if (window.confirm('정말로 이 카드를 삭제하시겠습니까?')) {
+      if (onDelete) {
+        onDelete();
+      }
+    }
   };
 
   // 이미지가 아닌 영역 클릭 핸들러 - 툴바 표시
@@ -306,9 +326,12 @@ function GridAElement({
       >
         {/* 카테고리 섹션 - 고정 높이 */}
         <div className="flex gap-2.5 text-sm font-bold tracking-tight leading-none text-amber-400 whitespace-nowrap flex-shrink-0 mb-1">
-          <div className={`flex overflow-hidden flex-col grow shrink-0 justify-center items-start px-2 py-1 rounded-md border border-solid basis-0 w-fit transition-colors ${
-            isEditingCategory ? 'border-primary' : 'border-gray-300'
-          }`}>
+          <div 
+            className={`flex overflow-hidden flex-col grow shrink-0 justify-center items-start px-2 py-1 rounded-md border border-solid basis-0 w-fit transition-colors cursor-text hover:bg-gray-50 ${
+              isEditingCategory ? 'border-primary' : 'border-gray-300'
+            }`}
+            onClick={!isEditingCategory ? handleCategoryClick : undefined}
+          >
             {isEditingCategory ? (
               <Input
                 type="text"
@@ -326,10 +349,7 @@ function GridAElement({
                 autoFocus
               />
             ) : (
-              <div 
-                className="text-[16px] leading-tight cursor-text hover:bg-gray-50 px-1 py-0.5 rounded transition-colors"
-                onClick={handleCategoryClick}
-              >
+              <div className="text-[16px] leading-tight px-1 py-0.5 rounded transition-colors">
                 {categoryValue}
               </div>
             )}
@@ -408,20 +428,25 @@ function GridAElement({
           <div className={`description-area flex overflow-hidden flex-col px-2 py-2 w-full leading-none bg-white rounded-md min-h-[90px] flex-shrink-0 mt-1 relative transition-colors ${
             isTextareaFocused ? 'border border-solid border-primary' : 'border border-dashed border-zinc-400'
           }`}>
-            {/* 새로고침 버튼 - 우측 상단 */}
-            <button
-              onClick={handleTextRefresh}
-              className="absolute top-2 right-3 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-sm transition-colors z-10"
-              title="텍스트 새로고침"
-            >
-              <Image
-                src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/refresh.svg"
-                width={20}
-                height={20}
-                alt="Refresh"
-                className="object-contain"
-              />
-            </button>
+            {/* 상단 버튼들 - 우측 상단 */}
+            <div className="absolute top-2 right-3 flex items-center gap-1 z-20">
+              {/* 새로고침 버튼 */}
+              <button
+                onClick={handleTextRefresh}
+                className="w-7 h-7 bg-white border border-[#F0F0F0] rounded-md flex items-center justify-center hover:bg-gray-50 transition-colors"
+                title="텍스트 새로고침"
+              >
+                <Image
+                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/refresh.svg"
+                  width={14}
+                  height={14}
+                  alt="Refresh"
+                  className="object-contain hover:opacity-80"
+                />
+              </button>
+              
+              
+            </div>
             
             <textarea
               value={inputValue}
@@ -442,13 +467,32 @@ function GridAElement({
             />
             
             {/* 글자수 카운팅 - 우측하단 */}
-            <div className="absolute bottom-2 right-3 text-[9px] font-medium text-primary">
-              ({inputValue.length}/200)
-            </div>
+            {hasClickedAIGenerate && (
+              <div className="absolute bottom-2 right-3 text-[9px] font-medium text-primary">
+                ({inputValue.length}/200)
+              </div>
+            )}
           </div>
         ) : (
           // 기본 모드
           <div className="description-area flex overflow-hidden flex-col px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 min-h-[90px] flex-shrink-0 mt-1 relative">
+            {/* 삭제 버튼 - 우측 상단 */}
+            {onDelete && (
+              <button
+                onClick={handleDelete}
+                className="absolute top-2 right-2 w-7 h-7 bg-white border border-[#F0F0F0] rounded-md flex items-center justify-center z-20 hover:bg-red-50 transition-colors"
+                title="카드 삭제"
+              >
+                <Image
+                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/trash.svg"
+                  width={14}
+                  height={14}
+                  alt="Delete"
+                  className="object-contain hover:opacity-80"
+                />
+              </button>
+            )}
+            
             <div className="flex gap-1.5 w-full mb-1.5"> 
               <Input
                 value={inputValue}
@@ -486,9 +530,11 @@ function GridAElement({
             </div>
 
             {/* 글자수 카운팅 - 우측하단 */}
-            <div className="absolute bottom-2 right-3 text-[9px] font-medium text-primary">
-              ({inputValue.length}/200)
-            </div>
+            {hasClickedAIGenerate && (
+              <div className="absolute bottom-2 right-3 text-[9px] font-medium text-primary">
+                ({inputValue.length}/200)
+              </div>
+            )}
 
             <div className="text-[10px] font-semibold tracking-tight text-slate-300 text-center mb-1 leading-tight px-1">
               활동에 맞는 키워드를 입력하거나 메모를 드래그 또는
