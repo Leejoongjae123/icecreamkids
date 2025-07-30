@@ -63,16 +63,26 @@ function ReportPageContent() {
         <div className="w-full max-w-[342px] h-full">
           <LeftSideBar />
         </div>
-        <div className="w-full max-w-[800px]">
+        <div className="total-report w-[794px] h-[1123px] overflow-hidden flex flex-col">
           {selectedReportType === "A" && (
-            <Suspense fallback={<div>Loading...</div>}>
-              <ReportA />
+            <Suspense fallback={<div className="flex-1 flex items-center justify-center">Loading...</div>}>
+              <div className="flex-1 h-full">
+                <ReportA />
+              </div>
             </Suspense>
           )}
-          {selectedReportType === "B" && <ReportB />}
-          {selectedReportType === "C" && <ReportC />}
+          {selectedReportType === "B" && (
+            <div className="flex-1 h-full">
+              <ReportB />
+            </div>
+          )}
+          {selectedReportType === "C" && (
+            <div className="flex-1 h-full">
+              <ReportC />
+            </div>
+          )}
         </div>
-        <div className="w-full max-w-[166px]">
+        <div className="min-w-[166px] overflow-visible">
           <RightSideBar />
         </div>
       </div>

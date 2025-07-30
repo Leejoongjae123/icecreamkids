@@ -366,8 +366,8 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
           !removedItems.has(first) && !removedItems.has(second) &&
           !expandedItems.has(first) && !expandedItems.has(second) &&
           !hiddenItems.has(first) && !hiddenItems.has(second)) {
-        // 240px 카드 높이 기준으로 각 행의 정확한 중앙 계산
-        const topPosition = `${(row * 240) + 120 + (row * 12)}px`; // 카드 높이(240px) + gap(12px) 고려
+        // 각 행의 중앙 위치를 백분율로 계산 (행별로 33.33%씩 분할)
+        const topPercentage = `${((row + 1) * 33.33) - 16.67}%`; // 각 행의 중앙 위치
         const leftPosition = position === 'left' ? '25%' : '75%'; // 좌측 또는 우측 중앙
         
         buttons.push(
@@ -375,7 +375,7 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
             key={`floating-add-${first}-${second}`}
             className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10"
             style={{
-              top: topPosition,
+              top: topPercentage,
               left: leftPosition,
             }}
           >
@@ -410,8 +410,7 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
           {/* 기본 그리드 레이아웃 (4x3) */}
           <div className={`w-full h-full grid grid-cols-4 gap-3 transition-colors duration-200 ${
             activeId ? 'bg-primary/5' : ''
-          }`}
-          style={{ gridTemplateRows: 'repeat(3, 240px)' }}>
+          }`}>
             {renderGridItems()}
           </div>
           

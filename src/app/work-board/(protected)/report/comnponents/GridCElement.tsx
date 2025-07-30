@@ -172,7 +172,7 @@ function GridCElement({
   return (
     <div className="relative w-full h-full">
       <div
-        className={`relative w-full h-full min-h-[250px] ${!isClippingEnabled ? "bg-white rounded-xl" : "bg-transparent"} overflow-hidden ${containerClass} ${isDragging ? "opacity-100" : ""} transition-all duration-200 ${!isDragging ? "cursor-grab active:cursor-grabbing" : ""} ${borderClass}`}
+        className={`relative w-full h-full ${!isClippingEnabled ? "bg-white rounded-xl" : "bg-transparent"} overflow-hidden ${containerClass} ${isDragging ? "opacity-100" : ""} transition-all duration-200 ${!isDragging ? "cursor-grab active:cursor-grabbing" : ""} ${borderClass}`}
         data-grid-id={gridId}
         {...(!isDragging ? dragAttributes : {})}
         {...(!isDragging ? dragListeners : {})}

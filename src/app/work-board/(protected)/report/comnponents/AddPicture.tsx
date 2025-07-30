@@ -27,6 +27,37 @@ function AddPicture({ children }: AddPictureProps) {
     { id: "내컴퓨터", label: "내 컴퓨터" }
   ];
 
+  const images=[
+    {
+      id:1,
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/cha1.jpg"
+    },
+    {
+      id:2,
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/cha2.png"
+    },
+    {
+      id:3,
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/cha3.png"
+    },
+    {
+      id:4,
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/gong1.png"
+    },
+    {
+      id:5,
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/gong2.png"
+    },
+    {
+      id:6,
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/logo1.png"
+    },
+    {
+      id:7,
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/logo2.png"
+    }
+  ]
+
   const handleImageSelect = (index: number) => {
     setSelectedImages(prev => {
       const newSet = new Set(prev);
@@ -40,10 +71,10 @@ function AddPicture({ children }: AddPictureProps) {
   };
 
   const handleSelectAll = () => {
-    if (selectedImages.size === 24) {
+    if (selectedImages.size === images.length) {
       setSelectedImages(new Set());
     } else {
-      setSelectedImages(new Set(Array.from({ length: 24 }, (_, i) => i)));
+      setSelectedImages(new Set(Array.from({ length: images.length }, (_, i) => i)));
     }
   };
 
@@ -79,21 +110,19 @@ function AddPicture({ children }: AddPictureProps) {
     return selectedImages.size;
   };
 
-  const getSelectedImageUrl = () => {
+  const getSelectedImageUrls = () => {
     if (activeTab === "내컴퓨터" && selectedUploadedFiles.size > 0) {
-      const firstSelectedIndex = Array.from(selectedUploadedFiles)[0];
-      return uploadedFiles[firstSelectedIndex]?.preview || "";
+      return Array.from(selectedUploadedFiles).map(index => uploadedFiles[index]?.preview).filter(Boolean);
     } else if (activeTab !== "내컴퓨터" && selectedImages.size > 0) {
-      // 추천자료나 자료보드의 경우 샘플 이미지 URL 사용
-      return "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload_sample.png";
+      return Array.from(selectedImages).map(index => images[index].url);
     }
-    return "";
+    return [];
   };
 
   const handleApplyImages = () => {
-    const imageUrl = getSelectedImageUrl();
-    if (imageUrl && getTotalSelectedCount() > 0) {
-      setSelectedImageUrl(imageUrl);
+    const imageUrls = getSelectedImageUrls();
+    if (imageUrls.length > 0 && getTotalSelectedCount() > 0) {
+      setSelectedImageUrl(imageUrls[0]); // 첫 번째 이미지를 기본으로 설정
       setIsAddPictureModalOpen(false); // AddPicture 모달 닫기
       setShowImageEditModal(true); // ImageEdit 모달 열기
     }
@@ -175,12 +204,12 @@ function AddPicture({ children }: AddPictureProps) {
                 {/* 추천자료 및 자료보드 탭 */}
                 {activeTab !== "내컴퓨터" && (
                   <div className="grid grid-cols-6 gap-4 text-sm tracking-tight leading-none text-gray-700 whitespace-nowrap">
-                    {Array.from({ length: 24 }, (_, index) => (
+                    {images.map((currentImage, index) => (
                       <div key={index} className="flex flex-col relative">
                         <div className="relative">
                           <img
-                            src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload_sample.png"
-                            className={`object-contain rounded-xl aspect-[1.34] w-full cursor-pointer transition-all ${
+                            src={currentImage.url}
+                            className={`object-cover rounded-xl aspect-[1.34] w-full cursor-pointer transition-all ${
                               selectedImages.has(index) ? '' : ''
                             }`}
                             alt={`이미지 ${index + 1}`}
@@ -195,9 +224,7 @@ function AddPicture({ children }: AddPictureProps) {
                             />
                           </div>
                         </div>
-                        <div className="self-center mt-2">
-                          name_name_name_{index + 1}.jpg
-                        </div>
+
                       </div>
                     ))}
                   </div>
@@ -236,7 +263,8 @@ function AddPicture({ children }: AddPictureProps) {
     <ImageEditModal
       isOpen={showImageEditModal}
       onClose={handleImageEditClose}
-      imageUrl={selectedImageUrl}
+      imageUrls={getSelectedImageUrls()}
+      selectedImageIndex={0}
       onApply={handleImageEditApply}
       targetFrame={{
         width: 300,

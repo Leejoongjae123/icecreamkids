@@ -60,9 +60,10 @@ function ReportCContent() {
 
   return (
     <TooltipProvider>
-      <div className="w-full relative">
+      <div className="w-full h-full relative flex flex-col">
+        
         {/* Header with A4 Template */}
-        <div className="bg-image w-full shadow-custom border border-gray-200 rounded-xl pt-4 bg-cover bg-center bg-no-repeat">
+        <div className="bg-image w-full flex-1 shadow-custom border border-gray-200 rounded-xl pt-4 bg-cover bg-center bg-no-repeat flex flex-col">
           <div className="flex flex-row justify-between mb-4 px-4 ">
             <div className="flex gap-1 my-auto text-base tracking-tight text-white">
               <img
@@ -126,7 +127,7 @@ function ReportCContent() {
 
           <div
             ref={stickerContainerRef}
-            className="flex flex-col w-full min-h-[1130px] justify-between gap-y-3 px-4 py-8 rounded-br-xl rounded-bl-xl"
+            className="flex flex-col w-full h-full justify-between gap-y-3 px-4 py-4 rounded-br-xl rounded-bl-xl relative"
             style={{
               backgroundImage: backgroundImageUrl,
             }}
@@ -134,7 +135,7 @@ function ReportCContent() {
             <ReportTitleSection />
 
             {/* GridC 컴포넌트 */}
-            <div className="flex-1 flex-row w-full">
+            <div className="flex-1 w-full h-full">
               <GridC isClippingEnabled={isClippingEnabled} photoCount={photoCount} />
             </div>
 

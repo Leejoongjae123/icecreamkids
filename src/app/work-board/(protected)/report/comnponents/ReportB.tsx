@@ -102,10 +102,11 @@ function ReportBContent() {
 
   return (
     <TooltipProvider>
-      <div className="w-full relative">
+      <div className="w-full h-full relative">
         {/* Header with A4 Template */}
-        <div className="w-full shadow-custom border border-gray-200 rounded-xl bg-white pt-4">
-          <div className="flex flex-row justify-between mb-4 px-4">
+        <div className="w-full h-full shadow-custom border border-gray-200 rounded-xl bg-white flex flex-col">
+          {/* 상단 버튼 영역 - 고정 높이 */}
+          <div className="flex-shrink-0 flex flex-row justify-between mb-4 px-4 pt-4">
             <div className="flex gap-1 my-auto text-base tracking-tight">
               <img
                 src="https://cdn.builder.io/api/v1/image/assets/TEMP/4f51a14975a94c7325e6dc9e46203e3be3439720?placeholderIfAbsent=true&apiKey=304aa4871c104446b0f8164e96d049f4"
@@ -159,22 +160,31 @@ function ReportBContent() {
             </div>
           </div>
 
+          {/* 메인 컨텐츠 영역 - 남은 공간 모두 차지 */}
           <div
             ref={stickerContainerRef}
-            className="flex flex-col w-full rounded-br-xl rounded-bl-xl px-4 py-8"
+            className="flex flex-col w-full h-full px-4 py-4 rounded-br-xl rounded-bl-xl relative overflow-hidden"
             style={{
               backgroundImage: backgroundImageUrl,
             }}
           >
-            <ReportTitleSection />
+            {/* 타이틀 섹션 - 고정 높이 84px */}
+            <div className="flex-shrink-0 pb-4">
+              <ReportTitleSection />
+            </div>
 
-            {/* 이미지 그리드 - 3행 × 240px + gap 12px를 고려한 고정 높이 */}
-            <div className="w-full h-[756px] mt-3">
+            {/* 이미지 그리드 - 계산된 정확한 높이 차지 */}
+            <div 
+              className="flex-shrink-0 w-full mb-3"
+              style={{ 
+                height: 'calc(100% - 84px - 16px - 174px - 12px)' // 전체 - 타이틀 - 타이틀패딩 - 하단 - 간격
+              }}
+            >
               <GridB gridCount={gridCount} />
             </div>
 
-            {/* 하단 텍스트 부위 - 정확한 여백으로 위치 조정 */}
-            <div className="mt-3 h-[174px]">
+            {/* 하단 텍스트 부위 - 고정 높이 174px */}
+            <div className="flex-shrink-0">
               <ReportBottomSection type="B" />
             </div>
             

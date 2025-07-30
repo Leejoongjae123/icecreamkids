@@ -357,12 +357,12 @@ function GridAElement({
         </div>
 
         {/* 이미지 그리드 - 카드 타입과 너비에 따라 다른 레이아웃 */}
-        <div className={`grid gap-1 flex-1 ${
+        <div className={`grid gap-1 w-full ${imageCount === 1 ? 'h-full flex-1' : 'h-full'} ${
           isWideCard
-            ? `${getImageGridClass(imageCount, cardType)} min-h-[160px]` // col-span-2인 경우 이미지 개수에 따라 배치
+            ? `${getImageGridClass(imageCount, cardType)} ${imageCount === 1 ? '' : 'min-h-[160px]'}` // col-span-2인 경우 이미지 개수에 따라 배치
             : cardType === 'large' 
-              ? `${getImageGridClass(imageCount, cardType)} min-h-[160px]` // large 카드는 이미지 개수에 따라 배치
-              : `${getImageGridClass(imageCount, cardType)} min-h-[215px]` // small 카드도 이미지 개수에 따라 배치
+              ? `${getImageGridClass(imageCount, cardType)} ${imageCount === 1 ? '' : 'min-h-[160px]'}` // large 카드는 이미지 개수에 따라 배치
+              : `${getImageGridClass(imageCount, cardType)} ${imageCount === 1 ? '' : 'min-h-[160px]'}` // small 카드도 이미지 개수에 따라 배치
         }`}>
           {currentImages.map((imageSrc, index) => (
             <AddPicture key={index}>

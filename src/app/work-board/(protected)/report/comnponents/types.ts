@@ -195,7 +195,8 @@ export interface GridBElementDndProps {
 export interface ImageEditModalProps {
   isOpen: boolean;
   onClose: () => void;
-  imageUrl: string;
+  imageUrls: string[];
+  selectedImageIndex?: number;
   onApply: (editedImageData: string) => void;
   targetFrame?: {
     width: number;

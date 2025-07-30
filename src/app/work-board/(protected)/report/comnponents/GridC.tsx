@@ -169,7 +169,15 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
   const getGridClass = () => {
     const cols = getGridCols();
     const colsClass = `grid-cols-${cols}`;
-    return `grid ${colsClass} gap-4 w-full h-full min-h-[600px] max-w-4xl mx-auto`;
+    return `grid ${colsClass} gap-4 w-full h-full max-w-4xl mx-auto`;
+  };
+
+  // 그리드 스타일 생성 (GridA와 유사하게)
+  const getGridStyle = () => {
+    return {
+      gridTemplateRows: "repeat(auto-fit, minmax(0, 1fr))",
+      minHeight: "400px"
+    };
   };
 
   return (
@@ -184,7 +192,7 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
         strategy={rectSortingStrategy}
       >
         <div className="w-full h-full relative">
-          <div className={getGridClass()}>
+          <div className={getGridClass()} style={getGridStyle()}>
             {items.map((item) => (
               <SortableGridCItem
                 key={item.id}

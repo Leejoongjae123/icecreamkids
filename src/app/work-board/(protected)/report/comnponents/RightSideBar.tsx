@@ -12,21 +12,22 @@ import { TypeSelectionModal } from "@/components/modal/type-selection";
 import AgeSelector from "./AgeSelector";
 import SubjectSelector from "./SubjectSelector";
 import PhotoSelector from "./PhotoSelector";
+import InputDesign from "./InputDesign";
 
 function RightSideBarContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const currentType = searchParams.get("type") || "A";
-  
+
   const [selectedAge, setSelectedAge] = useState("6세");
   const [isAgePopoverOpen, setIsAgePopoverOpen] = useState(false);
   const [ageCount, setAgeCount] = useState(3);
-  
+
   // searchParams에서 초기값 읽어오기 - 타입에 따라 기본값 다르게 설정
   const getDefaultSubject = (type: string) => {
     return type === "B" ? "12개" : "4개";
   };
-  
+
   const [selectedSubject, setSelectedSubject] = useState(searchParams.get('subject') ? `${searchParams.get('subject')}개` : getDefaultSubject(currentType));
   const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
   const [subjectCount, setSubjectCount] = useState(parseInt(searchParams.get('subject') || (currentType === "B" ? '12' : '4')));
@@ -56,10 +57,10 @@ function RightSideBarContent() {
             return "6세";
         }
       };
-      
+
       const ageString = ageNumberToString(ageParam);
       setSelectedAge(ageString);
-      
+
       // ageCount도 업데이트
       const ageCountMap: { [key: string]: number } = {
         "7세": 5,
@@ -74,15 +75,15 @@ function RightSideBarContent() {
   // 타입이 변경될 때 subject 관련 상태 업데이트
   useEffect(() => {
     console.log("useEffect 실행 - 현재 타입:", currentType);
-    
+
     // B타입일 때는 subject 관련 상태를 설정하지 않음
     if (currentType === "B") {
       return;
     }
-    
+
     const subjectParam = searchParams.get('subject');
     console.log("subjectParam:", subjectParam);
-    
+
     if (!subjectParam) {
       // URL에 subject 파라미터가 없으면 타입에 따른 기본값 설정
       const defaultSubject = getDefaultSubject(currentType);
@@ -113,16 +114,16 @@ function RightSideBarContent() {
           return "6세";
       }
     };
-    
+
     const ageString = ageNumberToString(ageNumber);
     setSelectedAge(ageString);
     setIsAgePopoverOpen(false);
-    
+
     // searchParams 업데이트
     const newSearchParams = new URLSearchParams(searchParams);
     newSearchParams.set("age", ageNumber);
     router.push(`?${newSearchParams.toString()}`);
-    
+
     // Update the count logic based on selected age
     const ageCountMap: { [key: string]: number } = {
       "7세": 5,
@@ -155,12 +156,12 @@ function RightSideBarContent() {
   const handleTypeSelect = (type: "A" | "B" | "C") => {
     const newSearchParams = new URLSearchParams(searchParams);
     newSearchParams.set("type", type);
-    
+
     // B타입일 때는 subject 파라미터 제거
     if (type === "B") {
       newSearchParams.delete("subject");
     }
-    
+
     router.push(`?${newSearchParams.toString()}`);
     setIsTypeModalOpen(false);
     console.log(`타입 선택: ${type}`);
@@ -179,7 +180,7 @@ function RightSideBarContent() {
       // 숫자인 경우 매핑
       const ageMap: { [key: number]: string } = {
         3: "7",
-        2: "6", 
+        2: "6",
         1: "5",
         0: "0~2",
       };
@@ -189,7 +190,7 @@ function RightSideBarContent() {
   };
 
   return (
-    <div className="flex flex-col gap-2.5 max-h-[calc(100vh-120px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+    <div className="flex flex-col gap-2.5 max-h-[calc(100vh-120px)] overflow-y-auto overflow-x-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
       <Button
         className="box-border flex flex-col gap-1 justify-center items-center py-3 pr-2 pl-2 bg-primary hover:bg-primary/80 rounded-xl h-[72px] w-[110px] max-sm:w-full max-sm:text-sm max-sm:max-w-[280px]"
         onClick={() => {
@@ -318,6 +319,11 @@ function RightSideBarContent() {
         onSelect={handleTypeSelect}
         onCancel={handleTypeModalCancel}
       />
+
+      {/* InputDesign styling panel at the bottom */}
+      <div className="mt-4 overflow-visible">
+        <InputDesign />
+      </div>
     </div>
   );
 }

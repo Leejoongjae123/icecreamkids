@@ -130,9 +130,9 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
 
   return (
     <div
-      className={`flex flex-row w-full justify-between h-[83px] ${className}`}
+      className={`flex flex-row w-full justify-between h-[84px] ${className}`}
     >
-      <div className="flex flex-col w-[10%] border border-dashed border-zinc-400 rounded-[15px] items-center justify-center hover:border-gray-400  transition-colors cursor-pointer bg-white">
+      <div className="flex flex-col w-[132px] border border-dashed border-zinc-400 rounded-[15px] items-center justify-center hover:border-gray-400  transition-colors cursor-pointer bg-white">
         <AddPicture>
           <Image
             src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg"

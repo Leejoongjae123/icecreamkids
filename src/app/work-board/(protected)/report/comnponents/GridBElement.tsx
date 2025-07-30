@@ -288,8 +288,13 @@ function GridBElement({
           </button>
         )}
 
-        {/* 이미지 그리드 - 적절한 높이로 설정하고 flex-1로 공간 차지 */}
-        <div className={`grid gap-1 flex-1 min-h-[120px] ${getImageGridClass(imageCount)}`}>
+        {/* 이미지 그리드 - 계산된 높이로 설정하여 공간 최적화 */}
+        <div 
+          className={`grid gap-1 w-full ${getImageGridClass(imageCount)}`}
+          style={{ 
+            height: 'calc(100% - 70px)' // 전체 높이에서 하단 입력 영역(70px) 제외
+          }}
+        >
           {currentImages.map((imageSrc, index) => (
             <AddPicture key={index}>
               <div 
@@ -341,16 +346,16 @@ function GridBElement({
           ))}
         </div>
 
-        {/* 하단 입력 영역 - flex-shrink-0으로 고정 높이 유지 */}
+        {/* 하단 입력 영역 - 고정 높이 70px로 최적화 */}
         {isLoading ? (
           // 로딩 중일 때
-          <div className="flex flex-col items-center justify-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 min-h-[90px] flex-shrink-0">
+          <div className="flex flex-col items-center justify-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 h-[70px] flex-shrink-0">
             <Loader2 className="w-6 h-6 animate-spin text-primary mb-2" />
             <div className="text-[#B4B4B4] text-xs">내용을 생성중입니다...</div>
           </div>
         ) : isDescriptionExpanded ? (
           // 확장된 textarea 모드
-          <div className={`flex overflow-hidden flex-col px-2 py-2 w-full leading-none bg-white rounded-md min-h-[90px] justify-center flex-shrink-0 relative transition-colors ${
+          <div className={`flex overflow-hidden flex-col px-2 py-2 w-full leading-none bg-white rounded-md h-[70px] justify-center flex-shrink-0 relative transition-colors ${
             isTextareaFocused ? 'border border-solid border-primary' : 'border border-dashed border-zinc-400'
           }`}>
             {/* 새로고침 버튼 - 우측 상단 */}
@@ -379,7 +384,6 @@ function GridBElement({
                 borderRadius: '6px', 
                 fontSize: '12px', 
                 lineHeight: '1.4', 
-                minHeight: '74px',
                 scrollbarWidth: 'none', /* Firefox */
                 msOverflowStyle: 'none' /* IE and Edge */
               }}
@@ -395,7 +399,7 @@ function GridBElement({
           </div>
         ) : (
           // 기본 모드
-          <div className="flex overflow-hidden flex-col items-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 min-h-[90px] justify-center flex-shrink-0 relative">
+          <div className="flex overflow-hidden flex-col items-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 h-[70px] justify-center flex-shrink-0 relative">
             <div className="flex gap-1.5 w-full mb-1.5"> 
               <Input
                 type="text"
@@ -440,7 +444,7 @@ function GridBElement({
               </div>
             )}
 
-            <div className="text-[10px] font-semibold tracking-tight text-slate-300 text-center mb-1 leading-tight px-1">
+            <div className="text-[9px] font-semibold tracking-tight text-slate-300 text-center mb-1 leading-tight px-1">
               활동에 맞는 키워드를 입력하거나 메모를 드래그 또는
             </div>
 
@@ -460,7 +464,7 @@ function GridBElement({
                     className="object-contain"
                     alt="Upload icon"
                   />
-                  <div className="text-slate-300 text-[10px]">를 눌러서 업로드 해 주세요.</div>
+                  <div className="text-slate-300 text-[9px]">를 눌러서 업로드 해 주세요.</div>
                 </button>
               </AddPicture>
             </div>

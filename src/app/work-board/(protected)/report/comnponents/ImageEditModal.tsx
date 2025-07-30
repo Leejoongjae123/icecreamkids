@@ -5,17 +5,20 @@ import { Canvas, Image as FabricImage, Object as FabricObject } from "fabric";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { RotateCw, RotateCcw, ZoomIn, ZoomOut, RotateCcw as Reset } from "lucide-react";
 import { ImageEditModalProps } from "./types";
+import { RiImageEditLine } from "react-icons/ri";
 
 export default function ImageEditModal({
   isOpen,
   onClose,
-  imageUrl,
+  imageUrls,
+  selectedImageIndex = 0,
   onApply,
   targetFrame = { width: 400, height: 300, x: 100, y: 100 }
 }: ImageEditModalProps) {
@@ -23,6 +26,7 @@ export default function ImageEditModal({
   const [fabricCanvas, setFabricCanvas] = useState<Canvas | null>(null);
   const [currentImage, setCurrentImage] = useState<FabricImage | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(selectedImageIndex);
 
   // Fabric.js 초기화
   const initializeFabricCanvas = useCallback(() => {
@@ -73,7 +77,10 @@ export default function ImageEditModal({
 
   // 이미지 로드 및 캔버스에 추가
   const loadImageToCanvas = useCallback(async () => {
-    if (!fabricCanvas || !imageUrl || !isOpen) return;
+    if (!fabricCanvas || !imageUrls.length || !isOpen) return;
+    
+    const currentImageUrl = imageUrls[activeImageIndex];
+    if (!currentImageUrl) return;
 
     setIsLoading(true);
     
@@ -90,7 +97,7 @@ export default function ImageEditModal({
       await new Promise((resolve, reject) => {
         imgElement.onload = resolve;
         imgElement.onerror = reject;
-        imgElement.src = imageUrl;
+        imgElement.src = currentImageUrl;
       });
 
       const fabricImage = new FabricImage(imgElement, {
@@ -143,7 +150,7 @@ export default function ImageEditModal({
     } finally {
       setIsLoading(false);
     }
-  }, [fabricCanvas, imageUrl, isOpen, currentImage]);
+  }, [fabricCanvas, imageUrls, activeImageIndex, isOpen, currentImage]);
 
   // 모달이 열릴 때 캔버스 초기화
   useEffect(() => {
@@ -156,10 +163,15 @@ export default function ImageEditModal({
 
   // 이미지 로드
   useEffect(() => {
-    if (fabricCanvas && imageUrl && isOpen) {
+    if (fabricCanvas && imageUrls.length && isOpen) {
       loadImageToCanvas();
     }
-  }, [fabricCanvas, imageUrl, isOpen, loadImageToCanvas]);
+  }, [fabricCanvas, imageUrls, activeImageIndex, isOpen, loadImageToCanvas]);
+
+  // activeImageIndex 변경 시 선택된 이미지 인덱스 동기화
+  useEffect(() => {
+    setActiveImageIndex(selectedImageIndex);
+  }, [selectedImageIndex]);
 
   // 편집 기능들
   const handleZoomIn = useCallback(() => {
@@ -235,17 +247,17 @@ export default function ImageEditModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
-        className="max-w-[900px] p-6 z-[70]" 
+        className="gap-y-4 max-w-[900px] p-6 z-[70]" 
         style={{ zIndex: 70 }}
         onClick={handleStopPropagation}
       >
         <DialogHeader>
-          <DialogTitle>이미지 편집</DialogTitle>
+          <DialogTitle className="text-xl font-bold text-start">이미지 편집</DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4">
           {/* 툴바 */}
-          <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border">
+          <div className="flex items-center justify-center gap-2 p-3 bg-gray-50 rounded-lg border">
             <Button 
               variant="outline" 
               size="sm" 
@@ -304,22 +316,17 @@ export default function ImageEditModal({
               <Reset className="w-4 h-4" />
               초기화
             </Button>
-          </div>
-
-          {/* 안내 텍스트 */}
-          <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded border border-blue-200">
-            <div className="flex items-start gap-2">
-              <span className="text-blue-600">💡</span>
-              <div>
-                <div className="font-medium text-blue-800 mb-1">사용법:</div>
-                <ul className="space-y-1 text-blue-700">
-                  <li>• 이미지를 드래그하여 위치 이동</li>
-                  <li>• 모서리 핸들을 드래그하여 크기 조절</li>
-                  <li>• 회전 핸들을 드래그하여 회전</li>
-                  <li>• 툴바 버튼으로 정밀 조정</li>
-                </ul>
-              </div>
-            </div>
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => alert('배경 제거 기능은 준비 중입니다.')}
+              disabled={isLoading}
+              className="flex items-center gap-1"
+            >
+              <RiImageEditLine className="w-4 h-4" />
+              배경 제거
+            </Button>
           </div>
 
           {/* 로딩 상태 */}
@@ -331,31 +338,66 @@ export default function ImageEditModal({
 
           {/* 캔버스 */}
           <div className="flex justify-center">
-            <div className="border border-gray-300 shadow-lg rounded-lg overflow-hidden">
-              <canvas
+            <div className="relative border border-gray-300 rounded-lg overflow-hidden bg-white">
+              <canvas 
                 ref={canvasRef}
-                className="block"
-                style={{ 
-                  maxWidth: '100%', 
-                  height: 'auto',
-                  backgroundColor: '#f8f9fa'
-                }}
+                className="max-w-full max-h-full"
+                style={{ display: isLoading ? 'none' : 'block' }}
               />
             </div>
           </div>
 
+          {/* 이미지 썸네일 선택 */}
+          {imageUrls.length > 1 && (
+            <div className="space-y-3">
+              <div className="text-sm font-medium text-gray-700 text-center">
+                다른 이미지 선택 ({imageUrls.length}개)
+              </div>
+              <div className="flex gap-3 justify-center flex-wrap max-h-32 overflow-y-auto">
+                {imageUrls.map((url, index) => (
+                  <div
+                    key={index}
+                    className={`relative cursor-pointer transition-all duration-200 ${
+                      activeImageIndex === index 
+                        ? 'ring-2 ring-amber-400 shadow-lg scale-105' 
+                        : 'hover:scale-105 hover:shadow-md'
+                    }`}
+                    onClick={() => setActiveImageIndex(index)}
+                  >
+                    <img
+                      src={url}
+                      alt={`이미지 ${index + 1}`}
+                      className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+                    />
+                    {activeImageIndex === index && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 버튼 */}
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={onClose}>
-              취소
-            </Button>
-            <Button 
-              onClick={handleApply} 
-              disabled={isLoading || !currentImage}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+          <div className="flex gap-2.5 justify-center pt-4 max-w-full text-base font-medium tracking-tight leading-none whitespace-nowrap">
+            <div 
+              className="flex overflow-hidden flex-col justify-center px-5 py-3.5 text-gray-700 bg-gray-50 rounded-md border border-solid border-gray-300 max-md:px-5 cursor-pointer hover:bg-gray-100 transition-colors"
+              onClick={onClose}
             >
-              적용
-            </Button>
+              <div>취소</div>
+            </div>
+            <div 
+              className={`flex overflow-hidden flex-col justify-center px-5 py-3.5 text-white rounded-md cursor-pointer transition-colors ${
+                isLoading || !currentImage 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-amber-400 hover:bg-amber-500'
+              }`}
+              onClick={isLoading || !currentImage ? undefined : handleApply}
+            >
+              <div>적용</div>
+            </div>
           </div>
         </div>
       </DialogContent>
