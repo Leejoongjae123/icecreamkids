@@ -209,12 +209,35 @@ export interface ImageEditModalProps {
   imageUrls: string[];
   selectedImageIndex?: number;
   onApply: (editedImageData: string) => void;
+  onImageOrderChange?: (newOrder: string[]) => void;
   targetFrame?: {
     width: number;
     height: number;
     x: number;
     y: number;
   };
+}
+
+// 이미지 썸네일 관련 타입들
+export interface ImageThumbnailProps {
+  imageUrl: string;
+  index: number;
+  isActive: boolean;
+  onSelect: (index: number) => void;
+  onMoveLeft?: () => void;
+  onMoveRight?: () => void;
+  canMoveLeft: boolean;
+  canMoveRight: boolean;
+  totalCount: number;
+}
+
+export interface ImageThumbnailListProps {
+  imageUrls: string[];
+  activeImageIndex: number;
+  onImageSelect: (index: number) => void;
+  onImageOrderChange: (fromIndex: number, toIndex: number) => void;
+  isLoading: boolean;
+  hasCurrentImage: boolean;
 }
 
 export interface CustomControl {

@@ -206,44 +206,7 @@ export default function ImageEditModal({
           )}
 
           {/* 에러 상태 */}
-          {imageError && !isLoading && (
-            <div className="flex flex-col items-center justify-center py-8 px-4">
-              <div className="text-red-500 text-center mb-4 max-w-md">
-                <div className="font-medium mb-2">이미지 로딩 실패</div>
-                <div className="text-sm">{imageError}</div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setImageError(null)}
-                  className="flex items-center gap-1"
-                >
-                  다시 시도
-                </Button>
-                {activeImageIndex > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setActiveImageIndex(activeImageIndex - 1)}
-                    className="flex items-center gap-1"
-                  >
-                    이전 이미지
-                  </Button>
-                )}
-                {activeImageIndex < imageUrls.length - 1 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setActiveImageIndex(activeImageIndex + 1)}
-                    className="flex items-center gap-1"
-                  >
-                    다음 이미지
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
+          
 
           {/* 메인 이미지 표시 영역 */}
           {!isLoading && !imageError && hasCurrentImage && (

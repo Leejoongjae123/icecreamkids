@@ -1,9 +1,25 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { Stage, Layer, Image as KonvaImage } from "react-konva";
-import Konva from "konva";
+// 동적 임포트를 위해 타입만 import
+import type { Stage as StageType, Layer as LayerType, Image as ImageType } from "react-konva";
+import type Konva from "konva";
 import { useImageRatioStore } from "@/hooks/store/useImageRatioStore";
+
+// 동적 임포트를 위한 변수
+let Stage: typeof StageType;
+let Layer: typeof LayerType;
+let KonvaImage: typeof ImageType;
+let KonvaLib: typeof Konva;
+
+// 클라이언트 사이드에서만 Konva 로드
+if (typeof window !== 'undefined') {
+  const ReactKonva = require('react-konva');
+  Stage = ReactKonva.Stage;
+  Layer = ReactKonva.Layer;
+  KonvaImage = ReactKonva.Image;
+  KonvaLib = require('konva').default;
+}
 
 interface KonvaImageCanvasProps {
   imageUrl: string;
@@ -32,8 +48,8 @@ export default function KonvaImageCanvas({
   onLoadingChange,
   onError,
 }: KonvaImageCanvasProps) {
-  const stageRef = useRef<Konva.Stage>(null);
-  const imageRef = useRef<Konva.Image>(null);
+  const stageRef = useRef<any>(null);
+  const imageRef = useRef<any>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [stageSize, setStageSize] = useState({ width: 600, height: 400 });
 
@@ -163,6 +179,23 @@ export default function KonvaImageCanvas({
 
   const imagePosition = getImagePosition();
   const imageSize = getImageSize();
+
+  // 서버 사이드에서는 렌더링하지 않음
+  if (typeof window === 'undefined' || !Stage || !Layer || !KonvaImage) {
+    return (
+      <div className="flex justify-center items-center w-full">
+        <div 
+          className="bg-white border-2 border-dashed border-primary rounded-lg overflow-hidden flex items-center justify-center"
+          style={{
+            width: stageSize.width,
+            height: stageSize.height,
+          }}
+        >
+          <div className="text-gray-400">이미지 편집기 로딩 중...</div>
+        </div>
+      </div>
+    );
+  }
 
   if (!image) {
     return (

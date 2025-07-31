@@ -13,25 +13,44 @@ import { useImageRatioStore } from "@/hooks/store/useImageRatioStore";
 import { useImageEditModalStore } from "@/hooks/store/useImageEditModalStore";
 // import { useDndContext } from "@/context/DnDContext"; // DnD 관련 코드 제거
 import ImageEditToolbar from "./ImageEditToolbar";
-import FabricCanvas, { FabricCanvasRef } from "./FabricCanvas";
+import ImageThumbnailList from "./ImageThumbnailList";
+import dynamic from "next/dynamic";
+import type { KonvaCanvasRef } from "./KonvaCanvas";
+
+// KonvaCanvas를 동적 임포트로 변경 - SSR 비활성화
+const KonvaCanvas = dynamic(() => import("./KonvaCanvas"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full flex items-center justify-center bg-gray-100">
+      <div className="text-gray-500">이미지 편집기 로딩 중...</div>
+    </div>
+  ),
+});
 
 export default function ImageEditModal({
   isOpen,
   onClose,
-  imageUrls,
+  imageUrls: initialImageUrls,
   selectedImageIndex = 0,
   onApply,
+  onImageOrderChange,
   targetFrame = { width: 400, height: 300, x: 100, y: 100 },
 }: ImageEditModalProps) {
+  const [imageUrls, setImageUrls] = useState(initialImageUrls);
   const [activeImageIndex, setActiveImageIndex] = useState(selectedImageIndex);
   const [isLoading, setIsLoading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
-  const canvasRef = useRef<FabricCanvasRef>(null);
+  const canvasRef = useRef<KonvaCanvasRef>(null);
   
   const { setTargetImageRatio, targetImageRatio } = useImageRatioStore();
   const { setImageEditModalOpen } = useImageEditModalStore();
   // const { enableDnd, disableDnd } = useDndContext(); // DnD 관련 코드 제거
   console.log("useImageEditModalStore", useImageEditModalStore);
+  // imageUrls가 변경될 때 상태 업데이트
+  useEffect(() => {
+    setImageUrls(initialImageUrls);
+  }, [initialImageUrls]);
+
   // 디버깅: 컴포넌트 렌더링 확인 - 개발 환경에서만 실행
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
@@ -154,6 +173,42 @@ export default function ImageEditModal({
     alert("크롭 기능은 준비 중입니다.");
   }, []);
 
+  // 이미지 순서 변경 핸들러
+  const handleImageOrderChange = useCallback((fromIndex: number, toIndex: number) => {
+    const newImageUrls = [...imageUrls];
+    const [movedImage] = newImageUrls.splice(fromIndex, 1);
+    newImageUrls.splice(toIndex, 0, movedImage);
+    
+    setImageUrls(newImageUrls);
+    
+    // 현재 활성 이미지 인덱스 조정
+    let newActiveIndex = activeImageIndex;
+    if (activeImageIndex === fromIndex) {
+      newActiveIndex = toIndex;
+    } else if (activeImageIndex > fromIndex && activeImageIndex <= toIndex) {
+      newActiveIndex = activeImageIndex - 1;
+    } else if (activeImageIndex < fromIndex && activeImageIndex >= toIndex) {
+      newActiveIndex = activeImageIndex + 1;
+    }
+    
+    setActiveImageIndex(newActiveIndex);
+    
+    // 부모 컴포넌트에 순서 변경 알림
+    if (onImageOrderChange) {
+      onImageOrderChange(newImageUrls);
+    }
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log("📋 이미지 순서 변경:", {
+        from: fromIndex,
+        to: toIndex,
+        oldActiveIndex: activeImageIndex,
+        newActiveIndex,
+        newUrls: newImageUrls.map((url, idx) => `${idx}: ${url.slice(-20)}`)
+      });
+    }
+  }, [imageUrls, activeImageIndex, onImageOrderChange]);
+
   // 적용 버튼 핸들러
   const handleApply = useCallback(() => {
     if (!imageUrls[activeImageIndex]) {
@@ -234,61 +289,7 @@ export default function ImageEditModal({
           )}
 
           {/* 에러 상태 */}
-          {imageError && !isLoading && (
-            <div className="flex flex-col items-center justify-center py-8 px-4">
-              <div className="text-red-500 text-center mb-4 max-w-md">
-                <div className="font-medium mb-2">이미지 로딩 실패</div>
-                <div className="text-sm">{imageError}</div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setImageError(null);
-                    setIsLoading(true);
-                  }}
-                  className="flex items-center gap-1"
-                >
-                  다시 시도
-                </Button>
-                {activeImageIndex > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const newIndex = activeImageIndex - 1;
-                      setActiveImageIndex(newIndex);
-                      if (imageUrls[newIndex]) {
-                        setIsLoading(true);
-                        setImageError(null);
-                      }
-                    }}
-                    className="flex items-center gap-1"
-                  >
-                    이전 이미지
-                  </Button>
-                )}
-                {activeImageIndex < imageUrls.length - 1 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const newIndex = activeImageIndex + 1;
-                      setActiveImageIndex(newIndex);
-                      if (imageUrls[newIndex]) {
-                        setIsLoading(true);
-                        setImageError(null);
-                      }
-                    }}
-                    className="flex items-center gap-1"
-                  >
-                    다음 이미지
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
+          
 
           {/* 메인 이미지 표시 영역 */}
             <div className="flex justify-center items-center min-h-[400px] px-2">
@@ -305,12 +306,12 @@ export default function ImageEditModal({
                   }}
                 >
                   <div className="w-full h-full flex items-center justify-center">
-                    <FabricCanvas
+                    <KonvaCanvas
                       ref={canvasRef}
                       imageUrl={currentImageUrl}
                       targetFrame={targetFrame}
                       onImageLoad={() => setIsLoading(false)}
-                      onImageError={(error) => {
+                      onImageError={(error: string) => {
                         setImageError(error);
                         setIsLoading(false);
                       }}
@@ -345,36 +346,14 @@ export default function ImageEditModal({
             </div>
 
           {/* 이미지 썸네일 선택 */}
-          {imageUrls.length > 1 && !isLoading && hasCurrentImage && (
-            <div className="space-y-3">
-
-              <div className="flex gap-3 justify-center flex-wrap max-h-32 py-4">
-                {imageUrls.map((url, index) => (
-                  <div
-                    key={index}
-                    className={`relative cursor-pointer transition-all duration-200 ${
-                      activeImageIndex === index
-                        ? "ring-2 ring-primary shadow-lg scale-105 rounded-lg"
-                        : "hover:scale-105 hover:shadow-md rounded-lg"
-                    }`}
-                    onClick={() => setActiveImageIndex(index)}
-                  >
-                    <img
-                      src={url}
-                      alt={`이미지 ${index + 1}`}
-                      className="w-16 h-16 object-cover rounded-lg border border-gray-200"
-                      onError={(e) => {
-                        // 썸네일 로딩 실패 시 placeholder 표시
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                      }}
-                    />
-       
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <ImageThumbnailList
+            imageUrls={imageUrls}
+            activeImageIndex={activeImageIndex}
+            onImageSelect={setActiveImageIndex}
+            onImageOrderChange={handleImageOrderChange}
+            isLoading={isLoading}
+            hasCurrentImage={hasCurrentImage}
+          />
 
           {/* 버튼 */}
           <div className="flex justify-center max-w-full text-base font-medium tracking-tight leading-none whitespace-nowrap gap-x-2">

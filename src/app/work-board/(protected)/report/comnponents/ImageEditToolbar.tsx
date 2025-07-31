@@ -84,38 +84,8 @@ export default function ImageEditToolbar({
 
       {/* <div className="w-px h-6 bg-gray-300 mx-2" /> */}
 
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onReset}
-        disabled={isLoading || !hasCurrentImage}
-        className="flex items-center gap-1 border-solid border-zinc-100 bg-white"
-      >
-        <Reset className="w-4 h-4" />
-        초기화
-      </Button>
-
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onRemoveBackground}
-        disabled={isLoading || !hasCurrentImage}
-        className="flex items-center gap-1 border-solid border-zinc-100 bg-white"
-      >
-        <RiImageEditLine className="w-4 h-4" />
-        배경 제거
-      </Button>
       
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onCrop}
-        disabled={isLoading || !hasCurrentImage}
-        className="flex items-center gap-1 border-solid border-zinc-100 bg-white"
-      >
-        <Crop className="w-4 h-4" />
-        크롭
-      </Button>
+
     </div>
   );
 } 
