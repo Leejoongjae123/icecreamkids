@@ -44,7 +44,7 @@ function GridAElement({
   onAIGenerate,
   onImageUpload,
   onDelete, // 삭제 핸들러 추가
-  placeholderText = "ex) 아이들과 촉감놀이를 했어요",
+  placeholderText = "(선택) 놀이 키워드를 입력하거나 메모파일을 업로드해주세요요",
   isDragging = false, // 드래그 상태 추가
   dragAttributes, // 드래그 속성 추가
   dragListeners, // 드래그 리스너 추가
@@ -122,6 +122,101 @@ function GridAElement({
         return "grid-cols-1";
     }
   };
+
+  // 이미지 컨테이너 ref 추가
+  const imageContainerRef = React.useRef<HTMLDivElement>(null);
+  const [actualTargetFrame, setActualTargetFrame] = React.useState<{width: number, height: number, x: number, y: number} | undefined>(undefined);
+
+  // 실제 DOM 요소 크기 측정 함수
+  const measureImageContainer = React.useCallback(() => {
+    if (imageContainerRef.current) {
+      const rect = imageContainerRef.current.getBoundingClientRect();
+      const targetFrame = {
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        x: Math.round(rect.left),
+        y: Math.round(rect.top)
+      };
+      console.log("📏 실제 측정된 이미지 컨테이너 크기:", targetFrame);
+      setActualTargetFrame(targetFrame);
+      return targetFrame;
+    }
+    return null;
+  }, []);
+
+  // 컴포넌트 마운트 후와 리사이즈 시 크기 측정
+  React.useEffect(() => {
+    measureImageContainer();
+    
+    const handleResize = () => {
+      measureImageContainer();
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [measureImageContainer, cardType, isWideCard, imageCount]);
+
+  // 이미지 영역의 크기를 계산하여 비율 반환
+  const getImageAreaRatio = React.useCallback(() => {
+    // 기본 카드 크기 (픽셀 단위로 추정)
+    let baseWidth = 180; // 기본 카드 폭
+    let baseHeight = 120; // 기본 카드 높이
+    
+    // cardType에 따른 크기 조정
+    if (cardType === 'large') {
+      baseWidth = 280;
+      baseHeight = 180;
+    }
+    
+    // isWideCard인 경우 폭이 더 넓어짐
+    if (isWideCard) {
+      baseWidth = baseWidth * 2; // 대략 2배 넓어짐
+    }
+    
+    // imageCount에 따른 개별 이미지 크기 계산
+    let imageWidth = baseWidth;
+    let imageHeight = baseHeight;
+    
+    switch (imageCount) {
+      case 1:
+        // 단일 이미지는 전체 영역 사용
+        break;
+      case 2:
+        // 2개 이미지는 가로로 분할
+        imageWidth = baseWidth / 2 - 4; // gap 고려
+        break;
+      case 3:
+        // 3개 이미지는 가로로 분할
+        imageWidth = baseWidth / 3 - 4; // gap 고려
+        break;
+      case 4:
+        if (cardType === 'large') {
+          // large 카드는 가로 4개
+          imageWidth = baseWidth / 4 - 4; // gap 고려
+        } else {
+          // 일반 카드는 2x2
+          imageWidth = baseWidth / 2 - 4; // gap 고려
+          imageHeight = baseHeight / 2 - 4; // gap 고려
+        }
+        break;
+      case 6:
+        // 3x2 그리드
+        imageWidth = baseWidth / 3 - 4; // gap 고려
+        imageHeight = baseHeight / 2 - 4; // gap 고려
+        break;
+      case 9:
+        // 3x3 그리드
+        imageWidth = baseWidth / 3 - 4; // gap 고려
+        imageHeight = baseHeight / 3 - 4; // gap 고려
+        break;
+    }
+    
+    return {
+      width: imageWidth,
+      height: imageHeight,
+      aspectRatio: imageWidth / imageHeight
+    };
+  }, [cardType, isWideCard, imageCount]);
 
   const [inputValue, setInputValue] = React.useState("");
   
@@ -357,7 +452,9 @@ function GridAElement({
         </div>
 
         {/* 이미지 그리드 - 카드 타입과 너비에 따라 다른 레이아웃 */}
-        <div className={`grid gap-1 w-full ${imageCount === 1 ? 'h-full flex-1' : 'h-full'} ${
+        <div 
+          ref={imageContainerRef}
+          className={`grid gap-1 w-full ${imageCount === 1 ? 'h-full flex-1' : 'h-full'} ${
           isWideCard
             ? `${getImageGridClass(imageCount, cardType)} ${imageCount === 1 ? '' : 'min-h-[160px]'}` // col-span-2인 경우 이미지 개수에 따라 배치
             : cardType === 'large' 
@@ -365,10 +462,18 @@ function GridAElement({
               : `${getImageGridClass(imageCount, cardType)} ${imageCount === 1 ? '' : 'min-h-[160px]'}` // small 카드도 이미지 개수에 따라 배치
         }`}>
           {currentImages.map((imageSrc, index) => (
-            <AddPicture key={index}>
+            <AddPicture 
+              key={index} 
+              targetImageRatio={getImageAreaRatio()}
+              targetFrame={actualTargetFrame}
+            >
               <div 
                 className="flex relative cursor-pointer hover:opacity-80 transition-opacity group h-full"
-                onClick={handleImageClick}
+                onClick={(e) => {
+                  // 클릭 시에도 크기 측정
+                  measureImageContainer();
+                  handleImageClick(e);
+                }}
               >
                 {imageSrc ? (
                   <Image
@@ -505,6 +610,26 @@ function GridAElement({
               <button
                 onClick={(e) => {
                   e.stopPropagation(); // 이벤트 전파 방지
+                  handleImageUpload();
+                }}
+                className="flex overflow-hidden justify-center items-center w-[26px] h-[26px] bg-[#979797] border border-dashed border-zinc-400 rounded-md hover:bg-[#979797]/80 transition-colors"
+                title="파일 업로드"
+              >
+                <Image
+                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload.svg"
+                  className="object-contain"
+                  width={14}
+                  height={14}
+                  alt="Upload icon"
+                />
+              </button>
+            </div>
+            
+            {/* AI 생성 버튼 - 별도 줄에 배치 */}
+            <div className="flex w-full mb-1.5 justify-center">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation(); // 이벤트 전파 방지
                   if (!isLoading) {
                     handleAIGenerate();
                   }
@@ -536,30 +661,9 @@ function GridAElement({
               </div>
             )}
 
-            <div className="text-[10px] font-semibold tracking-tight text-slate-300 text-center mb-1 leading-tight px-1">
-              활동에 맞는 키워드를 입력하거나 메모를 드래그 또는
-            </div>
 
-            <div className="flex gap-1 text-xs font-semibold tracking-tight text-slate-300 items-center justify-center">
-              <AddPicture>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation(); // 이벤트 전파 방지
-                    handleImageUpload();
-                  }}
-                  className="flex items-center gap-0.5 hover:text-slate-400 transition-colors cursor-pointer justify-center"
-                >
-                  <Image
-                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload.svg"
-                    width={10}
-                    height={10}
-                    className="object-contain"
-                    alt="Upload icon"
-                  />
-                  <div className="text-slate-300 text-[10px]">를 눌러서 업로드 해 주세요.</div>
-                </button>
-              </AddPicture>
-            </div>
+
+            
           </div>
         )}
 

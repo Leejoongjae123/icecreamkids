@@ -406,10 +406,30 @@ function GridBElement({
                 value={inputValue}
                 onChange={handleInputChange}
                 placeholder={placeholderText}
-                className="h-[26px] px-2 py-1 text-xs tracking-tight bg-white border border-gray-300 text-zinc-600 placeholder-zinc-400 flex-1 shadow-none !rounded-md focus:ring-0 focus-visible:ring-0 focus:outline-none focus:border-primary focus:border-2"
-                style={{ borderRadius: '6px', fontSize: '10px' }}
+                className="h-[26px] min-h-[26px] max-h-[26px] px-2 py-1 text-xs tracking-tight bg-white border border-dashed border-zinc-400 text-zinc-600 placeholder-zinc-400 flex-1 shadow-none rounded-md focus:ring-0 focus:outline-none focus:border-primary resize-none"
+                style={{ borderRadius: '6px', fontSize: '10px', lineHeight: '1.2' }}
                 onClick={handleImageClick} // Input 클릭 시에도 이벤트 전파 방지
               />
+              <button
+                onClick={(e) => {
+                  e.stopPropagation(); // 이벤트 전파 방지
+                  handleImageUpload();
+                }}
+                className="flex overflow-hidden justify-center items-center w-[26px] h-[26px] bg-[#979797] border border-dashed border-zinc-400 rounded-md hover:bg-[#979797]/80 transition-colors"
+                title="파일 업로드"
+              >
+                <Image
+                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload.svg"
+                  className="object-contain"
+                  width={14}
+                  height={14}
+                  alt="Upload icon"
+                />
+              </button>
+            </div>
+            
+            {/* AI 생성 버튼 - 별도 줄에 배치 */}
+            <div className="flex w-full mb-1.5 justify-center">
               <button
                 onClick={(e) => {
                   e.stopPropagation(); // 이벤트 전파 방지
@@ -418,7 +438,7 @@ function GridBElement({
                   }
                 }}
                 disabled={isLoading}
-                className={`flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight text-white rounded-md bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90 flex justify-center items-center w-[54px] h-[26px] transition-opacity ${isLoading ? 'cursor-not-allowed opacity-75' : ''}`}
+                className={`flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight text-white rounded-md bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90 flex justify-center items-center w-[54px] h-[26px] self-start transition-opacity ${isLoading ? 'cursor-not-allowed opacity-75' : ''}`}
               >
                 {isLoading ? (
                   <Loader2 className="w-3 h-3 animate-spin text-white" />
@@ -444,30 +464,9 @@ function GridBElement({
               </div>
             )}
 
-            <div className="text-[9px] font-semibold tracking-tight text-slate-300 text-center mb-1 leading-tight px-1">
-              활동에 맞는 키워드를 입력하거나 메모를 드래그 또는
-            </div>
 
-            <div className="flex gap-1 text-xs font-semibold tracking-tight text-slate-300 items-center">
-              <AddPicture>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation(); // 이벤트 전파 방지
-                    handleImageUpload();
-                  }}
-                  className="flex items-center gap-0.5 hover:text-slate-400 transition-colors cursor-pointer justify-center"
-                >
-                  <Image
-                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload.svg"
-                    width={10}
-                    height={10}
-                    className="object-contain"
-                    alt="Upload icon"
-                  />
-                  <div className="text-slate-300 text-[9px]">를 눌러서 업로드 해 주세요.</div>
-                </button>
-              </AddPicture>
-            </div>
+
+            
           </div>
         )}
 

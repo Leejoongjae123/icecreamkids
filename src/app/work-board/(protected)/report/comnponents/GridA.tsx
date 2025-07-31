@@ -20,6 +20,7 @@ import {
 import GridAElement from "./GridAElement";
 import SortableGridItem from "./SortableGridItem";
 import { GridItem } from "./types";
+import { useImageEditModalStore } from "@/hooks/store/useImageEditModalStore";
 
 interface GridAProps {
   subject: number;
@@ -28,6 +29,7 @@ interface GridAProps {
 function GridA({ subject }: GridAProps) {
   // 각 이미지 영역의 체크 상태 관리
   const [checkedItems, setCheckedItems] = React.useState<Record<string, boolean>>({});
+  const { isImageEditModalOpen } = useImageEditModalStore();
   
   // 그리드 아이템 데이터 관리
   const [items, setItems] = React.useState<GridItem[]>(() => {
@@ -82,7 +84,7 @@ function GridA({ subject }: GridAProps) {
     });
   }, [subject]);
 
-  // 센서 설정
+  // 센서 설정 - 모달이 열려있으면 센서 비활성화
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -129,11 +131,21 @@ function GridA({ subject }: GridAProps) {
 
   // 드래그 시작 핸들러
   const handleDragStart = (event: DragStartEvent) => {
+    // 모달이 열려있으면 드래그 시작하지 않음
+    if (isImageEditModalOpen) {
+      return;
+    }
     setActiveId(event.active.id as string);
   };
 
   // 드래그 종료 핸들러 (2행 레이아웃 유지)
   const handleDragEnd = (event: DragEndEvent) => {
+    // 모달이 열려있으면 드래그 종료 처리하지 않음
+    if (isImageEditModalOpen) {
+      setActiveId(null);
+      return;
+    }
+    
     const { active, over } = event;
 
     if (active.id !== over?.id && over?.id) {
@@ -237,7 +249,7 @@ function GridA({ subject }: GridAProps) {
         onCheckedChange={(checked: boolean) => handleCheckedChange(item.id, checked)}
         category={item.category}
         images={item.images}
-        placeholderText={`ex) 아이들과 ${item.category}를 했어요`}
+        placeholderText={`(선택)놀이 키워드를 입력하거나 메모파일을 업로드해주세요`}
         cardType={item.cardType}
         isExpanded={item.colSpan === 2}
       />
@@ -249,7 +261,7 @@ function GridA({ subject }: GridAProps) {
 
   return (
     <DndContext
-      sensors={sensors}
+      sensors={!isImageEditModalOpen ? sensors : []}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}

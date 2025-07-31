@@ -60,6 +60,21 @@ const nextConfig = {
           },
         },
       });
+      
+      // Konva를 위한 canvas 모듈 fallback 설정
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        canvas: false,
+        fs: false,
+        path: false,
+        os: false,
+      };
+    }
+    
+    // 서버 사이드에서 Konva 관련 모듈 제외
+    if (isServer) {
+      config.externals = config.externals || [];
+      config.externals.push('canvas');
     }
     
     // Windows 환경에서 HMR 개선을 위한 설정

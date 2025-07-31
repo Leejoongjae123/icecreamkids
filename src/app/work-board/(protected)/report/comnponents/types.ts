@@ -28,6 +28,17 @@ export interface FileUploadProps {
 
 export interface AddPictureProps {
   children: React.ReactNode;
+  targetImageRatio?: {
+    width: number;
+    height: number;
+    aspectRatio: number;
+  };
+  targetFrame?: {
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+  };
 }
 
 export interface PhotoFrameModalProps {
@@ -311,4 +322,25 @@ export interface TextStickerStore {
   updateTextStickerText: (id: string, text: string) => void;
   removeTextSticker: (id: string) => void;
   bringTextStickerToFront: (id: string) => void;
+}
+
+// FabricCanvas 관련 타입들
+export interface FabricCanvasProps {
+  imageUrl: string;
+  canvasWidth: number;
+  canvasHeight: number;
+  imageTransform: {
+    scale: number;
+    rotation: number;
+    translateX: number;
+    translateY: number;
+  };
+  onImageChange?: (imageObject: any) => void;
+}
+
+export interface ImageCanvasTransform {
+  scale: number;
+  rotation: number;
+  translateX: number;
+  translateY: number;
 }

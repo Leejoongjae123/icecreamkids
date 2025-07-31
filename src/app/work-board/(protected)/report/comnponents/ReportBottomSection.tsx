@@ -13,8 +13,6 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
   const [playActivityText, setPlayActivityText] = React.useState("");
   const [teacherSupportText, setTeacherSupportText] = React.useState("");
   const [homeConnectionText, setHomeConnectionText] = React.useState("");
-  const [leftWidth, setLeftWidth] = React.useState(50); // 왼쪽 영역 비율 (%)
-  const [isResizing, setIsResizing] = React.useState(false);
   const [showToolbar, setShowToolbar] = React.useState(false);
   const [toolbarPosition, setToolbarPosition] = React.useState({ left: "8px", top: "calc(100% + 8px)" });
   const [isTextStickerModalOpen, setIsTextStickerModalOpen] = React.useState(false);
@@ -29,7 +27,6 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
   });
   
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const resizeContainerRef = React.useRef<HTMLDivElement>(null);
   const maxLength = 300; // 최대 글자수
 
   React.useEffect(() => {
@@ -40,35 +37,12 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
       }
     };
 
-    const handleMouseMove = (event: MouseEvent) => {
-      if (!isResizing || !resizeContainerRef.current) return;
-      
-      const containerRect = resizeContainerRef.current.getBoundingClientRect();
-      const newLeftWidth = ((event.clientX - containerRect.left) / containerRect.width) * 100;
-      
-      // 최소/최대 너비 제한 (20% ~ 80%)
-      if (newLeftWidth >= 20 && newLeftWidth <= 80) {
-        setLeftWidth(newLeftWidth);
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
     document.addEventListener('mousedown', handleClickOutside);
-    
-    if (isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizing]);
+  }, []);
 
   const handleSectionClick = (section: string, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -95,12 +69,6 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
         setHomeConnectionText(value);
         break;
     }
-  };
-
-  const handleResizeStart = (event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setIsResizing(true);
   };
 
   // 툴바 아이콘 클릭 핸들러 - 제한된 기능만 처리
@@ -240,19 +208,19 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
         </div>
       )}
       
-      {/* 교사지원과 가정연계 부분 - 모든 타입에서 보임 */}
-      {(visibleGrids.teacherSupport || visibleGrids.homeConnection) && (
-        <div ref={resizeContainerRef} className="flex flex-row w-full h-[174px] relative">
-        {/* 교사지원 */}
-        {visibleGrids.teacherSupport && (
-          <div 
-            className={`${getSectionStyle("teacherSupport")} bg-white`}
-            style={{ 
-              width: visibleGrids.teacherSupport && visibleGrids.homeConnection 
-                ? `calc(${leftWidth}% - 6px)` 
-                : "100%"
-            }}
-            onClick={(e) => handleSectionClick("teacherSupport", e)}
+              {/* 교사지원과 가정연계 부분 - 모든 타입에서 보임 */}
+        {(visibleGrids.teacherSupport || visibleGrids.homeConnection) && (
+          <div className="flex flex-row w-full h-[174px] gap-3">
+          {/* 교사지원 */}
+          {visibleGrids.teacherSupport && (
+            <div 
+              className={`${getSectionStyle("teacherSupport")} bg-white`}
+              style={{ 
+                width: visibleGrids.teacherSupport && visibleGrids.homeConnection 
+                  ? "50%" 
+                  : "100%"
+              }}
+              onClick={(e) => handleSectionClick("teacherSupport", e)}
           >
             <h3 className="text-[12px] font-semibold p-3 text-primary flex items-center gap-1">
               <div className="flex items-center gap-2">
@@ -308,28 +276,16 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
           </div>
         )}
 
-        {/* 리사이저 핸들 - 둘 다 있을 때만 표시 */}
-        {visibleGrids.teacherSupport && visibleGrids.homeConnection && (
-          <div 
-            className={`flex items-center justify-center w-3 h-full cursor-col-resize select-none ${
-              isResizing ? '' : 'hover:'
-            }`}
-            onMouseDown={handleResizeStart}
-          >
-            <div className="w-1 h-8 bg-gray-300 rounded-full"></div>
-          </div>
-        )}
-
-        {/* 가정연계 */}
-        {visibleGrids.homeConnection && (
-          <div 
-            className={`${getSectionStyle("homeConnection")} bg-white`}
-            style={{ 
-              width: visibleGrids.teacherSupport && visibleGrids.homeConnection 
-                ? `calc(${100 - leftWidth}% - 6px)` 
-                : "100%"
-            }}
-            onClick={(e) => handleSectionClick("homeConnection", e)}
+                  {/* 가정연계 */}
+          {visibleGrids.homeConnection && (
+            <div 
+              className={`${getSectionStyle("homeConnection")} bg-white`}
+              style={{ 
+                width: visibleGrids.teacherSupport && visibleGrids.homeConnection 
+                  ? "50%" 
+                  : "100%"
+              }}
+              onClick={(e) => handleSectionClick("homeConnection", e)}
           >
             <h3 className="text-[12px] font-semibold p-3 text-primary flex items-center gap-1">
               <div className="flex items-center gap-2">

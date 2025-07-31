@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,10 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ImageEditModalProps } from "./types";
 import { useImageRatioStore } from "@/hooks/store/useImageRatioStore";
-import { useImageEditModalStore } from "@/hooks/store/useImageEditModalStore";
-// import { useDndContext } from "@/context/DnDContext"; // DnD 관련 코드 제거
 import ImageEditToolbar from "./ImageEditToolbar";
-import FabricCanvas, { FabricCanvasRef } from "./FabricCanvas";
 
 export default function ImageEditModal({
   isOpen,
@@ -26,30 +23,16 @@ export default function ImageEditModal({
   const [activeImageIndex, setActiveImageIndex] = useState(selectedImageIndex);
   const [isLoading, setIsLoading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
-  const canvasRef = useRef<FabricCanvasRef>(null);
+  const [imageTransform, setImageTransform] = useState({
+    scale: 1,
+    rotation: 0,
+    translateX: 0,
+    translateY: 0,
+  });
   
   const { setTargetImageRatio, targetImageRatio } = useImageRatioStore();
-  const { setImageEditModalOpen } = useImageEditModalStore();
-  // const { enableDnd, disableDnd } = useDndContext(); // DnD 관련 코드 제거
-  console.log("useImageEditModalStore", useImageEditModalStore);
-  // 디버깅: 컴포넌트 렌더링 확인 - 개발 환경에서만 실행
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("🎨 ImageEditModal 렌더링 상태:", {
-        isOpen,
-        imageUrlsLength: imageUrls?.length,
-        selectedImageIndex,
-        targetFrame
-      });
-    }
-  }, [isOpen]); // 의존성 최소화
-
-  // 모달 열림/닫힘 상태를 전역 store에 반영 - 무한 루프 방지
-  useEffect(() => {
-    setImageEditModalOpen(isOpen);
-  }, [isOpen, setImageEditModalOpen]);
   
-  // targetFrame을 기반으로 targetImageRatio 계산 및 설정 - 무한 루프 방지
+  // targetFrame을 기반으로 targetImageRatio 계산 및 설정
   useEffect(() => {
     if (targetFrame && isOpen) {
       const calculatedRatio = {
@@ -62,14 +45,9 @@ export default function ImageEditModal({
       console.log("📐 계산된 targetImageRatio:", calculatedRatio);
       console.log("📊 aspect ratio:", calculatedRatio.aspectRatio);
       
-      // 이미 같은 값이 설정되어 있는지 확인하여 무한 루프 방지
-      if (!targetImageRatio || 
-          Math.abs(targetImageRatio.width - calculatedRatio.width) > 0.01 || 
-          Math.abs(targetImageRatio.height - calculatedRatio.height) > 0.01) {
-        setTargetImageRatio(calculatedRatio);
-      }
+      setTargetImageRatio(calculatedRatio);
     }
-  }, [targetFrame.width, targetFrame.height, isOpen, setTargetImageRatio]); // targetImageRatio 의존성 제거
+  }, [targetFrame, isOpen, setTargetImageRatio]);
   
   // TailwindCSS aspect 클래스 계산  
   const getAspectClass = useCallback(() => {
@@ -109,41 +87,51 @@ export default function ImageEditModal({
   // activeImageIndex 변경 시 선택된 이미지 인덱스 동기화
   useEffect(() => {
     setActiveImageIndex(selectedImageIndex);
+    // 이미지 변경 시 변형 초기화
+    setImageTransform({
+      scale: 1,
+      rotation: 0,
+      translateX: 0,
+      translateY: 0,
+    });
   }, [selectedImageIndex]);
-
-  // 모달이 열릴 때 초기 상태 설정
-  useEffect(() => {
-    if (isOpen) {
-      setActiveImageIndex(selectedImageIndex);
-      if (imageUrls && imageUrls[selectedImageIndex]) {
-        setIsLoading(true);
-        setImageError(null);
-      } else {
-        setIsLoading(false);
-        setImageError("이미지를 찾을 수 없습니다.");
-      }
-    }
-  }, [isOpen, selectedImageIndex]); // imageUrls 의존성 추가
 
   // 편집 기능들
   const handleZoomIn = useCallback(() => {
-    canvasRef.current?.zoomIn();
+    setImageTransform(prev => ({
+      ...prev,
+      scale: Math.min(prev.scale * 1.2, 5)
+    }));
   }, []);
 
   const handleZoomOut = useCallback(() => {
-    canvasRef.current?.zoomOut();
+    setImageTransform(prev => ({
+      ...prev,
+      scale: Math.max(prev.scale * 0.8, 0.1)
+    }));
   }, []);
 
   const handleRotateLeft = useCallback(() => {
-    canvasRef.current?.rotateLeft();
+    setImageTransform(prev => ({
+      ...prev,
+      rotation: prev.rotation - 15
+    }));
   }, []);
 
   const handleRotateRight = useCallback(() => {
-    canvasRef.current?.rotateRight();
+    setImageTransform(prev => ({
+      ...prev,
+      rotation: prev.rotation + 15
+    }));
   }, []);
 
   const handleReset = useCallback(() => {
-    canvasRef.current?.reset();
+    setImageTransform({
+      scale: 1,
+      rotation: 0,
+      translateX: 0,
+      translateY: 0,
+    });
   }, []);
 
   const handleRemoveBackground = useCallback(() => {
@@ -161,15 +149,8 @@ export default function ImageEditModal({
       return;
     }
 
-    // 편집된 이미지 데이터 추출
-    const croppedImageData = canvasRef.current?.getCroppedImageData();
-    if (croppedImageData) {
-      // 편집된 이미지를 적용
-      onApply(croppedImageData);
-    } else {
-      // 편집 데이터가 없으면 원본 이미지 적용
-      onApply(imageUrls[activeImageIndex]);
-    }
+    // 현재 이미지 URL을 그대로 적용 (추후 변형 적용된 이미지로 변경 가능)
+    onApply(imageUrls[activeImageIndex]);
     onClose();
   }, [activeImageIndex, imageUrls, onApply, onClose]);
 
@@ -181,30 +162,21 @@ export default function ImageEditModal({
   const currentImageUrl = imageUrls[activeImageIndex];
   const hasCurrentImage = !!currentImageUrl;
 
-  // 디버깅용 로그 - 개발 환경에서만
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("🔄 상태 변화:", {
-        isLoading,
-        imageError,
-        hasCurrentImage,
-        activeImageIndex,
-        currentImageUrl: currentImageUrl ? "있음" : "없음",
-        totalImages: imageUrls.length
-      });
-    }
-  }, [isLoading, imageError, hasCurrentImage, activeImageIndex, currentImageUrl, imageUrls.length]);
+  // 이미지 변형 스타일 생성
+  const getImageTransformStyle = useCallback(() => {
+    const { scale, rotation, translateX, translateY } = imageTransform;
+    return {
+      transform: `scale(${scale}) rotate(${rotation}deg) translate(${translateX}px, ${translateY}px)`,
+      transition: 'transform 0.3s ease',
+    };
+  }, [imageTransform]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} modal={true}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="gap-y-4 max-w-[900px] p-6 z-[9999]"
-        style={{ zIndex: 9999 }}
+        className="gap-y-4 max-w-[900px] p-6 z-[70]"
+        style={{ zIndex: 70 }}
         onClick={handleStopPropagation}
-        onPointerDownOutside={(e) => e.preventDefault()} // 외부 클릭 시 닫히지 않도록
-        onDragStart={(e) => e.stopPropagation()} // 드래그 이벤트 전파 차단
-        onDragOver={(e) => e.stopPropagation()}
-        onDrop={(e) => e.stopPropagation()}
       >
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-start">
@@ -244,10 +216,7 @@ export default function ImageEditModal({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    setImageError(null);
-                    setIsLoading(true);
-                  }}
+                  onClick={() => setImageError(null)}
                   className="flex items-center gap-1"
                 >
                   다시 시도
@@ -256,14 +225,7 @@ export default function ImageEditModal({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      const newIndex = activeImageIndex - 1;
-                      setActiveImageIndex(newIndex);
-                      if (imageUrls[newIndex]) {
-                        setIsLoading(true);
-                        setImageError(null);
-                      }
-                    }}
+                    onClick={() => setActiveImageIndex(activeImageIndex - 1)}
                     className="flex items-center gap-1"
                   >
                     이전 이미지
@@ -273,14 +235,7 @@ export default function ImageEditModal({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      const newIndex = activeImageIndex + 1;
-                      setActiveImageIndex(newIndex);
-                      if (imageUrls[newIndex]) {
-                        setIsLoading(true);
-                        setImageError(null);
-                      }
-                    }}
+                    onClick={() => setActiveImageIndex(activeImageIndex + 1)}
                     className="flex items-center gap-1"
                   >
                     다음 이미지
@@ -291,63 +246,35 @@ export default function ImageEditModal({
           )}
 
           {/* 메인 이미지 표시 영역 */}
-            <div className="flex justify-center items-center min-h-[400px] px-2">
-              <div className="relative">
-                {/* Canvas 컨테이너 - 고정 크기지만 반응형으로 조정 */}
-                <div 
-                  className="relative  rounded-lg overflow-hidden "
-                  style={{ 
-                    width: 'min(800px, 90vw)', 
-                    height: 'min(600px, 67.5vw)', 
-                    maxWidth: '600px',
-                    maxHeight: '400px',
-                    aspectRatio: '4/3'
-                  }}
-                >
-                  <div className="w-full h-full flex items-center justify-center">
-                    <FabricCanvas
-                      ref={canvasRef}
-                      imageUrl={currentImageUrl}
-                      targetFrame={targetFrame}
-                      onImageLoad={() => setIsLoading(false)}
-                      onImageError={(error) => {
-                        setImageError(error);
-                        setIsLoading(false);
-                      }}
-                    />
-                  </div>
-                  
-                  {/* 타겟 프레임 오버레이 - 중앙에 배치된 추출 영역 */}
-                  <div 
-                    className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10"
-                    style={{
-                      width: 'min(400px, 70%)',
-                      aspectRatio: `${targetFrame.width} / ${targetFrame.height}`,
-                    }}
-                  >
-                    <div className="w-full h-full border-2 border-dashed border-primary bg-transparent rounded-lg relative">
-                      {/* 코너 마커 */}
-                      
-                      
-                      {/* 중앙 레이블 */}
-                      <div className="absolute top-2 left-2 bg-primary text-white px-2 py-1 rounded text-xs font-medium shadow-sm">
-                        추출 영역
-                      </div>
-                    </div>
-                  </div>
-                  
-
+          {!isLoading && !imageError && hasCurrentImage && (
+            <div className="flex justify-center items-center min-h-[300px] max-h-[500px] px-4">
+              <div 
+                className="image-outline bg-white border-2 border-dashed border-primary rounded-lg overflow-hidden max-w-full max-h-full"
+                style={{
+                  aspectRatio: `${targetFrame.width} / ${targetFrame.height}`,
+                  width: 'min(100%, 600px)',
+                  height: 'auto'
+                }}
+              >
+                <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                  <img
+                    src={currentImageUrl}
+                    alt={`이미지 ${activeImageIndex + 1}`}
+                    className="max-w-full max-h-full object-contain"
+                    style={getImageTransformStyle()}
+                    onError={() => setImageError("이미지를 불러올 수 없습니다.")}
+                  />
                 </div>
-                
-                {/* 안내 텍스트 */}
-
               </div>
             </div>
+          )}
 
           {/* 이미지 썸네일 선택 */}
           {imageUrls.length > 1 && !isLoading && hasCurrentImage && (
             <div className="space-y-3">
-
+              <div className="text-center text-sm text-gray-600 mb-2">
+                이미지 선택 ({activeImageIndex + 1}/{imageUrls.length})
+              </div>
               <div className="flex gap-3 justify-center flex-wrap max-h-32 py-4">
                 {imageUrls.map((url, index) => (
                   <div
@@ -369,7 +296,11 @@ export default function ImageEditModal({
                         target.style.display = 'none';
                       }}
                     />
-       
+                    {activeImageIndex === index && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center">
+                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

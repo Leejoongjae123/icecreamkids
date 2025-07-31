@@ -45,7 +45,11 @@ export function DndProviderWrapper({ children }: DndProviderWrapperProps) {
 
   return (
     <DndContext.Provider value={contextValue}>
-      <DndProvider backend={HTML5Backend}>{children}</DndProvider>
+      {isDndEnabled ? (
+        <DndProvider backend={HTML5Backend}>{children}</DndProvider>
+      ) : (
+        <div key="disabled-dnd">{children}</div>
+      )}
     </DndContext.Provider>
   );
 }
