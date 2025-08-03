@@ -61,7 +61,7 @@
     "@storybook/preview-api": "^8.4.7",
     "@tanstack/react-query": "^5.51.21",
     "@tanstack/react-query-devtools": "^5.51.21",
-    "@types/fabric": "^5.3.10",
+
     "@types/lodash": "^4.17.16",
     "@types/paper": "^0.11.14",
     "@types/react-flatpickr": "^3.8.11",
@@ -76,7 +76,7 @@
     "dayjs": "^1.11.13",
     "dompurify": "^3.2.4",
     "downloadjs": "^1.4.7",
-    "fabric": "^6.7.1",
+
     "flatpickr": "^4.6.13",
     "html-to-image": "^1.11.11",
     "husky": "^9.1.7",
@@ -141,7 +141,7 @@
     "@typescript-eslint/eslint-plugin": "^7.17.0",
     "@typescript-eslint/parser": "^7.17.0",
     "autoprefixer": "^10.4.21",
-    "canvas": "^3.1.2",
+
     "eslint": "^8",
     "eslint-config-airbnb": "^19.0.4",
     "eslint-config-airbnb-typescript": "^18.0.0",

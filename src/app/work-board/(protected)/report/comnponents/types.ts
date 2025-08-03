@@ -265,17 +265,7 @@ export interface FabricImageObject {
   controls?: any;
 }
 
-export interface FabricCanvasType {
-  width?: number;
-  height?: number;
-  add: (object: any) => void;
-  remove: (object: any) => void;
-  setActiveObject: (object: any) => void;
-  renderAll: () => void;
-  clear: () => void;
-  dispose: () => void;
-  getElement: () => HTMLCanvasElement;
-}
+
 
 export interface ImagePosition {
   x: number;
@@ -347,19 +337,7 @@ export interface TextStickerStore {
   bringTextStickerToFront: (id: string) => void;
 }
 
-// FabricCanvas 관련 타입들
-export interface FabricCanvasProps {
-  imageUrl: string;
-  canvasWidth: number;
-  canvasHeight: number;
-  imageTransform: {
-    scale: number;
-    rotation: number;
-    translateX: number;
-    translateY: number;
-  };
-  onImageChange?: (imageObject: any) => void;
-}
+
 
 export interface ImageCanvasTransform {
   scale: number;

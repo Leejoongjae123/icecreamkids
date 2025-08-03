@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RotateCcw, Scissors } from "lucide-react";
 // 동적 임포트를 위해 타입만 import
-import type { Stage as StageType, Layer as LayerType, Image as ImageType, Group as GroupType, Circle as CircleType, Rect as RectType } from "react-konva";
+import type { Stage as StageType, Layer as LayerType, Image as ImageType, Group as GroupType, Circle as CircleType, Rect as RectType, Transformer as TransformerType } from "react-konva";
 import type Konva from "konva";
 
 // 동적 임포트를 위한 변수
@@ -16,6 +16,7 @@ let KonvaImage: typeof ImageType;
 let Rect: typeof RectType;
 let Group: typeof GroupType;
 let Circle: typeof CircleType;
+let Transformer: typeof TransformerType;
 let KonvaLib: typeof Konva;
 
 // 클라이언트 사이드에서만 Konva 로드
@@ -27,6 +28,7 @@ if (typeof window !== 'undefined') {
   Rect = ReactKonva.Rect;
   Group = ReactKonva.Group;
   Circle = ReactKonva.Circle;
+  Transformer = ReactKonva.Transformer;
   KonvaLib = require('konva').default;
 }
 
@@ -50,15 +52,6 @@ export interface KonvaCanvasRef {
 
 type EditMode = 'edit' | 'crop';
 
-interface HandlePosition {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  id: string;
-  type: 'circle' | 'bar';
-}
-
 interface ImageData {
   x: number;
   y: number;
@@ -81,11 +74,13 @@ interface CropArea {
   const KonvaCanvas = forwardRef<KonvaCanvasRef, KonvaCanvasProps>(
     ({ imageUrl, targetFrame, onImageLoad, onImageError }, ref) => {
       const stageRef = useRef<any>(null);
+      const imageRef = useRef<any>(null);
+      const transformerRef = useRef<any>(null);
       const [konvaImage, setKonvaImage] = useState<HTMLImageElement | null>(null);
       const [isLoading, setIsLoading] = useState(true);
       const [editMode, setEditMode] = useState<EditMode>('edit');
-      const [isDragging, setIsDragging] = useState(false); // 드래그 상태 추가
-      const [isCropHandleDragging, setIsCropHandleDragging] = useState<string | null>(null); // 크롭 핸들 드래그 상태
+      const [isDragging, setIsDragging] = useState(false);
+      const [isCropHandleDragging, setIsCropHandleDragging] = useState<string | null>(null);
       const [imageData, setImageData] = useState<ImageData>({
         x: 300,
         y: 200,
@@ -236,6 +231,17 @@ interface CropArea {
 
       imageObj.src = imageUrl;
     }, [imageUrl, onImageLoad, onImageError, getImageBounds]);
+
+    // Transformer를 이미지에 연결
+    useEffect(() => {
+      if (editMode === 'edit' && transformerRef.current && imageRef.current) {
+        transformerRef.current.nodes([imageRef.current]);
+        transformerRef.current.getLayer()?.batchDraw();
+      } else if (transformerRef.current) {
+        transformerRef.current.nodes([]);
+        transformerRef.current.getLayer()?.batchDraw();
+      }
+    }, [editMode, konvaImage]);
 
     // 모드 전환 시 상태 동기화
     const prevEditModeRef = useRef<EditMode>('edit');
@@ -395,97 +401,47 @@ interface CropArea {
       }
     }, [editMode, imageData, konvaImage, getImageBounds, cropArea]);
 
-    // 핸들 위치 계산
-    const getHandlePositions = useCallback((): HandlePosition[] => {
-      if (!imageData || !konvaImage) return [];
+    // Transformer 변환 이벤트 처리
+    const handleTransformEnd = useCallback((e: Konva.KonvaEventObject<Event>) => {
+      const node = e.target;
+      const scaleX = node.scaleX();
+      const scaleY = node.scaleY();
+      
+      // 이미지 데이터 업데이트
+      setImageData(prev => ({
+        ...prev,
+        x: node.x(),
+        y: node.y(),
+        scaleX: scaleX,
+        scaleY: scaleY,
+        rotation: node.rotation()
+      }));
 
-      // 실시간으로 이미지 경계 계산 (상태 동기화 문제 방지)
-      const realTimeBounds = getImageBounds(imageData);
-
-      console.log("🎯 핸들 위치 계산 시작:", { 
-        editMode, 
-        imageData: { 
-          x: imageData.x, 
-          y: imageData.y, 
-          width: imageData.width, 
-          height: imageData.height,
-          scaleX: imageData.scaleX,
-          scaleY: imageData.scaleY
-        },
-        realTimeBounds,
-        cropArea
+      // 크롭 영역을 이미지 경계에 맞춤
+      const newImageData = {
+        ...imageData,
+        x: node.x(),
+        y: node.y(),
+        scaleX: scaleX,
+        scaleY: scaleY,
+        rotation: node.rotation()
+      };
+      
+      const newBounds = getImageBounds(newImageData);
+      setCropArea({
+        x: newBounds.left,
+        y: newBounds.top,
+        width: newBounds.width,
+        height: newBounds.height
       });
 
-      if (editMode === 'crop') {
-        // 크롭 모드: 바 형태 핸들
-        const barThickness = 8;
-        const barLength = 50;
-        
-        const handles = [
-          // 상단 바 (가로)
-          { 
-            x: cropArea.x + cropArea.width / 2 - barLength / 2, 
-            y: cropArea.y - barThickness / 2, 
-            width: barLength, 
-            height: barThickness, 
-            id: 'top',
-            type: 'bar' as const
-          },
-          // 하단 바 (가로)
-          { 
-            x: cropArea.x + cropArea.width / 2 - barLength / 2, 
-            y: cropArea.y + cropArea.height - barThickness / 2, 
-            width: barLength, 
-            height: barThickness, 
-            id: 'bottom',
-            type: 'bar' as const
-          },
-          // 좌측 바 (세로)
-          { 
-            x: cropArea.x - barThickness / 2, 
-            y: cropArea.y + cropArea.height / 2 - barLength / 2, 
-            width: barThickness, 
-            height: barLength, 
-            id: 'left',
-            type: 'bar' as const
-          },
-          // 우측 바 (세로)
-          { 
-            x: cropArea.x + cropArea.width - barThickness / 2, 
-            y: cropArea.y + cropArea.height / 2 - barLength / 2, 
-            width: barThickness, 
-            height: barLength, 
-            id: 'right',
-            type: 'bar' as const
-          }
-        ];
-        
-        console.log("📐 크롭 모드 핸들:", handles);
-        return handles;
-      } else {
-        // 편집 모드: 크롭된 영역 기준으로 원형 핸들 배치
-        const effectiveBounds = {
-          left: cropArea.x,
-          top: cropArea.y,
-          right: cropArea.x + cropArea.width,
-          bottom: cropArea.y + cropArea.height
-        };
-        
-        const handles = [
-          { x: effectiveBounds.left, y: effectiveBounds.top, width: 16, height: 16, id: 'topLeft', type: 'circle' as const },
-          { x: effectiveBounds.right, y: effectiveBounds.top, width: 16, height: 16, id: 'topRight', type: 'circle' as const },
-          { x: effectiveBounds.left, y: effectiveBounds.bottom, width: 16, height: 16, id: 'bottomLeft', type: 'circle' as const },
-          { x: effectiveBounds.right, y: effectiveBounds.bottom, width: 16, height: 16, id: 'bottomRight', type: 'circle' as const }
-        ];
-        
-        console.log("📐 편집 모드 핸들 (크롭 영역 기준):", {
-          크롭영역: cropArea,
-          유효경계: effectiveBounds,
-          핸들: handles
-        });
-        return handles;
-      }
-    }, [imageData, cropArea, editMode, konvaImage, getImageBounds]);
+      console.log("🔧 Transformer 변환 완료:", {
+        새위치: { x: node.x(), y: node.y() },
+        새스케일: { scaleX, scaleY },
+        새회전: node.rotation(),
+        새경계: newBounds
+      });
+    }, [imageData, getImageBounds]);
 
     // 이미지 드래그 시작 핸들러
     const handleImageDragStart = useCallback(() => {
@@ -562,109 +518,7 @@ interface CropArea {
       }
     }, [imageData, cropArea, editMode, getImageBounds]);
 
-    // 편집 모드 핸들 드래그 핸들러
-    const handleEditHandleDrag = useCallback((e: Konva.KonvaEventObject<DragEvent>, handleId: string) => {
-      // 실제 핸들의 현재 위치 사용 (포인터 위치 대신)
-      const handleX = e.target.x();
-      const handleY = e.target.y();
 
-      // 이미지 중심점
-      const imageCenterX = imageData.x;
-      const imageCenterY = imageData.y;
-
-      let newScale = imageData.scaleX; // 단일 스케일 값 사용
-
-      // 핸들에 따라 이미지 중심에서의 거리를 기준으로 스케일 계산 (핸들 위치 기준)
-      switch (handleId) {
-        case 'topLeft': {
-          const distanceX = Math.abs(imageCenterX - handleX);
-          const distanceY = Math.abs(imageCenterY - handleY);
-          
-          const scaleX = Math.max(0.1, Math.min(5, distanceX / (imageData.width / 2 * imageData.scaleX) * imageData.scaleX));
-          const scaleY = Math.max(0.1, Math.min(5, distanceY / (imageData.height / 2 * imageData.scaleY) * imageData.scaleY));
-          newScale = Math.min(scaleX, scaleY);
-          break;
-        }
-        case 'topRight': {
-          const distanceX = Math.abs(handleX - imageCenterX);
-          const distanceY = Math.abs(imageCenterY - handleY);
-          
-          const scaleX = Math.max(0.1, Math.min(5, distanceX / (imageData.width / 2 * imageData.scaleX) * imageData.scaleX));
-          const scaleY = Math.max(0.1, Math.min(5, distanceY / (imageData.height / 2 * imageData.scaleY) * imageData.scaleY));
-          newScale = Math.min(scaleX, scaleY);
-          break;
-        }
-        case 'bottomLeft': {
-          const distanceX = Math.abs(imageCenterX - handleX);
-          const distanceY = Math.abs(handleY - imageCenterY);
-          
-          const scaleX = Math.max(0.1, Math.min(5, distanceX / (imageData.width / 2 * imageData.scaleX) * imageData.scaleX));
-          const scaleY = Math.max(0.1, Math.min(5, distanceY / (imageData.height / 2 * imageData.scaleY) * imageData.scaleY));
-          newScale = Math.min(scaleX, scaleY);
-          break;
-        }
-        case 'bottomRight': {
-          const distanceX = Math.abs(handleX - imageCenterX);
-          const distanceY = Math.abs(handleY - imageCenterY);
-          
-          const scaleX = Math.max(0.1, Math.min(5, distanceX / (imageData.width / 2 * imageData.scaleX) * imageData.scaleX));
-          const scaleY = Math.max(0.1, Math.min(5, distanceY / (imageData.height / 2 * imageData.scaleY) * imageData.scaleY));
-          newScale = Math.min(scaleX, scaleY);
-          break;
-        }
-      }
-
-      console.log("🔧 편집모드 핸들 드래그 (핸들 위치 기준):", {
-        handleId,
-        핸들위치: { x: handleX, y: handleY },
-        이미지중심: { x: imageCenterX, y: imageCenterY },
-        이전스케일: imageData.scaleX,
-        새로운스케일: newScale,
-        스케일비율: newScale / imageData.scaleX
-      });
-
-      // 스케일 비율 계산
-      const scaleRatio = newScale / imageData.scaleX;
-
-      // 이미지 데이터 업데이트
-      setImageData(prev => ({
-        ...prev,
-        scaleX: newScale,
-        scaleY: newScale // 원본 비율 유지를 위해 동일한 값 사용
-      }));
-
-      // 크롭 영역을 이미지와 동일한 비율로 스케일링 (이미지 중심 기준)
-      setCropArea(prev => {
-        const cropCenterX = prev.x + prev.width / 2;
-        const cropCenterY = prev.y + prev.height / 2;
-        
-        // 크롭 중심에서 이미지 중심까지의 거리
-        const offsetX = cropCenterX - imageCenterX;
-        const offsetY = cropCenterY - imageCenterY;
-        
-        // 새로운 크롭 크기와 위치 계산
-        const newWidth = prev.width * scaleRatio;
-        const newHeight = prev.height * scaleRatio;
-        const newCropCenterX = imageCenterX + offsetX * scaleRatio;
-        const newCropCenterY = imageCenterY + offsetY * scaleRatio;
-        
-        const newCropArea = {
-          x: newCropCenterX - newWidth / 2,
-          y: newCropCenterY - newHeight / 2,
-          width: newWidth,
-          height: newHeight
-        };
-        
-        console.log("📐 크롭 영역 동기화 (이미지 중심 기준):", {
-          이전크롭: prev,
-          스케일비율: scaleRatio,
-          새크롭: newCropArea,
-          이미지중심: { x: imageCenterX, y: imageCenterY }
-        });
-        
-        return newCropArea;
-      });
-    }, [imageData, cropArea]);
 
     // 크롭 핸들 마우스 다운 핸들러
     const handleCropHandleMouseDown = useCallback((handleId: string) => {
@@ -742,14 +596,7 @@ interface CropArea {
       }
     }, [isCropHandleDragging]);
 
-    // 통합 핸들 드래그 핸들러
-    const handleHandleDrag = useCallback((e: Konva.KonvaEventObject<DragEvent>, handleId: string) => {
-      if (editMode === 'edit') {
-        handleEditHandleDrag(e, handleId);
-      } else {
-        // 크롭 핸들 드래그는 스테이지 마우스 이벤트로 처리
-      }
-    }, [editMode, handleEditHandleDrag]);
+
 
     // 마우스 휠로 줌 기능
     const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -943,10 +790,47 @@ interface CropArea {
       }
     }), [konvaImage, targetFrame, editMode, cropArea, imageData, getImageBounds]);
 
-    const handlePositions = getHandlePositions();
+    // 크롭 모드 핸들 위치 계산
+    const getCropHandles = useCallback(() => {
+      if (editMode !== 'crop') return [];
+      
+      const barThickness = 8;
+      const barLength = 50;
+      
+      return [
+        { 
+          x: cropArea.x + cropArea.width / 2 - barLength / 2, 
+          y: cropArea.y - barThickness / 2, 
+          width: barLength, 
+          height: barThickness, 
+          id: 'top'
+        },
+        { 
+          x: cropArea.x + cropArea.width / 2 - barLength / 2, 
+          y: cropArea.y + cropArea.height - barThickness / 2, 
+          width: barLength, 
+          height: barThickness, 
+          id: 'bottom'
+        },
+        { 
+          x: cropArea.x - barThickness / 2, 
+          y: cropArea.y + cropArea.height / 2 - barLength / 2, 
+          width: barThickness, 
+          height: barLength, 
+          id: 'left'
+        },
+        { 
+          x: cropArea.x + cropArea.width - barThickness / 2, 
+          y: cropArea.y + cropArea.height / 2 - barLength / 2, 
+          width: barThickness, 
+          height: barLength, 
+          id: 'right'
+        }
+      ];
+    }, [editMode, cropArea]);
 
     // 서버 사이드에서는 렌더링하지 않음
-    if (typeof window === 'undefined' || !Stage || !Layer || !KonvaImage) {
+    if (typeof window === 'undefined' || !Stage || !Layer || !KonvaImage || !Transformer) {
       return <div className="w-full h-full flex items-center justify-center bg-gray-100">
         <div className="text-gray-500">이미지 편집기 로딩 중...</div>
       </div>;
@@ -1062,6 +946,7 @@ interface CropArea {
                     clipHeight={isDragging ? CANVAS_HEIGHT : cropArea.height}
                   >
                     <KonvaImage
+                      ref={imageRef}
                       image={konvaImage}
                       x={imageData.x}
                       y={imageData.y}
@@ -1072,15 +957,43 @@ interface CropArea {
                       rotation={imageData.rotation}
                       offsetX={imageData.width / 2}
                       offsetY={imageData.height / 2}
-                      draggable
+                      draggable={true} // 모든 모드에서 드래그 가능
                       onDragStart={handleImageDragStart}
                       onDragMove={handleImageDrag}
                       onDragEnd={handleImageDragEnd}
+                      onTransformEnd={handleTransformEnd}
                     />
                   </Group>
 
-                  {/* 경계선 표시 - 드래그 중이 아닐 때만 표시 */}
-                  {!isDragging && editMode === 'crop' && (
+                  {/* Transformer - 편집 모드에서만 표시 */}
+                  {editMode === 'edit' && (
+                    <Transformer
+                      ref={transformerRef}
+                      flipEnabled={false}
+                      rotateEnabled={true}
+                      borderDash={[3, 3]}
+                      borderStroke="#3D8BFF"
+                      borderStrokeWidth={2}
+                      anchorFill="#ffffff"
+                      anchorStroke="#3D8BFF"
+                      anchorStrokeWidth={2}
+                      anchorSize={12}
+                      anchorCornerRadius={12}
+                      boundBoxFunc={(oldBox, newBox) => {
+                        // 최소/최대 크기 제한
+                        if (newBox.width < 10 || newBox.height < 10) {
+                          return oldBox;
+                        }
+                        if (newBox.width > CANVAS_WIDTH * 2 || newBox.height > CANVAS_HEIGHT * 2) {
+                          return oldBox;
+                        }
+                        return newBox;
+                      }}
+                    />
+                  )}
+
+                  {/* 경계선 표시 */}
+                  {editMode === 'crop' && (
                     <Rect
                       x={cropArea.x}
                       y={cropArea.y}
@@ -1093,49 +1006,21 @@ interface CropArea {
                     />
                   )}
 
-                  {!isDragging && editMode === 'edit' && (
+                  {/* 크롭 모드 핸들 */}
+                  {editMode === 'crop' && getCropHandles().map((handle) => (
                     <Rect
-                      x={cropArea.x}
-                      y={cropArea.y}
-                      width={cropArea.width}
-                      height={cropArea.height}
+                      key={handle.id}
+                      x={handle.x}
+                      y={handle.y}
+                      width={handle.width}
+                      height={handle.height}
+                      fill="#ffffff"
                       stroke="#3D8BFF"
                       strokeWidth={2}
-                      dash={[5, 5]}
-                      listening={false}
+                      cornerRadius={4}
+                      onMouseDown={() => handleCropHandleMouseDown(handle.id)}
+                      style={{ cursor: 'grab' }}
                     />
-                  )}
-
-                  {/* 핸들 - 드래그 중이 아닐 때만 표시 */}
-                  {!isDragging && handlePositions.map((handle) => (
-                    handle.type === 'circle' ? (
-                      <Circle
-                        key={handle.id}
-                        x={handle.x}
-                        y={handle.y}
-                        radius={8}
-                        fill="#ffffff"
-                        stroke="#3D8BFF"
-                        strokeWidth={2}
-                        draggable={editMode === 'edit'} // 편집 모드에서만 드래그 가능
-                        onDragMove={(e) => editMode === 'edit' && handleHandleDrag(e, handle.id)}
-                      />
-                    ) : (
-                      <Rect
-                        key={handle.id}
-                        x={handle.x}
-                        y={handle.y}
-                        width={handle.width}
-                        height={handle.height}
-                        fill="#ffffff"
-                        stroke="#3D8BFF"
-                        strokeWidth={2}
-                        cornerRadius={4}
-                        draggable={false} // 크롭 핸들은 드래그 불가
-                        onMouseDown={() => editMode === 'crop' && handleCropHandleMouseDown(handle.id)}
-                        style={{ cursor: editMode === 'crop' ? 'grab' : 'default' }}
-                      />
-                    )
                   ))}
                 </>
               )}
@@ -1154,8 +1039,9 @@ interface CropArea {
             </>
           ) : (
             <>
-              <p>• 초록색 핸들을 드래그하면 이미지 크기가 조정됩니다</p>
-              <p>• 각 모서리 핸들을 드래그하여 이미지를 확대/축소할 수 있습니다</p>
+              <p>• 파란색 핸들을 드래그하여 이미지 크기 조정 및 회전이 가능합니다</p>
+              <p>• 모서리 핸들로 크기 조절, 위쪽 화살표 핸들로 회전</p>
+              <p>• 이미지를 직접 드래그하여 위치를 자유롭게 이동할 수 있습니다</p>
             </>
           )}
         </div>
