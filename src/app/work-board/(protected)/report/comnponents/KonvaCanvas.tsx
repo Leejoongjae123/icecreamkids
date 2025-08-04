@@ -4,10 +4,11 @@ import { useRef, useEffect, useImperativeHandle, forwardRef, useState, useCallba
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { RotateCcw, Scissors } from "lucide-react";
+import { RotateCcw, Scissors, Download } from "lucide-react";
 // 동적 임포트를 위해 타입만 import
 import type { Stage as StageType, Layer as LayerType, Image as ImageType, Group as GroupType, Circle as CircleType, Rect as RectType, Transformer as TransformerType } from "react-konva";
 import type Konva from "konva";
+import ImageThumbnail from "./ImageThumbnail";
 
 // 동적 임포트를 위한 변수
 let Stage: typeof StageType;
@@ -17,6 +18,7 @@ let Rect: typeof RectType;
 let Group: typeof GroupType;
 let Circle: typeof CircleType;
 let Transformer: typeof TransformerType;
+let Text: any;
 let KonvaLib: typeof Konva;
 
 // 클라이언트 사이드에서만 Konva 로드
@@ -29,6 +31,7 @@ if (typeof window !== 'undefined') {
   Group = ReactKonva.Group;
   Circle = ReactKonva.Circle;
   Transformer = ReactKonva.Transformer;
+  Text = ReactKonva.Text;
   KonvaLib = require('konva').default;
 }
 
@@ -37,6 +40,14 @@ interface KonvaCanvasProps {
   targetFrame: { width: number; height: number; x: number; y: number };
   onImageLoad?: () => void;
   onImageError?: (error: string) => void;
+  onExtractComplete?: (imageData: string) => void;
+  onCancel?: () => void; // 취소 버튼 핸들러 추가
+  // ImageThumbnailList 관련 props 추가
+  imageUrls: string[];
+  activeImageIndex: number;
+  onImageSelect: (index: number) => void;
+  onImageOrderChange: (fromIndex: number, toIndex: number) => void;
+  isLoading?: boolean;
 }
 
 export interface KonvaCanvasRef {
@@ -48,6 +59,8 @@ export interface KonvaCanvasRef {
   getCanvasData: () => any;
   getCroppedImageData: () => string | null;
   applyCrop: () => void;
+  getTargetFrameImageData: () => string | null;
+  triggerExtract: () => void; // 추출하기 버튼과 동일한 기능을 외부에서 호출할 수 있도록 노출
 }
 
 type EditMode = 'edit' | 'crop';
@@ -71,8 +84,16 @@ interface CropArea {
   height: number;
 }
 
+// 추출 영역 (targetFrame을 캔버스 좌표계로 변환)
+interface ExtractArea {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
   const KonvaCanvas = forwardRef<KonvaCanvasRef, KonvaCanvasProps>(
-    ({ imageUrl, targetFrame, onImageLoad, onImageError }, ref) => {
+    ({ imageUrl, targetFrame, onImageLoad, onImageError, onExtractComplete, onCancel, imageUrls, activeImageIndex, onImageSelect, onImageOrderChange, isLoading: thumbnailLoading }, ref) => {
       const stageRef = useRef<any>(null);
       const imageRef = useRef<any>(null);
       const transformerRef = useRef<any>(null);
@@ -81,16 +102,86 @@ interface CropArea {
       const [editMode, setEditMode] = useState<EditMode>('edit');
       const [isDragging, setIsDragging] = useState(false);
       const [isCropHandleDragging, setIsCropHandleDragging] = useState<string | null>(null);
-      const [imageData, setImageData] = useState<ImageData>({
-        x: 300,
-        y: 200,
-        scaleX: 1,
-        scaleY: 1,
-        rotation: 0,
-        width: 0,
-        height: 0,
-        aspectRatio: 0, // 이미지 로드 전에는 0으로 설정
+        const [imageData, setImageData] = useState<ImageData>({
+    x: 300,
+    y: 200,
+    scaleX: 1,
+    scaleY: 1,
+    rotation: 0,
+    width: 0,
+    height: 0,
+    aspectRatio: 0, // 이미지 로드 전에는 0으로 설정
+  });
+
+  // 추출 영역 상태 (targetFrame을 캔버스 좌표계로 변환한 것)
+  const [extractArea, setExtractArea] = useState<ExtractArea>({
+    x: 100,
+    y: 100,
+    width: 200,
+    height: 150,
+  });
+
+  // targetFrame을 캔버스 좌표계로 변환하는 함수
+  const convertTargetFrameToExtractArea = useCallback(() => {
+    if (targetFrame) {
+      // targetFrame의 원본 비율 계산
+      const aspectRatio = targetFrame.width / targetFrame.height;
+      
+      // 캔버스 안에 맞도록 스케일 계산 (여백 10px 확보)
+      const maxWidth = CANVAS_WIDTH - 20;
+      const maxHeight = CANVAS_HEIGHT - 20;
+      
+      let finalWidth = targetFrame.width;
+      let finalHeight = targetFrame.height;
+      
+      // 캔버스보다 큰 경우 비율 유지하면서 축소
+      if (finalWidth > maxWidth || finalHeight > maxHeight) {
+        const scaleX = maxWidth / finalWidth;
+        const scaleY = maxHeight / finalHeight;
+        const scale = Math.min(scaleX, scaleY);
+        
+        finalWidth = finalWidth * scale;
+        finalHeight = finalHeight * scale;
+      }
+      
+      // 캔버스 중앙에 배치
+      const canvasCenterX = CANVAS_WIDTH / 2;
+      const canvasCenterY = CANVAS_HEIGHT / 2;
+      
+      const extractX = canvasCenterX - finalWidth / 2;
+      const extractY = canvasCenterY - finalHeight / 2;
+      
+      // 캔버스 경계를 벗어나지 않도록 최종 조정
+      const clampedX = Math.max(10, Math.min(extractX, CANVAS_WIDTH - finalWidth - 10));
+      const clampedY = Math.max(10, Math.min(extractY, CANVAS_HEIGHT - finalHeight - 10));
+      
+      setExtractArea({
+        x: clampedX,
+        y: clampedY,
+        width: finalWidth,
+        height: finalHeight,
       });
+      
+      console.log("🎯 targetFrame을 extractArea로 변환:", {
+        targetFrame,
+        원본비율: aspectRatio,
+        캔버스제한: { maxWidth, maxHeight },
+        최종크기: { width: finalWidth, height: finalHeight },
+        최종위치: { x: clampedX, y: clampedY },
+        extractArea: {
+          x: clampedX,
+          y: clampedY,
+          width: finalWidth,
+          height: finalHeight,
+        }
+      });
+    }
+  }, [targetFrame]);
+
+  // targetFrame이 변경될 때마다 extractArea 업데이트
+  useEffect(() => {
+    convertTargetFrameToExtractArea();
+  }, [convertTargetFrameToExtractArea]);
 
       // 초기화 함수
       const handleReset = useCallback(() => {
@@ -108,6 +199,161 @@ interface CropArea {
         // 실제 구현시에는 AI 배경제거 API 호출 등의 작업이 필요함
       }, []);
 
+      // getTargetFrameImageData 함수를 컴포넌트 내부에서 사용할 수 있도록 정의
+      const getTargetFrameImageDataInternal = useCallback((): string | null => {
+        console.log("🎯 getTargetFrameImageDataInternal 호출됨");
+        
+        const stage = stageRef.current;
+        if (!stage) {
+          console.log("❌ stage가 없습니다");
+          return null;
+        }
+        if (!konvaImage) {
+          console.log("❌ konvaImage가 없습니다");
+          return null;
+        }
+
+        console.log("🎯 추출 영역에서 이미지 데이터 추출 시작:", extractArea);
+
+        // 이미지의 현재 경계 계산 (getImageBounds 함수 내용을 직접 구현)
+        const { x, y, width, height, scaleX, scaleY } = imageData;
+        const scaledWidth = width * scaleX;
+        const scaledHeight = height * scaleY;
+        
+        const imageBounds = {
+          left: x - scaledWidth / 2,
+          top: y - scaledHeight / 2,
+          right: x + scaledWidth / 2,
+          bottom: y + scaledHeight / 2,
+          width: scaledWidth,
+          height: scaledHeight
+        };
+        
+        console.log("📐 이미지 경계:", imageBounds);
+        console.log("📐 추출 영역:", extractArea);
+        console.log("🎯 추출 영역 크기로 캔버스 생성 - UI 요소 제외하고 이미지만 캡처");
+
+        try {
+          // 추출 영역 전체를 기준으로 캔버스 생성
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) {
+            console.log("❌ canvas context를 생성할 수 없습니다");
+            return null;
+          }
+          
+          canvas.width = extractArea.width;
+          canvas.height = extractArea.height;
+          console.log("📏 캔버스 크기 설정:", { width: canvas.width, height: canvas.height });
+
+          // 배경을 투명으로 설정
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          // 이미지만 별도로 그리기 (UI 요소들 제외)
+          if (konvaImage) {
+            // 이미지의 변환 매트릭스 계산
+            const imgCenterX = imageData.x;
+            const imgCenterY = imageData.y;
+            const imgWidth = imageData.width;
+            const imgHeight = imageData.height;
+            const scaleX = imageData.scaleX;
+            const scaleY = imageData.scaleY;
+            const rotation = imageData.rotation;
+
+            console.log("🖼️ 이미지 변환 정보:", {
+              중심점: { x: imgCenterX, y: imgCenterY },
+              크기: { width: imgWidth, height: imgHeight },
+              스케일: { scaleX, scaleY },
+              회전: rotation
+            });
+
+            // 캔버스 컨텍스트에 변환 적용
+            ctx.save();
+            
+            // 추출 영역 기준으로 좌표 조정
+            ctx.translate(-extractArea.x, -extractArea.y);
+            
+            // 이미지 중심점으로 이동
+            ctx.translate(imgCenterX, imgCenterY);
+            
+            // 회전 적용
+            ctx.rotate((rotation * Math.PI) / 180);
+            
+            // 스케일 적용
+            ctx.scale(scaleX, scaleY);
+            
+            // 이미지 그리기 (중심점 기준)
+            ctx.drawImage(
+              konvaImage,
+              -imgWidth / 2,
+              -imgHeight / 2,
+              imgWidth,
+              imgHeight
+            );
+            
+            ctx.restore();
+            console.log("✅ 이미지 그리기 완료");
+          }
+
+          const extractedDataURL = canvas.toDataURL('image/png');
+          console.log("✅ 추출 완료 - UI 요소 제외한 순수 이미지, 데이터 URL 길이:", extractedDataURL.length);
+          console.log("🔍 데이터 URL 시작 부분:", extractedDataURL.substring(0, 100));
+          
+          return extractedDataURL;
+        } catch (error) {
+          console.error("❌ 이미지 추출 중 오류:", error);
+          return null;
+        }
+      }, [extractArea, imageData, konvaImage]);
+
+      // ImageThumbnailList 핸들러들
+      const handleMoveLeft = (currentIndex: number) => {
+        if (currentIndex > 0) {
+          onImageOrderChange(currentIndex, currentIndex - 1);
+        }
+      };
+
+      const handleMoveRight = (currentIndex: number) => {
+        if (currentIndex < imageUrls.length - 1) {
+          onImageOrderChange(currentIndex, currentIndex + 1);
+        }
+      };
+
+      // 추출하기 버튼 핸들러
+      const handleExtractToAddPicture = useCallback(() => {
+        console.log("🎯 추출하기 버튼 클릭");
+        console.log("🔍 현재 상태 확인:", {
+          konvaImage: !!konvaImage,
+          stageRef: !!stageRef.current,
+          extractArea,
+          imageData,
+          onExtractComplete: !!onExtractComplete
+        });
+        
+        try {
+          const extractedImageData = getTargetFrameImageDataInternal();
+          console.log("🔍 getTargetFrameImageDataInternal 결과:", {
+            success: !!extractedImageData,
+            dataLength: extractedImageData?.length || 0
+          });
+          
+          if (extractedImageData && onExtractComplete) {
+            console.log("✅ 추출된 이미지 데이터를 부모 컴포넌트로 전달");
+            onExtractComplete(extractedImageData);
+          } else {
+            const errorMsg = !extractedImageData 
+              ? "추출된 이미지 데이터가 없습니다" 
+              : "onExtractComplete 콜백이 없습니다";
+            console.log("❌ 추출 실패:", errorMsg);
+            alert(`추출에 실패했습니다: ${errorMsg}`);
+          }
+        } catch (error) {
+          console.error("❌ 추출 중 오류 발생:", error);
+          alert("이미지 추출 중 오류가 발생했습니다.");
+        }
+      }, [getTargetFrameImageDataInternal, onExtractComplete, konvaImage, extractArea, imageData]);
+
     // 스테이지 좌표계 기준 크롭 영역
     const [cropArea, setCropArea] = useState<CropArea>({
       x: 0,
@@ -119,9 +365,68 @@ interface CropArea {
     // 초기 상태 저장
     const initialStateRef = useRef<{ imageData: ImageData; cropArea: CropArea } | null>(null);
 
-    // 캔버스 크기
-    const CANVAS_WIDTH = 600;
-    const CANVAS_HEIGHT = 400;
+    // Canvas 크기를 동적으로 계산 (컨테이너 크기에 맞춤)
+    const [canvasSize, setCanvasSize] = useState({ width: 600, height: 400 });
+    const containerRef = useRef<HTMLDivElement>(null);
+    const CANVAS_WIDTH = canvasSize.width;
+    const CANVAS_HEIGHT = canvasSize.height;
+
+    // 컨테이너 크기에 맞춰 캔버스 크기 동적 조정
+    useEffect(() => {
+      const updateCanvasSize = () => {
+        if (containerRef.current) {
+          const container = containerRef.current;
+          const rect = container.getBoundingClientRect();
+          
+          // 컨테이너 크기에서 여백을 뺀 실제 사용 가능한 공간 계산
+          const availableWidth = Math.max(500, rect.width - 40); // 최소 500px
+          const availableHeight = Math.max(400, rect.height - 140); // 버튼과 썸네일을 위한 공간 확보
+          
+          // 적절한 비율 유지 (3:2 비율)
+          let finalWidth = availableWidth;
+          let finalHeight = (availableWidth * 2) / 3;
+          
+          // 높이가 제한을 초과하면 높이 기준으로 조정
+          if (finalHeight > availableHeight) {
+            finalHeight = availableHeight;
+            finalWidth = (availableHeight * 3) / 2;
+          }
+          
+          // 최대/최소 크기 제한
+          finalWidth = Math.max(500, Math.min(800, finalWidth));
+          finalHeight = Math.max(400, Math.min(600, finalHeight));
+          
+          setCanvasSize({ 
+            width: Math.round(finalWidth), 
+            height: Math.round(finalHeight) 
+          });
+        }
+      };
+
+      // 초기 크기 설정
+      updateCanvasSize();
+
+      // 윈도우 리사이즈 이벤트 리스너
+      const handleResize = () => {
+        requestAnimationFrame(updateCanvasSize);
+      };
+
+      window.addEventListener('resize', handleResize);
+      
+      // 컨테이너 크기 변화 감지를 위한 ResizeObserver
+      let resizeObserver: ResizeObserver | null = null;
+      if (containerRef.current) {
+        resizeObserver = new ResizeObserver(handleResize);
+        resizeObserver.observe(containerRef.current);
+      }
+
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        if (resizeObserver) {
+          resizeObserver.disconnect();
+        }
+      };
+    }, []);
 
     // 이미지 경계 계산 헬퍼 함수 (메모이제이션)
     const getImageBounds = useCallback((imgData: ImageData) => {
@@ -460,9 +765,20 @@ interface CropArea {
         새위치: { x: newX, y: newY }
       });
       
+      // 이미지 위치 변화량 계산
+      const deltaX = newX - imageData.x;
+      const deltaY = newY - imageData.y;
+      
       setImageData(prev => ({ ...prev, x: newX, y: newY }));
       
-      // 드래그 중에는 크롭 영역을 함께 이동시키지 않음 (드래그 완료 시 조정)
+      // 크롭 모드에서는 이미지와 함께 크롭 영역도 이동
+      if (editMode === 'crop') {
+        setCropArea(prev => ({
+          ...prev,
+          x: prev.x + deltaX,
+          y: prev.y + deltaY
+        }));
+      }
     }, [imageData, editMode]);
 
     // 이미지 드래그 완료 핸들러 - 크롭 영역과 이미지 경계 동기화
@@ -496,6 +812,7 @@ interface CropArea {
         console.log("✅ 편집모드 - 크롭 영역을 이미지 경계에 맞춤");
       } else {
         // 크롭 모드에서는 크롭 영역이 이미지 경계를 벗어나지 않도록 조정
+        // 실시간으로 이동했으므로 경계 체크만 수행
         setCropArea(prev => {
           const adjustedCropArea = {
             x: Math.max(realImageBounds.left, Math.min(prev.x, realImageBounds.right - prev.width)),
@@ -512,7 +829,7 @@ interface CropArea {
             adjustedCropArea.height = realImageBounds.bottom - adjustedCropArea.y;
           }
           
-          console.log("✅ 크롭모드 - 크롭 영역을 이미지 경계 내로 조정:", adjustedCropArea);
+          console.log("✅ 크롭모드 - 크롭 영역 경계 체크 및 조정:", adjustedCropArea);
           return adjustedCropArea;
         });
       }
@@ -701,6 +1018,8 @@ interface CropArea {
           pixelRatio: 1,
         });
       },
+      getTargetFrameImageData: getTargetFrameImageDataInternal,
+      triggerExtract: handleExtractToAddPicture, // 추출하기 버튼과 동일한 기능을 외부에서 호출할 수 있도록 노출
       applyCrop: () => {
         if (editMode !== 'crop' || !konvaImage) return;
 
@@ -844,6 +1163,8 @@ interface CropArea {
           display: 'flex',
           flexDirection: 'column',
           gap: '10px',
+          minHeight: '600px',
+          maxHeight: '800px',
         }}
       >
         {/* 편집 모드 선택 및 도구 버튼 */}
@@ -884,16 +1205,21 @@ interface CropArea {
                 <Scissors className="w-4 h-4" />
                 배경제거
               </Button>
+              
+              {/* 추출하기 버튼은 하단의 적용 버튼으로 대체됨 */}
             </div>
           </div>
         </div>
 
         <div 
+          ref={containerRef}
           style={{
             flex: 1,
-            maxWidth: '600px',
-            maxHeight: '400px',
             position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '400px',
           }}
         >
           {isLoading && (
@@ -921,8 +1247,9 @@ interface CropArea {
             onMouseUp={handleStageMouseUp}
             style={{
               backgroundColor: '#ffffff',
-              width: '100%',
-              height: '100%',
+              borderRadius: '8px',
+              maxWidth: '100%',
+              maxHeight: '100%',
             }}
           >
             <Layer>
@@ -1006,6 +1333,31 @@ interface CropArea {
                     />
                   )}
 
+                  {/* 추출 영역 표시 (노랑색 테두리) */}
+                  <Rect
+                    x={extractArea.x}
+                    y={extractArea.y}
+                    width={extractArea.width}
+                    height={extractArea.height}
+                    stroke="#FCD34D"
+                    strokeWidth={3}
+                    dash={[10, 5]}
+                    listening={false}
+                  />
+
+                  {/* 추출 영역 라벨 */}
+                  {Text && (
+                    <Text
+                      x={extractArea.x}
+                      y={extractArea.y - 25}
+                      text="추출 영역"
+                      fontSize={14}
+                      fontFamily="Arial"
+                      fill="#FCD34D"
+                      listening={false}
+                    />
+                  )}
+
                   {/* 크롭 모드 핸들 */}
                   {editMode === 'crop' && getCropHandles().map((handle) => (
                     <Rect
@@ -1028,23 +1380,47 @@ interface CropArea {
           </Stage>
         </div>
 
-        <div className="mt-4 text-sm text-gray-600 space-y-1">
-          <p><strong>현재 모드:</strong> {editMode === 'crop' ? '크롭 모드' : '편집 모드'}</p>
-          <p>• 이미지를 드래그해서 위치를 변경할 수 있습니다</p>
-          {editMode === 'crop' ? (
-            <>
-              <p>• 파란색 바 핸들을 드래그하면 크롭 영역을 조정할 수 있습니다</p>
-              <p>• 크롭 영역 밖의 이미지는 잘려서 보이지 않습니다</p>
-              <p>• "크롭 적용" 버튼으로 최종 크롭된 이미지를 확정할 수 있습니다</p>
-            </>
-          ) : (
-            <>
-              <p>• 파란색 핸들을 드래그하여 이미지 크기 조정 및 회전이 가능합니다</p>
-              <p>• 모서리 핸들로 크기 조절, 위쪽 화살표 핸들로 회전</p>
-              <p>• 이미지를 직접 드래그하여 위치를 자유롭게 이동할 수 있습니다</p>
-            </>
-          )}
+        {/* 썸네일 목록 */}
+        <div className="space-y-3">
+          <div className="flex gap-3 justify-center flex-wrap py-4 px-2">
+            {imageUrls.map((url, index) => (
+              <ImageThumbnail
+                key={`thumbnail-${index}-${url}`}
+                imageUrl={url}
+                index={index}
+                isActive={activeImageIndex === index}
+                onSelect={onImageSelect}
+                onMoveLeft={() => handleMoveLeft(index)}
+                onMoveRight={() => handleMoveRight(index)}
+                canMoveLeft={index > 0}
+                canMoveRight={index < imageUrls.length - 1}
+                totalCount={imageUrls.length}
+              />
+            ))}
+          </div>
         </div>
+
+        {/* 취소/적용 버튼 */}
+        <div className="flex justify-center max-w-full text-sm font-medium tracking-tight leading-none whitespace-nowrap gap-x-2 mt-2">
+          <div
+            className="flex overflow-hidden flex-col justify-center px-4 py-2.5 text-gray-700 bg-gray-50 rounded-md border border-solid border-gray-300 cursor-pointer hover:bg-gray-100 transition-colors"
+            onClick={onCancel}
+          >
+            <div>취소</div>
+          </div>
+          <div
+            className={`flex overflow-hidden flex-col justify-center px-4 py-2.5 text-white rounded-md cursor-pointer transition-colors ${
+              isLoading || !konvaImage
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-primary hover:bg-primary/80'
+            }`}
+            onClick={isLoading || !konvaImage ? undefined : handleExtractToAddPicture}
+          >
+            <div>적용하기</div>
+          </div>
+        </div>
+
+        
       </div>
     );
   }

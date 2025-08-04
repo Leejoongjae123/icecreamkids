@@ -231,14 +231,7 @@ export interface ImageThumbnailProps {
   totalCount: number;
 }
 
-export interface ImageThumbnailListProps {
-  imageUrls: string[];
-  activeImageIndex: number;
-  onImageSelect: (index: number) => void;
-  onImageOrderChange: (fromIndex: number, toIndex: number) => void;
-  isLoading: boolean;
-  hasCurrentImage: boolean;
-}
+
 
 export interface CustomControl {
   x: number;

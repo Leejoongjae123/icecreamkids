@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,11 +13,10 @@ import { useImageRatioStore } from "@/hooks/store/useImageRatioStore";
 import { useImageEditModalStore } from "@/hooks/store/useImageEditModalStore";
 // import { useDndContext } from "@/context/DnDContext"; // DnD 관련 코드 제거
 import ImageEditToolbar from "./ImageEditToolbar";
-import ImageThumbnailList from "./ImageThumbnailList";
 import dynamic from "next/dynamic";
 import type { KonvaCanvasRef } from "./KonvaCanvas";
 
-// KonvaCanvas를 동적 임포트로 변경 - SSR 비활성화
+// KonvaCanvas를 동적 임포트로 변경 - SSR 비활성화, ref 전달 개선
 const KonvaCanvas = dynamic(() => import("./KonvaCanvas"), {
   ssr: false,
   loading: () => (
@@ -40,6 +39,7 @@ export default function ImageEditModal({
   const [activeImageIndex, setActiveImageIndex] = useState(selectedImageIndex);
   const [isLoading, setIsLoading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  // isCanvasLoaded는 더 이상 필요 없음 (KonvaCanvas 내부에서 처리)
   const canvasRef = useRef<KonvaCanvasRef>(null);
   
   const { setTargetImageRatio, targetImageRatio } = useImageRatioStore();
@@ -173,6 +173,8 @@ export default function ImageEditModal({
     alert("크롭 기능은 준비 중입니다.");
   }, []);
 
+  // canvas ref 상태 추적은 더 이상 필요 없음 (KonvaCanvas 내부에서 처리)
+
   // 이미지 순서 변경 핸들러
   const handleImageOrderChange = useCallback((fromIndex: number, toIndex: number) => {
     const newImageUrls = [...imageUrls];
@@ -209,24 +211,32 @@ export default function ImageEditModal({
     }
   }, [imageUrls, activeImageIndex, onImageOrderChange]);
 
-  // 적용 버튼 핸들러
-  const handleApply = useCallback(() => {
-    if (!imageUrls[activeImageIndex]) {
-      alert("선택된 이미지가 없습니다.");
-      return;
+  // 추출 완료 핸들러 (추출하기 버튼 사용 시 - 적용하기 버튼과 동일한 동작)
+  const handleExtractComplete = useCallback((extractedImageData: string) => {
+    console.log("🎯 handleExtractComplete 호출됨");
+    console.log("🔍 추출된 이미지 데이터:", {
+      데이터타입: typeof extractedImageData,
+      데이터길이: extractedImageData?.length || 0,
+      데이터시작부분: extractedImageData?.substring(0, 50) + "...",
+      onApply함수존재: !!onApply,
+      onClose함수존재: !!onClose
+    });
+    
+    try {
+      // 추출된 이미지를 부모 컴포넌트로 전달 (적용하기 버튼과 동일)
+      console.log("📤 부모 컴포넌트로 이미지 데이터 전달 중...");
+      onApply(extractedImageData);
+      console.log("✅ onApply 호출 완료 - 모달 닫기는 부모에서 처리됨");
+      
+      // onApply에서 모든 모달 닫기 처리를 하므로 onClose()는 호출하지 않음
+      // 이렇게 하면 AddPicture 모달이 다시 열리지 않음
+    } catch (error) {
+      console.error("❌ handleExtractComplete 중 오류:", error);
+      alert("이미지 적용 중 오류가 발생했습니다.");
     }
+  }, [onApply, onClose]);
 
-    // 편집된 이미지 데이터 추출
-    const croppedImageData = canvasRef.current?.getCroppedImageData();
-    if (croppedImageData) {
-      // 편집된 이미지를 적용
-      onApply(croppedImageData);
-    } else {
-      // 편집 데이터가 없으면 원본 이미지 적용
-      onApply(imageUrls[activeImageIndex]);
-    }
-    onClose();
-  }, [activeImageIndex, imageUrls, onApply, onClose]);
+  // handleApply 함수는 더 이상 필요 없음 (KonvaCanvas 내부의 적용 버튼에서 처리)
 
   // 이벤트 전파 차단
   const handleStopPropagation = useCallback((e: React.MouseEvent) => {
@@ -253,7 +263,7 @@ export default function ImageEditModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose} modal={true}>
       <DialogContent
-        className="gap-y-4 max-w-[900px] p-6 z-[9999]"
+        className="gap-y-4 max-w-[1100px] w-[95vw] h-full max-h-[95vh] p-6 z-[9999] overflow-hidden flex flex-col"
         style={{ zIndex: 9999 }}
         onClick={handleStopPropagation}
         onPointerDownOutside={(e) => e.preventDefault()} // 외부 클릭 시 닫히지 않도록
@@ -267,111 +277,53 @@ export default function ImageEditModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex flex-col h-full space-y-4">
           {/* 툴바 */}
-          <ImageEditToolbar
-            isLoading={isLoading}
-            hasCurrentImage={hasCurrentImage}
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
-            onRotateLeft={handleRotateLeft}
-            onRotateRight={handleRotateRight}
-            onReset={handleReset}
-            onRemoveBackground={handleRemoveBackground}
-            onCrop={handleCrop}
-          />
+          <div className="flex-shrink-0">
+            <ImageEditToolbar
+              isLoading={isLoading}
+              hasCurrentImage={hasCurrentImage}
+              onZoomIn={handleZoomIn}
+              onZoomOut={handleZoomOut}
+              onRotateLeft={handleRotateLeft}
+              onRotateRight={handleRotateRight}
+              onReset={handleReset}
+              onRemoveBackground={handleRemoveBackground}
+              onCrop={handleCrop}
+            />
+          </div>
 
           {/* 로딩 상태 */}
           {isLoading && (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-8 flex-shrink-0">
               <div className="text-gray-500">이미지를 불러오는 중...</div>
             </div>
           )}
 
-          {/* 에러 상태 */}
-          
-
-          {/* 메인 이미지 표시 영역 */}
-            <div className="flex justify-center items-center min-h-[400px] px-2">
-              <div className="relative">
-                {/* Canvas 컨테이너 - 고정 크기지만 반응형으로 조정 */}
-                <div 
-                  className="relative  rounded-lg overflow-hidden "
-                  style={{ 
-                    width: 'min(800px, 90vw)', 
-                    height: 'min(600px, 67.5vw)', 
-                    maxWidth: '600px',
-                    maxHeight: '400px',
-                    aspectRatio: '4/3'
+          {/* 메인 이미지 표시 영역 - 남은 공간을 모두 사용 */}
+          <div className="flex-1 flex justify-center items-center min-h-0 overflow-hidden">
+            <div className="w-full h-full flex justify-center items-center p-4">
+              {/* Canvas 컨테이너 - 충분한 공간 제공 */}
+              <div className="relative w-full h-full max-w-[800px] max-h-[600px] flex items-center justify-center">
+                <KonvaCanvas
+                  ref={canvasRef}
+                  imageUrl={currentImageUrl}
+                  targetFrame={targetFrame}
+                  onImageLoad={() => setIsLoading(false)}
+                  onImageError={(error: string) => {
+                    setImageError(error);
+                    setIsLoading(false);
                   }}
-                >
-                  <div className="w-full h-full flex items-center justify-center">
-                    <KonvaCanvas
-                      ref={canvasRef}
-                      imageUrl={currentImageUrl}
-                      targetFrame={targetFrame}
-                      onImageLoad={() => setIsLoading(false)}
-                      onImageError={(error: string) => {
-                        setImageError(error);
-                        setIsLoading(false);
-                      }}
-                    />
-                  </div>
-                  
-                  {/* 타겟 프레임 오버레이 - 중앙에 배치된 추출 영역 */}
-                  <div 
-                    className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10"
-                    style={{
-                      width: 'min(400px, 70%)',
-                      aspectRatio: `${targetFrame.width} / ${targetFrame.height}`,
-                    }}
-                  >
-                    <div className="w-full h-full border-2 border-dashed border-primary bg-transparent rounded-lg relative">
-                      {/* 코너 마커 */}
-                      
-                      
-                      {/* 중앙 레이블 */}
-                      <div className="absolute top-2 left-2 bg-primary text-white px-2 py-1 rounded text-xs font-medium shadow-sm">
-                        추출 영역
-                      </div>
-                    </div>
-                  </div>
-                  
-
-                </div>
-                
-                {/* 안내 텍스트 */}
-
+                  onExtractComplete={handleExtractComplete}
+                  onCancel={onClose}
+                  // ImageThumbnailList 관련 props
+                  imageUrls={imageUrls}
+                  activeImageIndex={activeImageIndex}
+                  onImageSelect={setActiveImageIndex}
+                  onImageOrderChange={handleImageOrderChange}
+                  isLoading={isLoading}
+                />
               </div>
-            </div>
-
-          {/* 이미지 썸네일 선택 */}
-          <ImageThumbnailList
-            imageUrls={imageUrls}
-            activeImageIndex={activeImageIndex}
-            onImageSelect={setActiveImageIndex}
-            onImageOrderChange={handleImageOrderChange}
-            isLoading={isLoading}
-            hasCurrentImage={hasCurrentImage}
-          />
-
-          {/* 버튼 */}
-          <div className="flex justify-center max-w-full text-base font-medium tracking-tight leading-none whitespace-nowrap gap-x-2">
-            <div
-              className="flex overflow-hidden flex-col justify-center px-5 py-3.5 text-gray-700 bg-gray-50 rounded-md border border-solid border-gray-300 max-md:px-5 cursor-pointer hover:bg-gray-100 transition-colors"
-              onClick={onClose}
-            >
-              <div>취소</div>
-            </div>
-            <div
-              className={`flex overflow-hidden flex-col justify-center px-5 py-3.5 text-white rounded-md cursor-pointer transition-colors ${
-                isLoading || !hasCurrentImage 
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-primary hover:bg-primary/80'
-              }`}
-              onClick={isLoading || !hasCurrentImage ? undefined : handleApply}
-            >
-              <div>적용</div>
             </div>
           </div>
         </div>

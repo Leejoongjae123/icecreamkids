@@ -23,6 +23,7 @@ function AddPicture({ children, targetImageRatio, targetFrame }: AddPictureProps
   const [isAddPictureModalOpen, setIsAddPictureModalOpen] = useState(false);
   const [isAddPictureModalVisible, setIsAddPictureModalVisible] = useState(true);
   const [createdBlobUrls, setCreatedBlobUrls] = useState<string[]>([]); // 새로 생성된 Blob URL 추적
+  const [insertedImageData, setInsertedImageData] = useState<string | null>(null); // 삽입된 이미지 데이터
   
   const { setTargetImageRatio, clearTargetImageRatio } = useImageRatioStore();
 
@@ -219,12 +220,16 @@ function AddPicture({ children, targetImageRatio, targetFrame }: AddPictureProps
   };
 
   const handleImageEditApply = (editedImageData: string) => {
-    // 여기서 편집된 이미지 데이터를 실제로 적용하는 로직을 구현
-    console.log("✅ 편집된 이미지 적용:", editedImageData);
+    // 편집된 이미지 데이터를 상태에 저장하여 children div에 표시
+    console.log("✅ 편집된 이미지 적용:", editedImageData.substring(0, 50) + "...");
     console.log("🔄 모든 모달 닫기 및 상태 초기화");
     
+    // 추출된 이미지 데이터를 상태에 저장
+    setInsertedImageData(editedImageData);
+    
+    // 모든 모달 상태 초기화
     setShowImageEditModal(false);
-    setIsAddPictureModalOpen(false); // 모달 완전히 닫기
+    setIsAddPictureModalOpen(false); // AddPicture 모달 완전히 닫기
     setIsAddPictureModalVisible(true); // visibility 상태 초기화
     clearTargetImageRatio(); // store 정리
     cleanupCreatedBlobUrls(); // 생성된 Blob URL들 정리
@@ -233,7 +238,7 @@ function AddPicture({ children, targetImageRatio, targetFrame }: AddPictureProps
     setSelectedImages(new Set());
     setSelectedUploadedFiles(new Set());
     
-    // 필요에 따라 부모 컴포넌트로 데이터 전달
+    console.log("🖼️ 이미지가 AddPicture div에 삽입되었습니다.");
   };
 
   const handleImageEditClose = () => {
@@ -270,9 +275,25 @@ function AddPicture({ children, targetImageRatio, targetFrame }: AddPictureProps
   return (
     <>
       <Dialog open={isAddPictureModalOpen} onOpenChange={setIsAddPictureModalOpen}>
-        <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
-          {children}
-        </DialogTrigger>
+        <div className="relative">
+          <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
+            {children}
+          </DialogTrigger>
+          {/* 추출된 이미지가 있으면 표시 */}
+          {insertedImageData && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+              <img 
+                src={insertedImageData} 
+                alt="추출된 이미지"
+                className="max-w-full max-h-full object-cover rounded-lg"
+                style={{
+                  width: targetFrame?.width || 'auto',
+                  height: targetFrame?.height || 'auto',
+                }}
+              />
+            </div>
+          )}
+        </div>
       <DialogContent className="max-w-[1200px] p-0 border-none bg-transparent shadow-none z-[60]" style={{ 
         zIndex: 60,
         visibility: isAddPictureModalVisible ? 'visible' : 'hidden',
