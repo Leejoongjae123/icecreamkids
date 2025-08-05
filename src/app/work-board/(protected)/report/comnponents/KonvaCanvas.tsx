@@ -8,7 +8,6 @@ import { RotateCcw, Scissors, Download } from "lucide-react";
 // 동적 임포트를 위해 타입만 import
 import type { Stage as StageType, Layer as LayerType, Image as ImageType, Group as GroupType, Circle as CircleType, Rect as RectType, Transformer as TransformerType } from "react-konva";
 import type Konva from "konva";
-import ImageThumbnail from "./ImageThumbnail";
 
 // 동적 임포트를 위한 변수
 let Stage: typeof StageType;
@@ -42,12 +41,6 @@ interface KonvaCanvasProps {
   onImageError?: (error: string) => void;
   onExtractComplete?: (imageData: string) => void;
   onCancel?: () => void; // 취소 버튼 핸들러 추가
-  // ImageThumbnailList 관련 props 추가
-  imageUrls: string[];
-  activeImageIndex: number;
-  onImageSelect: (index: number) => void;
-  onImageOrderChange: (fromIndex: number, toIndex: number) => void;
-  isLoading?: boolean;
 }
 
 export interface KonvaCanvasRef {
@@ -93,7 +86,7 @@ interface ExtractArea {
 }
 
   const KonvaCanvas = forwardRef<KonvaCanvasRef, KonvaCanvasProps>(
-    ({ imageUrl, targetFrame, onImageLoad, onImageError, onExtractComplete, onCancel, imageUrls, activeImageIndex, onImageSelect, onImageOrderChange, isLoading: thumbnailLoading }, ref) => {
+    ({ imageUrl, targetFrame, onImageLoad, onImageError, onExtractComplete, onCancel }, ref) => {
       const stageRef = useRef<any>(null);
       const imageRef = useRef<any>(null);
       const transformerRef = useRef<any>(null);
@@ -307,18 +300,7 @@ interface ExtractArea {
         }
       }, [extractArea, imageData, konvaImage]);
 
-      // ImageThumbnailList 핸들러들
-      const handleMoveLeft = (currentIndex: number) => {
-        if (currentIndex > 0) {
-          onImageOrderChange(currentIndex, currentIndex - 1);
-        }
-      };
 
-      const handleMoveRight = (currentIndex: number) => {
-        if (currentIndex < imageUrls.length - 1) {
-          onImageOrderChange(currentIndex, currentIndex + 1);
-        }
-      };
 
       // 추출하기 버튼 핸들러
       const handleExtractToAddPicture = useCallback(() => {
@@ -1380,25 +1362,7 @@ interface ExtractArea {
           </Stage>
         </div>
 
-        {/* 썸네일 목록 */}
-        <div className="space-y-3">
-          <div className="flex gap-3 justify-center flex-wrap py-4 px-2">
-            {imageUrls.map((url, index) => (
-              <ImageThumbnail
-                key={`thumbnail-${index}-${url}`}
-                imageUrl={url}
-                index={index}
-                isActive={activeImageIndex === index}
-                onSelect={onImageSelect}
-                onMoveLeft={() => handleMoveLeft(index)}
-                onMoveRight={() => handleMoveRight(index)}
-                canMoveLeft={index > 0}
-                canMoveRight={index < imageUrls.length - 1}
-                totalCount={imageUrls.length}
-              />
-            ))}
-          </div>
-        </div>
+
 
         {/* 취소/적용 버튼 */}
         <div className="flex justify-center max-w-full text-sm font-medium tracking-tight leading-none whitespace-nowrap gap-x-2 mt-2">

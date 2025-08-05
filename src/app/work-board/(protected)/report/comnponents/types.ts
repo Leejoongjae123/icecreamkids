@@ -43,6 +43,7 @@ export interface AddPictureProps {
   onImagesAdded?: (imageUrls: string[]) => void; // 여러 이미지 추가 콜백
   imageIndex?: number; // 현재 이미지 인덱스
   mode?: 'single' | 'multiple'; // 단일 이미지 모드 또는 다중 이미지 모드
+  hasImage?: boolean; // 이미지가 있는지 여부
 }
 
 export interface PhotoFrameModalProps {
@@ -98,6 +99,7 @@ export interface GridAElementProps {
   placeholderText?: string;
   onMove?: (dragIndex: number, hoverIndex: number) => void;
   animationState?: AnimationState;
+  mode?: 'single' | 'multiple'; // 이미지 모드 추가
 }
 
 export interface PositionAnimation {

@@ -5,6 +5,8 @@ import AddPicture from "./AddPicture";
 import { Input } from "@/components/ui/input";
 import GridEditToolbar from "./GridEditToolbar";
 import { Loader2 } from "lucide-react";
+import ImageEditModal from "./ImageEditModal";
+import { ImagePosition } from "../types";
 
 interface GridAElementProps {
   index: number;
@@ -28,6 +30,13 @@ interface GridAElementProps {
   isExpanded?: boolean; // 확장 상태 추가
   isWideCard?: boolean; // col-span-2인 경우를 위한 prop 추가
   imageCount?: number; // 초기 이미지 개수
+  mode?: 'single' | 'multiple'; // 이미지 편집 모드
+  targetFrame?: {
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+  };
 }
 
 function GridAElement({
@@ -52,6 +61,7 @@ function GridAElement({
   isExpanded = false, // 확장 상태 추가
   isWideCard = false, // col-span-2인 경우를 위한 prop 추가
   imageCount: initialImageCount = 1, // 초기 이미지 개수
+  mode = 'single', // 이미지 편집 모드
 }: GridAElementProps) {
   // 이미지 개수 상태 관리
   const [imageCount, setImageCount] = React.useState(initialImageCount);
@@ -83,6 +93,24 @@ function GridAElement({
       newImages.push("");
     }
     return newImages.slice(0, imageCount);
+  });
+
+  // 이미지 위치 정보 상태
+  const [imagePositions, setImagePositions] = React.useState<ImagePosition[]>(() => 
+    Array(imageCount).fill({ x: 0, y: 0, scale: 1 })
+  );
+
+  // 이미지 편집 모달 상태
+  const [imageEditModal, setImageEditModal] = React.useState<{
+    isOpen: boolean;
+    imageUrls: string[];
+    selectedImageIndex: number;
+    originalImageIndex: number; // 클릭한 원래 이미지 인덱스
+  }>({
+    isOpen: false,
+    imageUrls: [],
+    selectedImageIndex: 0,
+    originalImageIndex: 0
   });
 
   // 여러 이미지 추가 핸들러
@@ -124,7 +152,7 @@ function GridAElement({
     console.log(`📥 개별 이미지 ${imageIndex} 변경:`, hasImage);
   }, []);
 
-  // imageCount 변경 시 currentImages 업데이트
+  // imageCount 변경 시 currentImages와 imagePositions 업데이트
   React.useEffect(() => {
     setCurrentImages(prev => {
       const newImages = [...prev];
@@ -133,6 +161,16 @@ function GridAElement({
         newImages.push("");
       }
       return newImages.slice(0, imageCount);
+    });
+    
+    setImagePositions(prev => {
+      const newPositions = [...prev];
+      // 이미지 개수가 증가한 경우 기본 위치 정보 추가
+      while (newPositions.length < imageCount) {
+        newPositions.push({ x: 0, y: 0, scale: 1 });
+      }
+      // 이미지 개수가 감소한 경우 배열 크기 조정
+      return newPositions.slice(0, imageCount);
     });
   }, [imageCount]);
 
@@ -428,6 +466,69 @@ function GridAElement({
     }
   };
 
+  // 이미지 편집 모달 열기 핸들러
+  const handleImageAdjustClick = (imageIndex: number, imageUrl: string) => {
+    if (imageUrl && imageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
+      // 모든 유효한 이미지들을 가져와서 ImageEditModal 사용
+      const validImages = currentImages.filter(img => 
+        img && img !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+      );
+      
+      if (validImages.length > 0) {
+        // 클릭한 이미지가 유효한 이미지 목록에서 몇 번째인지 찾기
+        const clickedImageIndex = validImages.findIndex(img => img === imageUrl);
+        const finalSelectedIndex = clickedImageIndex >= 0 ? clickedImageIndex : 0;
+        
+        setImageEditModal({
+          isOpen: true,
+          imageUrls: validImages,
+          selectedImageIndex: finalSelectedIndex,
+          originalImageIndex: imageIndex // 클릭한 원래 이미지 인덱스 저장
+        });
+      }
+    }
+  };
+
+
+
+  // ImageEditModal에서 편집된 이미지 적용 핸들러
+  const handleImageEditApply = (editedImageData: string) => {
+    console.log("📸 편집된 이미지 데이터 받음:", editedImageData.substring(0, 50) + "...");
+    
+    // 편집된 이미지로 원래 위치의 이미지 교체
+    // selectedImageIndex는 필터링된 배열에서의 인덱스이므로
+    // 실제 원래 이미지 URL을 찾아서 교체해야 함
+    const selectedImageUrl = imageEditModal.imageUrls[imageEditModal.selectedImageIndex];
+    
+    setCurrentImages(prev => {
+      const newImages = [...prev];
+      // 원래 이미지 배열에서 해당 URL의 인덱스를 찾아서 교체
+      const originalIndex = newImages.findIndex(img => img === selectedImageUrl);
+      if (originalIndex >= 0) {
+        newImages[originalIndex] = editedImageData;
+      }
+      return newImages;
+    });
+
+    // 모달 닫기
+    setImageEditModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  // ImageEditModal에서 이미지 순서 변경 핸들러
+  const handleImageOrderChange = (newOrder: string[]) => {
+    console.log("🔄 이미지 순서 변경:", newOrder);
+    setCurrentImages(prev => {
+      const newImages = [...prev];
+      // 유효한 이미지들만 새로운 순서로 교체
+      newOrder.forEach((imageUrl, index) => {
+        if (index < newImages.length) {
+          newImages[index] = imageUrl;
+        }
+      });
+      return newImages;
+    });
+  };
+
   // 텍스트 새로고침(토글) 핸들러
   const handleTextRefresh = (event: React.MouseEvent) => {
     event.stopPropagation(); // 이벤트 전파 방지
@@ -615,6 +716,7 @@ function GridAElement({
                 onImageAdded={(hasImage) => handleSingleImageAdded(hasImage, 0)}
                 imageIndex={0}
                 mode="multiple"
+                hasImage={Boolean(currentImages[0] && currentImages[0] !== "" && currentImages[0] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg")}
               >
                 <div 
                   className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
@@ -623,42 +725,56 @@ function GridAElement({
                     handleImageClick(e);
                   }}
                 >
-                  {currentImages[0] && currentImages[0] !== "" ? (
-                    <Image
-                      src={currentImages[0]}
-                      alt="Image 1"
-                      fill
-                      className="object-cover rounded-md"
-                    />
-                  ) : (
-                    <Image
-                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
-                      alt="No image"
-                      fill
-                      className="object-cover rounded-md"
-                    />
-                  )}
-                  {/* Black overlay */}
-                  <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-                    <Image
-                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                      width={20}
-                      height={20}
-                      className="object-cover mb-2"
-                      alt="Upload icon"
-                    />
-                    <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
-                      이미지를 드래그하거나<br />클릭하여 업로드
-                    </div>
-                    <button 
-                      className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
+                  {currentImages[0] && currentImages[0] !== "" && currentImages[0] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
+                    <div
+                      className="absolute inset-0 overflow-hidden rounded-md cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
+                        handleImageAdjustClick(0, currentImages[0]);
                       }}
                     >
-                      파일선택
-                    </button>
-                  </div>
+                      <Image
+                        src={currentImages[0]}
+                        alt="Image 1"
+                        fill
+                        className="object-cover rounded-md"
+                        style={{
+                          transform: `translate(${imagePositions[0]?.x || 0}px, ${imagePositions[0]?.y || 0}px) scale(${imagePositions[0]?.scale || 1})`,
+                          transformOrigin: 'center'
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <Image
+                        src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+                        alt="No image"
+                        fill
+                        className="object-cover rounded-md"
+                      />
+                      {/* Black overlay - 이미지가 없을 때만 표시 */}
+                      <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                        <Image
+                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
+                          width={20}
+                          height={20}
+                          className="object-cover mb-2"
+                          alt="Upload icon"
+                        />
+                        <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                          이미지를 드래그하거나<br />클릭하여 업로드
+                        </div>
+                        <button 
+                          className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                        >
+                          파일선택
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </AddPicture>
             </div>
@@ -675,6 +791,7 @@ function GridAElement({
                   onImageAdded={(hasImage) => handleSingleImageAdded(hasImage, 1)}
                   imageIndex={1}
                   mode="multiple"
+                  hasImage={Boolean(currentImages[1] && currentImages[1] !== "" && currentImages[1] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg")}
                 >
                   <div 
                     className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
@@ -683,42 +800,56 @@ function GridAElement({
                       handleImageClick(e);
                     }}
                   >
-                    {currentImages[1] && currentImages[1] !== "" ? (
-                      <Image
-                        src={currentImages[1]}
-                        alt="Image 2"
-                        fill
-                        className="object-cover rounded-md"
-                      />
-                    ) : (
-                      <Image
-                        src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
-                        alt="No image"
-                        fill
-                        className="object-cover rounded-md"
-                      />
-                    )}
-                    {/* Black overlay */}
-                    <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-                      <Image
-                        src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                        width={20}
-                        height={20}
-                        className="object-contain mb-2"
-                        alt="Upload icon"
-                      />
-                      <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
-                        이미지를 드래그하거나<br />클릭하여 업로드
-                      </div>
-                      <button 
-                        className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
+                    {currentImages[1] && currentImages[1] !== "" && currentImages[1] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
+                      <div
+                        className="absolute inset-0 overflow-hidden rounded-md cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
+                          handleImageAdjustClick(1, currentImages[1]);
                         }}
                       >
-                        파일선택
-                      </button>
-                    </div>
+                        <Image
+                          src={currentImages[1]}
+                          alt="Image 2"
+                          fill
+                          className="object-cover rounded-md"
+                          style={{
+                            transform: `translate(${imagePositions[1]?.x || 0}px, ${imagePositions[1]?.y || 0}px) scale(${imagePositions[1]?.scale || 1})`,
+                            transformOrigin: 'center'
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <Image
+                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+                          alt="No image"
+                          fill
+                          className="object-cover rounded-md"
+                        />
+                        {/* Black overlay - 이미지가 없을 때만 표시 */}
+                        <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                          <Image
+                            src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
+                            width={20}
+                            height={20}
+                            className="object-contain mb-2"
+                            alt="Upload icon"
+                          />
+                          <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                            이미지를 드래그하거나<br />클릭하여 업로드
+                          </div>
+                          <button 
+                            className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                          >
+                            파일선택
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </AddPicture>
               </div>
@@ -733,6 +864,7 @@ function GridAElement({
                   onImageAdded={(hasImage) => handleSingleImageAdded(hasImage, 2)}
                   imageIndex={2}
                   mode="multiple"
+                  hasImage={Boolean(currentImages[2] && currentImages[2] !== "" && currentImages[2] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg")}
                 >
                   <div 
                     className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
@@ -740,43 +872,57 @@ function GridAElement({
                       measureImageCellSize(2);
                       handleImageClick(e);
                     }}
-                  >
-                    {currentImages[2] && currentImages[2] !== "" ? (
+                                      >
+                      {currentImages[2] && currentImages[2] !== "" && currentImages[2] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
+                    <div
+                      className="absolute inset-0 overflow-hidden rounded-md cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleImageAdjustClick(2, currentImages[2]);
+                      }}
+                    >
                       <Image
                         src={currentImages[2]}
                         alt="Image 3"
                         fill
                         className="object-cover rounded-md"
+                        style={{
+                          transform: `translate(${imagePositions[2]?.x || 0}px, ${imagePositions[2]?.y || 0}px) scale(${imagePositions[2]?.scale || 1})`,
+                          transformOrigin: 'center'
+                        }}
                       />
-                    ) : (
+                    </div>
+                  ) : (
+                    <>
                       <Image
                         src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
                         alt="No image"
                         fill
                         className="object-cover rounded-md"
                       />
-                    )}
-                    {/* Black overlay */}
-                    <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-                      <Image
-                        src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                        width={20}
-                        height={20}
-                        className="object-contain mb-2"
-                        alt="Upload icon"
-                      />
-                      <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
-                        이미지를 드래그하거나<br />클릭하여 업로드
+                      {/* Black overlay - 이미지가 없을 때만 표시 */}
+                      <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                        <Image
+                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
+                          width={20}
+                          height={20}
+                          className="object-contain mb-2"
+                          alt="Upload icon"
+                        />
+                        <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                          이미지를 드래그하거나<br />클릭하여 업로드
+                        </div>
+                        <button 
+                          className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                        >
+                          파일선택
+                        </button>
                       </div>
-                      <button 
-                        className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                        }}
-                      >
-                        파일선택
-                      </button>
-                    </div>
+                    </>
+                  )}
                   </div>
                 </AddPicture>
               </div>
@@ -812,46 +958,60 @@ function GridAElement({
                     handleImageClick(e);
                   }}
                 >
-                  {imageSrc && imageSrc !== "" ? (
-                    <Image
-                      src={imageSrc}
-                      alt={`Image ${index + 1}`}
-                      fill
-                      className="object-cover rounded-md"
-                    />
-                  ) : (
-                    <Image
-                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
-                      alt="No image"
-                      fill
-                      className="object-cover rounded-md"
-                    />
-                  )}
-                  {/* Black overlay */}
-                  <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-                    {/* Upload icon */}
-                    <Image
-                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                      width={20}
-                      height={20}
-                      className="object-contain mb-2"
-                      alt="Upload icon"
-                    />
-                    {/* Upload text */}
-                    <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
-                      이미지를 드래그하거나<br />클릭하여 업로드
-                    </div>
-                    {/* File select button */}
-                    <button 
-                      className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
+                  {imageSrc && imageSrc !== "" && imageSrc !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
+                    <div
+                      className="absolute inset-0 overflow-hidden rounded-md cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
-                        // 파일 선택 로직
+                        handleImageAdjustClick(index, imageSrc);
                       }}
                     >
-                      파일선택
-                    </button>
-                  </div>
+                      <Image
+                        src={imageSrc}
+                        alt={`Image ${index + 1}`}
+                        fill
+                        className="object-cover rounded-md"
+                        style={{
+                          transform: `translate(${imagePositions[index]?.x || 0}px, ${imagePositions[index]?.y || 0}px) scale(${imagePositions[index]?.scale || 1})`,
+                          transformOrigin: 'center'
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <Image
+                        src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+                        alt="No image"
+                        fill
+                        className="object-cover rounded-md"
+                      />
+                      {/* Black overlay - 이미지가 없을 때만 표시 */}
+                      <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                        {/* Upload icon */}
+                        <Image
+                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
+                          width={20}
+                          height={20}
+                          className="object-contain mb-2"
+                          alt="Upload icon"
+                        />
+                        {/* Upload text */}
+                        <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                          이미지를 드래그하거나<br />클릭하여 업로드
+                        </div>
+                        {/* File select button */}
+                        <button 
+                          className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // 파일 선택 로직
+                          }}
+                        >
+                          파일선택
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </AddPicture>
             ))}
@@ -1020,6 +1180,17 @@ function GridAElement({
           />
         </div>
       )}
+      
+      {/* 이미지 편집 모달 */}
+      <ImageEditModal
+        isOpen={imageEditModal.isOpen}
+        onClose={() => setImageEditModal(prev => ({ ...prev, isOpen: false }))}
+        imageUrls={imageEditModal.imageUrls}
+        selectedImageIndex={imageEditModal.selectedImageIndex}
+        onApply={handleImageEditApply}
+        onImageOrderChange={handleImageOrderChange}
+        targetFrame={measureImageCellSize(imageEditModal.originalImageIndex || 0)}
+      />
     </div>
   );
 }

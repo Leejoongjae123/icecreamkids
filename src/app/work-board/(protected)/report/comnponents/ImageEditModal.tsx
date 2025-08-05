@@ -328,12 +328,6 @@ export default function ImageEditModal({
                   }}
                   onExtractComplete={handleExtractComplete}
                   onCancel={handleClose}
-                  // ImageThumbnailList 관련 props
-                  imageUrls={imageUrls}
-                  activeImageIndex={activeImageIndex}
-                  onImageSelect={setActiveImageIndex}
-                  onImageOrderChange={handleImageOrderChange}
-                  isLoading={isLoading}
                 />
               </div>
             </div>

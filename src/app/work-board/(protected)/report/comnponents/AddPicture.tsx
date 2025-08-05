@@ -12,7 +12,7 @@ import FileUpload from "./FileUpload";
 import { AddPictureProps, UploadedFile } from "./types";
 import {IoClose} from "react-icons/io5"
 
-function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onImagesAdded, imageIndex = 0, mode = 'single' }: AddPictureProps) {
+function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onImagesAdded, imageIndex = 0, mode = 'single', hasImage = false }: AddPictureProps) {
   const [activeTab, setActiveTab] = useState("추천자료");
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -231,11 +231,18 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
     <>
       <Dialog open={isAddPictureModalOpen} onOpenChange={setIsAddPictureModalOpen}>
         <div className="relative h-full w-full">
-          {/* 이미지가 없거나 multiple 모드일 때 기본 children 표시 */}
-          {(!insertedImageData || mode === 'multiple') && (
+          {/* 이미지가 없거나 (multiple 모드이면서 hasImage가 false)일 때만 DialogTrigger 표시 */}
+          {(!insertedImageData || (mode === 'multiple' && !hasImage)) && (
             <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
               {children}
             </DialogTrigger>
+          )}
+          
+          {/* multiple 모드이면서 hasImage가 true일 때는 children만 표시 */}
+          {mode === 'multiple' && hasImage && (
+            <div className="h-full w-full">
+              {children}
+            </div>
           )}
           
           {/* 추출된 이미지가 있고 single 모드일 때만 전체 div에 표시 */}
