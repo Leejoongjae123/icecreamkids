@@ -276,6 +276,19 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
     setShowDeleteConfirmModal(false);
   };
 
+  // 틀 추가 핸들러들
+  const handleAddImageFrame = () => {
+    setIsImageContainerVisible(true);
+  };
+
+  const handleAddTextFrame = () => {
+    setIsTextContainerVisible(true);
+  };
+
+  const handleAddDateFrame = () => {
+    setIsDateContainerVisible(true);
+  };
+
   return (
     <div
       className={`flex flex-row w-full justify-between h-[84px] ${className}`}
@@ -291,7 +304,7 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
                 hasImage && isImageSelected
                   ? "border-primary border-solid border-2"
                   : hasImage
-                    ? "border-zinc-400 border-solid "
+                    ? "border-transparent "
                     : "border-dashed border-zinc-400 hover:border-gray-400"
               }`}
               onClick={handleImageClick}
@@ -331,18 +344,23 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
             )}
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center w-full h-full gap-y-2 cursor-pointer group">
-            <div className="w-[38px] h-[38px] bg-black rounded-full flex items-center justify-center group-hover:bg-primary">
-              <Image
-                src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix6.svg"
-                width={18}
-                height={18}
-                className="object-contain aspect-square"
-                alt="no image"
-              />
-            </div>
-            <div className="text-sm text-white bg-black rounded-lg px-2 py-1 group-hover:bg-primary">
-              틀 추가
+          <div className="flex flex-col items-center justify-center w-full h-full gap-y-2 opacity-0 hover:opacity-100 transition-opacity duration-200">
+            <div 
+              className="group cursor-pointer flex flex-col items-center justify-center"
+              onClick={handleAddImageFrame}
+            >
+              <div className="w-[38px] h-[38px] bg-black group-hover:bg-primary transition-colors duration-200 rounded-full flex items-center justify-center">
+                <Image
+                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix6.svg"
+                  width={18}
+                  height={18}
+                  className="object-contain aspect-square"
+                  alt="no image"
+                />
+              </div>
+              <div className="text-sm text-white bg-black group-hover:text-white group-hover:bg-primary transition-colors duration-200 text-center mt-2 rounded-lg px-2 py-1">
+                틀 추가
+              </div>
             </div>
           </div>
         )}
@@ -360,7 +378,9 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
                   ? "border-primary border-solid border-2"
                   : isFocused
                     ? "border-primary border-solid border-2"
-                    : "border-zinc-400 border-dashed hover:border-gray-400"
+                    : text
+                      ? "border-transparent hover:border-gray-400"
+                      : "border-zinc-400 border-dashed hover:border-gray-400"
               }`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -423,18 +443,23 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
             )}
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center w-full h-full gap-y-2 cursor-pointer group">
-            <div className="w-[38px] h-[38px] bg-black rounded-full flex items-center justify-center group-hover:bg-primary">
-              <Image
-                src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix6.svg"
-                width={18}
-                height={18}
-                className="object-contain aspect-square"
-                alt="no image"
-              />
-            </div>
-            <div className="text-sm text-white bg-black rounded-lg px-2 py-1 group-hover:bg-primary">
-              틀 추가
+          <div className="flex flex-col items-center justify-center w-full h-full gap-y-2 opacity-0 hover:opacity-100 transition-opacity duration-200">
+            <div 
+              className="group cursor-pointer flex flex-col items-center justify-center"
+              onClick={handleAddTextFrame}
+            >
+              <div className="w-[38px] h-[38px] bg-black group-hover:bg-primary transition-colors duration-200 rounded-full flex items-center justify-center">
+                <Image
+                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix6.svg"
+                  width={18}
+                  height={18}
+                  className="object-contain aspect-square"
+                  alt="no image"
+                />
+              </div>
+              <div className="text-sm text-white bg-black group-hover:text-white group-hover:bg-primary transition-colors duration-200 text-center mt-2 rounded-lg px-2 py-1">
+                틀 추가
+              </div>
             </div>
           </div>
         )}
@@ -453,7 +478,9 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
                   ? "border-primary border-solid border-2"
                   : isTopFocused
                     ? "border-primary border-solid border-2"
-                    : "border-zinc-400 border-dashed hover:border-gray-400"
+                    : topText
+                      ? "border-transparent hover:border-gray-400"
+                      : "border-zinc-400 border-dashed hover:border-gray-400"
               }`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -486,7 +513,9 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
                   ? "border-primary border-solid border-2"
                   : isBottomFocused
                     ? "border-primary border-solid border-2"
-                    : "border-zinc-400 border-dashed hover:border-gray-400"
+                    : bottomText
+                      ? "border-transparent hover:border-gray-400"
+                      : "border-zinc-400 border-dashed hover:border-gray-400"
               }`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -543,18 +572,23 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
             )}
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center w-full h-full gap-y-2 cursor-pointer group">
-            <div className="w-[38px] h-[38px] bg-black rounded-full flex items-center justify-center group-hover:bg-primary">
-              <Image
-                src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix6.svg"
-                width={18}
-                height={18}
-                className="object-contain aspect-square"
-                alt="no image"
-              />
-            </div>
-            <div className="text-sm text-white bg-black rounded-lg px-2 py-1 group-hover:bg-primary">
-              틀 추가
+          <div className="flex flex-col items-center justify-center w-full h-full gap-y-2 opacity-0 hover:opacity-100 transition-opacity duration-200">
+            <div 
+              className="group cursor-pointer flex flex-col items-center justify-center"
+              onClick={handleAddDateFrame}
+            >
+              <div className="w-[38px] h-[38px] bg-black group-hover:bg-primary transition-colors duration-200 rounded-full flex items-center justify-center">
+                <Image
+                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix6.svg"
+                  width={18}
+                  height={18}
+                  className="object-contain aspect-square"
+                  alt="no image"
+                />
+              </div>
+              <div className="text-sm text-white bg-black group-hover:text-white group-hover:bg-primary transition-colors duration-200 text-center mt-2 rounded-lg px-2 py-1">
+                틀 추가
+              </div>
             </div>
           </div>
         )}

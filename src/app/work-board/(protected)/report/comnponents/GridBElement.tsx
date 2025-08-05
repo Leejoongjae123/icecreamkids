@@ -23,6 +23,7 @@ interface GridBElementProps {
   isExpanded?: boolean; // col-span-2 적용 여부
   isHidden?: boolean; // 숨김 처리 여부 (쓰레기통으로 삭제된 경우)
   imageCount?: number; // 초기 이미지 개수
+  onImageCountChange?: (count: number) => void; // 이미지 개수 변경 콜백
 }
 
 function GridBElement({
@@ -41,10 +42,11 @@ function GridBElement({
   placeholderText = "ex) 아이들과 촉감놀이를 했어요",
   isExpanded = false,
   isHidden = false,
-  imageCount: initialImageCount = 1, // 초기 이미지 개수
+  imageCount: propsImageCount = 1, // 초기 이미지 개수
+  onImageCountChange, // 이미지 개수 변경 콜백
 }: GridBElementProps) {
   // 이미지 개수 상태 관리
-  const [imageCount, setImageCount] = React.useState(initialImageCount);
+  const [imageCount, setImageCount] = React.useState(propsImageCount);
   
   // description-area 확장 상태 관리
   const [isDescriptionExpanded, setIsDescriptionExpanded] = React.useState(false);
@@ -68,38 +70,139 @@ function GridBElement({
     while (newImages.length < imageCount) {
       newImages.push("");
     }
-    return newImages.slice(0, imageCount);
+    const initialImages = newImages.slice(0, imageCount);
+    console.log("🏁 GridB 초기 currentImages 설정:", {
+      원본이미지: images,
+      새이미지: newImages,
+      초기이미지: initialImages,
+      imageCount: imageCount
+    });
+    return initialImages;
   });
+
+  // props에서 받은 imageCount가 변경될 때 내부 상태 업데이트
+  React.useEffect(() => {
+    // props로 받은 imageCount로 강제 업데이트
+    setImageCount(propsImageCount);
+  }, [propsImageCount]);
+
+  // 현재 선택된 이미지 개수 계산 함수
+  const getCurrentImageCount = React.useCallback((): number => {
+    return currentImages.filter(img => 
+      img && img !== "" && img !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+    ).length;
+  }, [currentImages]);
+
+  // 남은 선택 가능한 이미지 개수 계산
+  const getRemainingImageCount = React.useCallback((): number => {
+    const currentCount = getCurrentImageCount();
+    return Math.max(0, imageCount - currentCount);
+  }, [getCurrentImageCount, imageCount]);
+
+  // 여러 이미지 추가 핸들러
+  const handleImagesAdded = React.useCallback((imageUrls: string[]) => {
+    console.log("📥 GridBElement에서 여러 이미지 받음:", imageUrls);
+    console.log("📏 현재 imageCount:", imageCount);
+    
+    setCurrentImages(prev => {
+      const newImages = [...prev];
+      
+      // 받은 이미지 개수를 imageCount로 제한
+      const limitedImageUrls = imageUrls.slice(0, imageCount);
+      
+      // 받은 이미지들을 순서대로 빈 슬롯에 배치
+      let imageUrlIndex = 0;
+      for (let i = 0; i < newImages.length && imageUrlIndex < limitedImageUrls.length; i++) {
+        if (!newImages[i] || newImages[i] === "" || newImages[i] === "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
+          newImages[i] = limitedImageUrls[imageUrlIndex];
+          imageUrlIndex++;
+        }
+      }
+      
+      // 아직 배치할 이미지가 남아있다면, 기존 이미지가 있는 슬롯도 덮어씀
+      if (imageUrlIndex < limitedImageUrls.length) {
+        for (let i = 0; i < newImages.length && imageUrlIndex < limitedImageUrls.length; i++) {
+          newImages[i] = limitedImageUrls[imageUrlIndex];
+          imageUrlIndex++;
+        }
+      }
+      
+      // 최종적으로 배열 길이를 imageCount로 제한
+      const finalImages = newImages.slice(0, imageCount);
+      
+      console.log("📊 GridB 이미지 배치 결과:", {
+        받은이미지: imageUrls,
+        제한된이미지: limitedImageUrls,
+        이전이미지: prev,
+        새이미지: newImages,
+        최종이미지: finalImages,
+        imageCount: imageCount
+      });
+      
+      return finalImages;
+    });
+  }, [imageCount]);
+
+  // 개별 이미지 추가 핸들러
+  const handleSingleImageAdded = React.useCallback((hasImage: boolean, imageIndex: number) => {
+    console.log(`📥 GridB 개별 이미지 ${imageIndex} 변경:`, hasImage);
+  }, []);
 
   // imageCount 변경 시 currentImages 업데이트
   React.useEffect(() => {
+    console.log("🔄 GridB imageCount 변경됨:", imageCount);
+    
     setCurrentImages(prev => {
       const newImages = [...prev];
       // 이미지 개수에 맞게 배열 크기 조정
       while (newImages.length < imageCount) {
         newImages.push("");
       }
-      return newImages.slice(0, imageCount);
+      // 항상 imageCount로 길이 제한
+      const limitedImages = newImages.slice(0, imageCount);
+      
+      console.log("🔄 GridB currentImages 업데이트:", {
+        이전이미지: prev,
+        새이미지: newImages,
+        제한된이미지: limitedImages,
+        imageCount: imageCount
+      });
+      
+      return limitedImages;
     });
   }, [imageCount]);
 
-  // 이미지 그리드 레이아웃 클래스 결정
-  const getImageGridClass = (count: number) => {
+  // 이미지 그리드 레이아웃 클래스 및 스타일 결정
+  const getImageGridLayout = (count: number) => {
+    // 합친 경우(isExpanded)이고 이미지가 3개일 때 특별한 레이아웃
+    // 좌우로 나누고 좌측을 다시 좌우로 분할
+    if (isExpanded && count === 3) {
+      return {
+        className: "grid",
+        style: {
+          gridTemplateAreas: `"left-left left-right right"`,
+          gridTemplateColumns: "1fr 1fr 2fr", // 좌좌 1:1, 좌우 1:1, 우측 2 비율
+          gridTemplateRows: "1fr" // 높이는 모두 같음
+        }
+      };
+    }
+    
+    // 기본 레이아웃
     switch (count) {
       case 1:
-        return "grid-cols-1";
+        return { className: "grid-cols-1", style: {} };
       case 2:
-        return "grid-cols-2";
+        return { className: "grid-cols-2", style: {} };
       case 3:
-        return "grid-cols-3";
+        return { className: "grid-cols-3", style: {} };
       case 4:
-        return "grid-cols-2";
+        return { className: "grid-cols-2", style: {} };
       case 6:
-        return "grid-cols-3";
+        return { className: "grid-cols-3", style: {} };
       case 9:
-        return "grid-cols-3";
+        return { className: "grid-cols-3", style: {} };
       default:
-        return "grid-cols-1";
+        return { className: "grid-cols-1", style: {} };
     }
   };
 
@@ -232,6 +335,39 @@ function GridBElement({
     if (data && data.action === 'changeImageCount') {
       console.log(`그리드 ${data.gridId}의 이미지 개수를 ${data.count}개로 변경`);
       setImageCount(data.count);
+      // 부모 컴포넌트에 이미지 개수 변경 알림
+      if (onImageCountChange) {
+        onImageCountChange(data.count);
+      }
+    }
+    
+    // 사진 배경 제거 처리 (인덱스 3)
+    if (iconIndex === 3) {
+      console.log(`그리드 ${index}의 모든 이미지 제거 (갯수 유지)`);
+      setCurrentImages(prev => {
+        const newImages = new Array(prev.length).fill("");
+        console.log("🗑️ GridB 이미지 제거 완료:", {
+          이전이미지: prev,
+          새이미지: newImages,
+          이미지개수: newImages.length
+        });
+        return newImages;
+      });
+      
+      // 툴바 숨기기
+      handleHideToolbar();
+    }
+    
+    // 사진 틀 삭제 처리 (인덱스 4)
+    if (iconIndex === 4) {
+      console.log(`그리드 ${index}의 사진 틀 삭제 - 숨김 처리`);
+      // 부모 컴포넌트의 onDelete 콜백 호출 (hiddenItems 상태 업데이트)
+      if (onDelete) {
+        onDelete();
+      }
+      
+      // 툴바 숨기기
+      handleHideToolbar();
     }
     
     // 여기에 각 아이콘별 로직 구현
@@ -269,39 +405,49 @@ function GridBElement({
         onClick={handleNonImageClick}
         data-grid-id={gridId}
       >
-        {/* 삭제 버튼 - 우측 상단 */}
-        {onDelete && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDelete();
-            }}
-            className="absolute top-2 right-2 w-7 h-7 bg-white border border-[#F0F0F0] rounded-md flex items-center justify-center z-20"
-          >
-            <Image
-              src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/trash.svg"
-              width={14}
-              height={14}
-              className="object-contain hover:opacity-80"
-              alt="Delete"
-            />
-          </button>
-        )}
+        
 
         {/* 이미지 그리드 - 계산된 높이로 설정하여 공간 최적화 */}
         <div 
-          className={`grid gap-1 w-full ${getImageGridClass(imageCount)}`}
+          className={`grid gap-1 w-full ${getImageGridLayout(imageCount).className}`}
           style={{ 
-            height: 'calc(100% - 70px)' // 전체 높이에서 하단 입력 영역(70px) 제외
+            height: 'calc(100% - 70px)', // 전체 높이에서 하단 입력 영역(70px) 제외
+            ...getImageGridLayout(imageCount).style
           }}
         >
-          {currentImages.map((imageSrc, index) => (
-            <AddPicture key={index}>
-              <div 
-                className="flex relative cursor-pointer hover:opacity-80 transition-opacity group h-full"
-                onClick={handleImageClick}
+          {currentImages.map((imageSrc, index) => {
+            // 합친 경우이고 이미지가 3개일 때 각 이미지의 grid-area 지정
+            let gridAreaStyle = {};
+            if (isExpanded && imageCount === 3) {
+              switch (index) {
+                case 0:
+                  gridAreaStyle = { gridArea: 'left-left' };
+                  break;
+                case 1:
+                  gridAreaStyle = { gridArea: 'left-right' };
+                  break;
+                case 2:
+                  gridAreaStyle = { gridArea: 'right' };
+                  break;
+              }
+            }
+            
+            return (
+              <AddPicture 
+                key={index}
+                onImagesAdded={handleImagesAdded}
+                onImageAdded={(hasImage) => handleSingleImageAdded(hasImage, index)}
+                imageIndex={index}
+                mode="multiple"
+                hasImage={Boolean(imageSrc && imageSrc !== "" && imageSrc !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg")}
+                maxImageCount={getRemainingImageCount()}
               >
-                {imageSrc ? (
+                <div 
+                  className="flex relative cursor-pointer hover:opacity-80 transition-opacity group h-full"
+                  style={gridAreaStyle}
+                  onClick={handleImageClick}
+                >
+                {imageSrc && imageSrc !== "" && imageSrc !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                   <Image
                     src={imageSrc}
                     alt={`Image ${index + 1}`}
@@ -309,41 +455,44 @@ function GridBElement({
                     className="object-cover rounded-md"
                   />
                 ) : (
-                  <Image
-                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
-                    alt="No image"
-                    fill
-                    className="object-cover rounded-md"
-                  />
+                  <>
+                    <Image
+                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+                      alt="No image"
+                      fill
+                      className="object-cover rounded-md"
+                    />
+                    {/* Black overlay - 이미지가 없을 때만 표시 */}
+                    <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                      {/* Upload icon */}
+                      <Image
+                        src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
+                        width={20}
+                        height={20}
+                        className="object-contain mb-2"
+                        alt="Upload icon"
+                      />
+                      {/* Upload text */}
+                      <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                        이미지를 드래그하거나<br />클릭하여 업로드
+                      </div>
+                      {/* File select button */}
+                      <button 
+                        className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // 파일 선택 로직
+                        }}
+                      >
+                        파일선택
+                      </button>
+                    </div>
+                  </>
                 )}
-                {/* Black overlay */}
-                <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-                  {/* Upload icon */}
-                  <Image
-                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                    width={20}
-                    height={20}
-                    className="object-contain mb-2"
-                    alt="Upload icon"
-                  />
-                  {/* Upload text */}
-                  <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
-                    이미지를 드래그하거나<br />클릭하여 업로드
-                  </div>
-                  {/* File select button */}
-                  <button 
-                    className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // 파일 선택 로직
-                    }}
-                  >
-                    파일선택
-                  </button>
-                </div>
               </div>
             </AddPicture>
-          ))}
+            );
+          })}
         </div>
 
         {/* 하단 입력 영역 - 고정 높이 70px로 최적화 */}
@@ -482,6 +631,7 @@ function GridBElement({
             position={{ left: "8px", top: "calc(100% + 8px)" }}
             onIconClick={handleToolbarIconClick}
             targetGridId={gridId}
+            targetIsExpanded={isExpanded}
           />
         </div>
       )}

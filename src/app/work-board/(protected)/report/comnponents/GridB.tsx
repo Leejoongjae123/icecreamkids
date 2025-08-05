@@ -50,7 +50,8 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
         isExpanded: false,
         isHidden: false,
         images: [],
-        inputValue: ""
+        inputValue: "",
+        imageCount: 1 // 기본 이미지 개수 1로 설정
       });
     }
     return initialItems;
@@ -131,6 +132,68 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
     }
   };
 
+  // - 버튼 클릭 핸들러 (분할 기능)
+  const handleSplit = (firstIndex: number, secondIndex: number) => {
+    // 뒤쪽 아이템 다시 활성화 (제거 상태 해제)
+    setRemovedItems(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(secondIndex);
+      return newSet;
+    });
+    
+    // 앞쪽 아이템 확장 해제
+    setExpandedItems(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(firstIndex);
+      return newSet;
+    });
+    
+    // items 상태 업데이트 - imageCount도 1로 초기화
+    setItems(prev => 
+      prev.map(item => {
+        if (item.index === firstIndex || item.index === secondIndex) {
+          return { 
+            ...item, 
+            isExpanded: false,
+            isSelected: false,
+            isHidden: false,
+            images: [], // 이미지 초기화
+            inputValue: "", // 텍스트 입력값 초기화
+            imageCount: 1 // 이미지 개수도 1로 초기화
+          };
+        }
+        return item;
+      })
+    );
+    
+    // 선택 상태도 초기화
+    if (selectedItem === firstIndex || selectedItem === secondIndex) {
+      setSelectedItem(null);
+    }
+  };
+
+  // 전체 Grid를 기본 2개 상태로 초기화하는 함수
+  const handleResetToBasicTwo = () => {
+    // 모든 상태 초기화
+    setRemovedItems(new Set());
+    setExpandedItems(new Set());
+    setHiddenItems(new Set());
+    setSelectedItem(null);
+    
+    // items 상태를 기본으로 초기화 (처음 2개만 활성화)
+    setItems(prev => 
+      prev.map(item => ({
+        ...item,
+        isExpanded: false,
+        isSelected: false,
+        isHidden: item.index > 2, // 3번째부터는 숨김 처리
+        images: [],
+        inputValue: "",
+        imageCount: 1 // 이미지 개수도 1로 초기화
+      }))
+    );
+  };
+
   // 선택 상태 변경 핸들러
   const handleSelectChange = (index: number, isSelected: boolean) => {
     if (isSelected) {
@@ -167,6 +230,15 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
     if (selectedItem === index) {
       setSelectedItem(null);
     }
+  };
+
+  // 이미지 개수 변경 핸들러
+  const handleImageCountChange = (index: number, count: number) => {
+    setItems(prev => 
+      prev.map(item => 
+        item.index === index ? { ...item, imageCount: count } : item
+      )
+    );
   };
 
   // 드래그 시작 핸들러
@@ -318,6 +390,11 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
     }
   };
 
+  const handleToolbarReset = () => {
+    // 전체 Grid를 기본 2개 상태로 초기화
+    handleResetToBasicTwo();
+  };
+
   // 그리드 아이템들을 렌더링하는 함수
   const renderGridItems = () => {
     // 항상 12개의 그리드를 렌더링하되, subjectCount에 따라 표시 여부 결정
@@ -338,6 +415,8 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
           isExpanded={expandedItems.has(item.index)}
           isHidden={hiddenItems.has(item.index)}
           images={item.images}
+          imageCount={item.imageCount}
+          onImageCountChange={(count) => handleImageCountChange(item.index, count)}
         />
       );
     }).filter(Boolean); // null 값 제거
@@ -390,6 +469,70 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
     return buttons;
   };
 
+  // floating 마이너스 버튼들을 렌더링하는 함수 (합쳐진 그리드를 쪼개기 위한)
+  const renderSplitButtons = () => {
+    const buttons: JSX.Element[] = [];
+    
+    // 각 행에서 1-2, 3-4 사이에 마이너스 버튼 배치 (확장된 그리드에서만)
+    const buttonPositions = [
+      { between: [1, 2], row: 0, position: 'left' },
+      { between: [3, 4], row: 0, position: 'right' },
+      { between: [5, 6], row: 1, position: 'left' },
+      { between: [7, 8], row: 1, position: 'right' },
+      { between: [9, 10], row: 2, position: 'left' },
+      { between: [11, 12], row: 2, position: 'right' },
+    ];
+
+    buttonPositions.forEach(({ between, row, position }) => {
+      const [first, second] = between;
+      
+      // 첫 번째 아이템이 확장되고 두 번째 아이템이 제거된 경우에만 마이너스 버튼 표시
+      if (first <= subjectCount && second <= subjectCount && 
+          expandedItems.has(first) && removedItems.has(second) &&
+          !hiddenItems.has(first)) {
+        // 각 행의 중앙 위치를 백분율로 계산 (행별로 33.33%씩 분할)
+        const topPercentage = `${((row + 1) * 33.33) - 16.67}%`; // 각 행의 중앙 위치
+        const leftPosition = position === 'left' ? '25%' : '75%'; // 좌측 또는 우측 중앙
+        
+        buttons.push(
+          <div
+            key={`floating-split-${first}-${second}`}
+            className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10"
+            style={{
+              top: topPercentage,
+              left: leftPosition,
+            }}
+          >
+            <button
+              onClick={() => handleSplit(first, second)}
+              className="w-8 h-8 bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
+              title="그리드 쪼개기"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="text-black"
+              >
+                <path
+                  d="M5 12H19"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+        );
+      }
+    });
+    
+    return buttons;
+  };
+
   const activeItem = items.find(item => item.id === activeId);
 
   return (
@@ -416,6 +559,9 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
           
           {/* Floating 플러스 버튼들 */}
           {renderFloatingButtons()}
+          
+          {/* Floating 마이너스 버튼들 (그리드 쪼개기) */}
+          {renderSplitButtons()}
         </div>
       </SortableContext>
       
@@ -431,6 +577,7 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
               isExpanded={activeItem.isExpanded}
               isHidden={activeItem.isHidden}
               images={activeItem.images}
+              imageCount={activeItem.imageCount}
               placeholderText="ex) 아이들과 촉감놀이를 했어요"
             />
           </div>

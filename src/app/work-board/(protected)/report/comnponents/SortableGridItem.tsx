@@ -16,6 +16,7 @@ interface SortableGridItemProps {
   isOverlay?: boolean; // 드래그 중 hover된 상태
   cardType?: 'large' | 'small'; // 카드 타입 추가
   isExpanded?: boolean; // 확장 상태 추가
+  onDecreaseSubject?: () => void; // subject 감소 함수 추가
 }
 
 function SortableGridItem({
@@ -30,6 +31,7 @@ function SortableGridItem({
   isOverlay = false,
   cardType,
   isExpanded = false,
+  onDecreaseSubject,
 }: SortableGridItemProps) {
   const {
     attributes,
@@ -67,6 +69,7 @@ function SortableGridItem({
         dragListeners={listeners}
         cardType={cardType}
         isExpanded={isExpanded}
+        onDecreaseSubject={onDecreaseSubject}
       />
     </div>
   );

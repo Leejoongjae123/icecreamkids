@@ -15,6 +15,8 @@ interface SortableGridBItemProps {
   isHidden: boolean;
   images?: string[];
   placeholderText?: string;
+  imageCount?: number; // 이미지 개수 추가
+  onImageCountChange?: (count: number) => void; // 이미지 개수 변경 콜백 추가
 }
 
 function SortableGridBItem({
@@ -28,6 +30,8 @@ function SortableGridBItem({
   isHidden,
   images = [],
   placeholderText = "ex) 아이들과 촉감놀이를 했어요",
+  imageCount,
+  onImageCountChange,
 }: SortableGridBItemProps) {
   const {
     attributes,
@@ -67,6 +71,8 @@ function SortableGridBItem({
         isHidden={isHidden}
         images={images}
         placeholderText={placeholderText}
+        imageCount={imageCount}
+        onImageCountChange={onImageCountChange}
       />
     </div>
   );

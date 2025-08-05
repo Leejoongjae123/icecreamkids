@@ -12,11 +12,13 @@ import FileUpload from "./FileUpload";
 import { AddPictureProps, UploadedFile } from "./types";
 import {IoClose} from "react-icons/io5"
 
-function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onImagesAdded, imageIndex = 0, mode = 'single', hasImage = false }: AddPictureProps) {
+function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onImagesAdded, imageIndex = 0, mode = 'single', hasImage = false, maxImageCount }: AddPictureProps) {
   const [activeTab, setActiveTab] = useState("추천자료");
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
+  const [selectedImagesOrder, setSelectedImagesOrder] = useState<number[]>([]); // 선택 순서 추적
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [selectedUploadedFiles, setSelectedUploadedFiles] = useState<Set<number>>(new Set());
+  const [selectedUploadedFilesOrder, setSelectedUploadedFilesOrder] = useState<number[]>([]); // 업로드 파일 선택 순서 추적
   const [isAddPictureModalOpen, setIsAddPictureModalOpen] = useState(false);
   const [createdBlobUrls, setCreatedBlobUrls] = useState<string[]>([]); // 새로 생성된 Blob URL 추적
   const [insertedImageData, setInsertedImageData] = useState<string | null>(null); // 삽입된 이미지 데이터
@@ -69,31 +71,83 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
   const handleImageSelect = (index: number) => {
     setSelectedImages(prev => {
       const newSet = new Set(prev);
+      
       if (newSet.has(index)) {
+        // 이미 선택된 이미지를 해제하는 경우
         newSet.delete(index);
+        setSelectedImagesOrder(prevOrder => prevOrder.filter(i => i !== index));
       } else {
+        // 새로운 이미지를 선택하는 경우
+        if (mode === 'multiple' && maxImageCount && newSet.size >= maxImageCount) {
+          // 최대 개수에 도달한 경우, 가장 오래된 것을 제거
+          setSelectedImagesOrder(prevOrder => {
+            if (prevOrder.length > 0) {
+              const oldestIndex = prevOrder[0];
+              newSet.delete(oldestIndex);
+              return [...prevOrder.slice(1), index];
+            }
+            return [index];
+          });
+        } else {
+          // 최대 개수에 도달하지 않은 경우, 순서에 추가
+          setSelectedImagesOrder(prevOrder => [...prevOrder, index]);
+        }
         newSet.add(index);
       }
+      
       return newSet;
     });
   };
 
   const handleSelectAll = () => {
     if (selectedImages.size === images.length) {
+      // 전체 해제
       setSelectedImages(new Set());
+      setSelectedImagesOrder([]);
     } else {
-      setSelectedImages(new Set(Array.from({ length: images.length }, (_, i) => i)));
+      // 전체 선택 (maxImageCount 고려)
+      let imagesToSelect: number[];
+      
+      if (mode === 'multiple' && maxImageCount && maxImageCount < images.length) {
+        // 최대 개수가 전체 이미지보다 적은 경우, 처음부터 maxImageCount만큼 선택
+        imagesToSelect = Array.from({ length: maxImageCount }, (_, i) => i);
+      } else {
+        // 제한이 없거나 전체 선택 가능한 경우
+        imagesToSelect = Array.from({ length: images.length }, (_, i) => i);
+      }
+      
+      setSelectedImages(new Set(imagesToSelect));
+      setSelectedImagesOrder(imagesToSelect);
     }
   };
 
   const handleUploadedFileSelect = (index: number) => {
     setSelectedUploadedFiles(prev => {
       const newSet = new Set(prev);
+      
       if (newSet.has(index)) {
+        // 이미 선택된 파일을 해제하는 경우
         newSet.delete(index);
+        setSelectedUploadedFilesOrder(prevOrder => prevOrder.filter(i => i !== index));
       } else {
+        // 새로운 파일을 선택하는 경우
+        if (mode === 'multiple' && maxImageCount && newSet.size >= maxImageCount) {
+          // 최대 개수에 도달한 경우, 가장 오래된 것을 제거
+          setSelectedUploadedFilesOrder(prevOrder => {
+            if (prevOrder.length > 0) {
+              const oldestIndex = prevOrder[0];
+              newSet.delete(oldestIndex);
+              return [...prevOrder.slice(1), index];
+            }
+            return [index];
+          });
+        } else {
+          // 최대 개수에 도달하지 않은 경우, 순서에 추가
+          setSelectedUploadedFilesOrder(prevOrder => [...prevOrder, index]);
+        }
         newSet.add(index);
       }
+      
       return newSet;
     });
   };
@@ -109,6 +163,11 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
       });
       return newSet;
     });
+    
+    // 파일 순서도 정리
+    setSelectedUploadedFilesOrder(prevOrder => 
+      prevOrder.filter(index => index < files.length)
+    );
   };
 
   const getTotalSelectedCount = () => {
@@ -209,7 +268,9 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
     
     // 선택 상태 초기화
     setSelectedImages(new Set());
+    setSelectedImagesOrder([]);
     setSelectedUploadedFiles(new Set());
+    setSelectedUploadedFilesOrder([]);
     
     console.log("🖼️ 이미지 적용 완료");
   };
@@ -232,17 +293,13 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
       <Dialog open={isAddPictureModalOpen} onOpenChange={setIsAddPictureModalOpen}>
         <div className="relative h-full w-full">
           {/* 이미지가 없거나 (multiple 모드이면서 hasImage가 false)일 때만 DialogTrigger 표시 */}
-          {(!insertedImageData || (mode === 'multiple' && !hasImage)) && (
+          {(mode === 'single' && !insertedImageData) || (mode === 'multiple' && !hasImage) ? (
             <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
               {children}
             </DialogTrigger>
-          )}
-          
-          {/* multiple 모드이면서 hasImage가 true일 때는 children만 표시 */}
-          {mode === 'multiple' && hasImage && (
-            <div className="h-full w-full">
-              {children}
-            </div>
+          ) : (
+            /* multiple 모드이면서 hasImage가 true일 때는 children만 표시 */
+            mode === 'multiple' && hasImage && children
           )}
           
           {/* 추출된 이미지가 있고 single 모드일 때만 전체 div에 표시 */}
@@ -372,7 +429,7 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
                   className="flex overflow-hidden flex-col justify-center px-5 py-3.5 text-white bg-amber-400 rounded-md cursor-pointer hover:bg-amber-500 transition-colors"
                   onClick={handleApplyImages}
                 >
-                  <div>적용({getTotalSelectedCount()})</div>
+                  <div>{mode === 'single' ? '적용' : `적용(${getTotalSelectedCount()}/${maxImageCount || '∞'})`}</div>
                 </div>
               </div>
             </div>

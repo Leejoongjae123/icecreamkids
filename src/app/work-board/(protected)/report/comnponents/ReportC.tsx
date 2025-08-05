@@ -130,6 +130,7 @@ function ReportCContent() {
             className="flex flex-col w-full h-full justify-between gap-y-3 px-4 py-4 rounded-br-xl rounded-bl-xl relative"
             style={{
               backgroundImage: backgroundImageUrl,
+              overflow: "visible",
             }}
           >
             <ReportTitleSection />

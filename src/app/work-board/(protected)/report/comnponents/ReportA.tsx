@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { Suspense, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { HiOutlineViewColumns } from "react-icons/hi2";
 import HomeIcon from "@/components/common/Icons/HomeIcon";
 import { Button } from "@/components/ui/button";
@@ -21,11 +21,13 @@ import GridA from "./GridA";
 import Image from "next/image";
 import { useStickerStore } from "@/hooks/store/useStickerStore";
 import { useTextStickerStore } from "@/hooks/store/useTextStickerStore";
+import { useReportStore } from "@/hooks/store/useReportStore";
 import DraggableSticker from "./DraggableSticker";
 import DraggableTextSticker from "./DraggableTextSticker";
 // searchParams를 사용하는 컴포넌트 분리
 function ReportAContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [showCircles, setShowCircles] = React.useState(false);
   const [isAnimating, setIsAnimating] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);
@@ -33,14 +35,16 @@ function ReportAContent() {
   // 스티커 관련
   const { stickers } = useStickerStore();
   const { textStickers } = useTextStickerStore();
+  const { getDefaultSubject } = useReportStore();
   const stickerContainerRef = useRef<HTMLDivElement>(null);
 
-  // searchParams에서 subject 값 가져오기 (1-4 범위, 기본값 3)
+  // searchParams에서 subject 값 가져오기 (1-4 범위, 타입 A의 기본값은 4)
   const subjectParam = searchParams.get("subject");
   const subject = React.useMemo(() => {
-    const parsed = parseInt(subjectParam || "3", 10);
-    return parsed >= 1 && parsed <= 4 ? parsed : 3;
-  }, [subjectParam]);
+    const defaultValue = getDefaultSubject("A"); // 타입 A의 기본값 사용
+    const parsed = parseInt(subjectParam || defaultValue.toString(), 10);
+    return parsed >= 1 && parsed <= 4 ? parsed : defaultValue;
+  }, [subjectParam, getDefaultSubject]);
 
   // searchParams에서 theme 값 가져오기 (기본값 0)
   const themeParam = searchParams.get("theme");
@@ -53,6 +57,15 @@ function ReportAContent() {
   const backgroundImageUrl = React.useMemo(() => {
     return `url(https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg${theme + 1}.png)`;
   }, [theme]);
+
+  // subject 값을 감소시키는 함수
+  const decreaseSubject = React.useCallback(() => {
+    if (subject > 1) {
+      const currentParams = new URLSearchParams(searchParams.toString());
+      currentParams.set('subject', (subject - 1).toString());
+      router.push(`?${currentParams.toString()}`);
+    }
+  }, [subject, searchParams, router]);
 
   // 툴바 아이콘 클릭 핸들러
   const handleIconClick = (index: number) => {
@@ -107,7 +120,7 @@ function ReportAContent() {
       <div className="w-full h-full relative flex flex-col">
         
         {/* Header with A4 Template */}
-        <div className="bg-image w-full flex-1 shadow-custom border border-gray-200 rounded-xl pt-4 bg-cover bg-center bg-no-repeat flex flex-col">
+        <div className="bg-image w-full flex-1 shadow-custom border border-gray-200 rounded-xl pt-4 bg-cover bg-center bg-no-repeat flex flex-col ">
           <div className="flex flex-row justify-between mb-4 px-4">
             <div className="flex gap-1 my-auto text-base tracking-tight">
               <img
@@ -167,13 +180,14 @@ function ReportAContent() {
             className="flex flex-col w-full h-full justify-between gap-y-3 px-4 py-4 rounded-br-xl rounded-bl-xl relative"
             style={{
               backgroundImage: backgroundImageUrl,
+              overflow: "visible",
             }}
           >
             <ReportTitleSection />
             
             {/* 이미지 그리드 */}
             <div className="flex-1 w-full h-full">
-              <GridA subject={subject} />
+              <GridA subject={subject} onDecreaseSubject={decreaseSubject} />
             </div>
 
             {/* 하단 텍스트 부위 */}

@@ -44,6 +44,7 @@ export interface AddPictureProps {
   imageIndex?: number; // 현재 이미지 인덱스
   mode?: 'single' | 'multiple'; // 단일 이미지 모드 또는 다중 이미지 모드
   hasImage?: boolean; // 이미지가 있는지 여부
+  maxImageCount?: number; // 최대 선택 가능한 이미지 개수
 }
 
 export interface PhotoFrameModalProps {
@@ -185,6 +186,7 @@ export interface GridBItem {
   isHidden: boolean;
   images?: string[];
   inputValue?: string;
+  imageCount?: number; // 이미지 개수 추가
 }
 
 export interface GridBElementDndProps {

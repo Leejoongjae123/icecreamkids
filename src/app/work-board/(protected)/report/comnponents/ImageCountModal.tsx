@@ -19,6 +19,7 @@ interface ImageCountModalProps {
   type?: string | null;
   title?: string;
   description?: string;
+  isExpanded?: boolean; // Grid가 확장되었는지 여부 (B타입에서 사용)
 }
 
 export default function ImageCountModal({
@@ -29,6 +30,7 @@ export default function ImageCountModal({
   type,
   title = "이미지 개수 선택",
   description = "사용할 이미지 개수를 선택해주세요.",
+  isExpanded = false,
 }: ImageCountModalProps) {
   const [inputValue, setInputValue] = useState<string>("1");
   const [error, setError] = useState<string>("");
@@ -37,8 +39,14 @@ export default function ImageCountModal({
   // type에 따른 허용 범위 설정
   const getValidRange = () => {
     if (type === "B") {
-      return { min: 1, max: 2, text: "1~2" };
+      // B타입일 때: 확장된 상태면 최대 4개, 아니면 최대 2개
+      if (isExpanded) {
+        return { min: 1, max: 4, text: "1~4" };
+      } else {
+        return { min: 1, max: 2, text: "1~2" };
+      }
     }
+    // A타입일 때: 기본 1~4개
     return { min: 1, max: 4, text: "1~4" };
   };
 
@@ -55,7 +63,7 @@ export default function ImageCountModal({
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+    const { value } = e.target;
     setInputValue(value);
     
     // 실시간 유효성 검사

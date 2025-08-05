@@ -24,6 +24,7 @@ interface GridEditToolbarProps {
   targetGridId?: string; // 특정 그리드 식별을 위한 ID
   limitedMode?: boolean; // 제한된 모드 - 특정 아이콘만 표시
   allowedIcons?: number[]; // 표시할 아이콘 인덱스 배열
+  targetIsExpanded?: boolean; // 대상 그리드의 확장 상태 (B타입에서 사용)
 }
 
 const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
@@ -34,6 +35,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
   targetGridId,
   limitedMode = false,
   allowedIcons = [0, 1, 2], // 기본값: 텍스트 스티커, 꾸미기 스티커, 표 추가
+  targetIsExpanded = false,
 }) => {
   const searchParams = useSearchParams();
   const type = searchParams.get("type");
@@ -77,7 +79,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
   const limitedTooltipTexts = [
     "텍스트 스티커",
     "꾸미기 스티커", 
-    "표 추가",
+    "틀 추가",
   ];
 
   // 제한된 모드용 아이콘 URL
@@ -174,7 +176,9 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
     }
   };
 
-  if (!show) return null;
+  if (!show) {
+    return null;
+  }
 
   return (
     <>
@@ -264,6 +268,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
         onApply={handleImageCountApply}
         targetGridId={targetGridId}
         type={type}
+        isExpanded={targetIsExpanded}
       />
     </>
   );

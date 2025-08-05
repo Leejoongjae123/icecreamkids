@@ -23,22 +23,32 @@ function ReportPageContent() {
     setFirstVisit,
     setShowTypeSelectionModal,
     setSelectedReportType,
+    getDefaultSubject,
   } = useReportStore();
 
   // searchParams에 type이 없을 때만 모달 표시
   useEffect(() => {
     const typeParam = searchParams.get('type') as ReportType | null;
+    const subjectParam = searchParams.get('subject');
     
     if (typeParam && ['A', 'B', 'C'].includes(typeParam)) {
       // URL에 type 파라미터가 있으면 바로 설정
       setSelectedReportType(typeParam);
       setFirstVisit(false);
       setShowTypeSelectionModal(false);
+      
+      // 타입 A일 때만 subject 파라미터가 없으면 기본값으로 설정
+      if (typeParam === "A" && !subjectParam) {
+        const defaultSubject = getDefaultSubject(typeParam);
+        const currentParams = new URLSearchParams(searchParams.toString());
+        currentParams.set('subject', defaultSubject.toString());
+        router.push(`?${currentParams.toString()}`);
+      }
     } else if (isFirstVisit && !selectedReportType) {
       // URL에 type 파라미터가 없고 첫 방문이면 모달 표시
       setShowTypeSelectionModal(true);
     }
-  }, [searchParams, isFirstVisit, selectedReportType, setShowTypeSelectionModal, setSelectedReportType, setFirstVisit]);
+  }, [searchParams, isFirstVisit, selectedReportType, setShowTypeSelectionModal, setSelectedReportType, setFirstVisit, getDefaultSubject, router]);
 
   const handleTypeSelect = (type: ReportType) => {
     setSelectedReportType(type);
@@ -48,6 +58,13 @@ function ReportPageContent() {
     // URL에 searchParams 추가
     const currentParams = new URLSearchParams(searchParams.toString());
     currentParams.set('type', type);
+    
+    // 타입 A일 때만 subject 파라미터가 없으면 기본값으로 설정
+    if (type === "A" && !currentParams.get('subject')) {
+      const defaultSubject = getDefaultSubject(type);
+      currentParams.set('subject', defaultSubject.toString());
+    }
+    
     router.push(`?${currentParams.toString()}`);
   };
 
@@ -63,7 +80,7 @@ function ReportPageContent() {
         <div className="w-full max-w-[342px] h-full">
           <LeftSideBar />
         </div>
-        <div className="total-report w-[794px] h-[1123px] overflow-hidden flex flex-col">
+        <div className="total-report w-[794px] h-[1123px] overflow-visible flex flex-col mb-12">
           {selectedReportType === "A" && (
             <Suspense fallback={<div className="flex-1 flex items-center justify-center">Loading...</div>}>
               <div className="flex-1 h-full">

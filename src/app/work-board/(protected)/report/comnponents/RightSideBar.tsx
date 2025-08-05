@@ -321,9 +321,9 @@ function RightSideBarContent() {
       />
 
       {/* InputDesign styling panel at the bottom */}
-      <div className="mt-4 overflow-visible">
+      {/* <div className="mt-4 overflow-visible">
         <InputDesign />
-      </div>
+      </div> */}
     </div>
   );
 }

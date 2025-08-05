@@ -24,9 +24,10 @@ import { useImageEditModalStore } from "@/hooks/store/useImageEditModalStore";
 
 interface GridAProps {
   subject: number;
+  onDecreaseSubject?: () => void;
 }
 
-function GridA({ subject }: GridAProps) {
+function GridA({ subject, onDecreaseSubject }: GridAProps) {
   // 각 이미지 영역의 체크 상태 관리
   const [checkedItems, setCheckedItems] = React.useState<Record<string, boolean>>({});
   const { isImageEditModalOpen } = useImageEditModalStore();
@@ -252,6 +253,7 @@ function GridA({ subject }: GridAProps) {
         placeholderText={`(선택)놀이 키워드를 입력하거나 메모파일을 업로드해주세요`}
         cardType={item.cardType}
         isExpanded={item.colSpan === 2}
+        onDecreaseSubject={onDecreaseSubject}
       />
     ));
   };

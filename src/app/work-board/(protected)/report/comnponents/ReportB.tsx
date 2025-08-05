@@ -163,7 +163,7 @@ function ReportBContent() {
           {/* 메인 컨텐츠 영역 - 남은 공간 모두 차지 */}
           <div
             ref={stickerContainerRef}
-            className="flex flex-col w-full h-full px-4 py-4 rounded-br-xl rounded-bl-xl relative overflow-hidden"
+            className="flex flex-col w-full h-full px-4 py-4 rounded-br-xl rounded-bl-xl relative overflow-visible"
             style={{
               backgroundImage: backgroundImageUrl,
             }}

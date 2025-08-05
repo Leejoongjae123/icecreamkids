@@ -31,6 +31,7 @@ interface GridAElementProps {
   isWideCard?: boolean; // col-span-2인 경우를 위한 prop 추가
   imageCount?: number; // 초기 이미지 개수
   mode?: 'single' | 'multiple'; // 이미지 편집 모드
+  onDecreaseSubject?: () => void; // subject 감소 함수 추가
   targetFrame?: {
     width: number;
     height: number;
@@ -62,6 +63,7 @@ function GridAElement({
   isWideCard = false, // col-span-2인 경우를 위한 prop 추가
   imageCount: initialImageCount = 1, // 초기 이미지 개수
   mode = 'single', // 이미지 편집 모드
+  onDecreaseSubject, // subject 감소 함수 추가
 }: GridAElementProps) {
   // 이미지 개수 상태 관리
   const [imageCount, setImageCount] = React.useState(initialImageCount);
@@ -92,8 +94,28 @@ function GridAElement({
     while (newImages.length < imageCount) {
       newImages.push("");
     }
-    return newImages.slice(0, imageCount);
+    const initialImages = newImages.slice(0, imageCount);
+    console.log("🏁 초기 currentImages 설정:", {
+      원본이미지: images,
+      새이미지: newImages,
+      초기이미지: initialImages,
+      imageCount: imageCount
+    });
+    return initialImages;
   });
+
+  // 현재 선택된 이미지 개수 계산 함수
+  const getCurrentImageCount = React.useCallback((): number => {
+    return currentImages.filter(img => 
+      img && img !== "" && img !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+    ).length;
+  }, [currentImages]);
+
+  // 남은 선택 가능한 이미지 개수 계산
+  const getRemainingImageCount = React.useCallback((): number => {
+    const currentCount = getCurrentImageCount();
+    return Math.max(0, imageCount - currentCount);
+  }, [getCurrentImageCount, imageCount]);
 
   // 이미지 위치 정보 상태
   const [imagePositions, setImagePositions] = React.useState<ImagePosition[]>(() => 
@@ -116,36 +138,46 @@ function GridAElement({
   // 여러 이미지 추가 핸들러
   const handleImagesAdded = React.useCallback((imageUrls: string[]) => {
     console.log("📥 GridAElement에서 여러 이미지 받음:", imageUrls);
+    console.log("📏 현재 imageCount:", imageCount);
     
     setCurrentImages(prev => {
       const newImages = [...prev];
       
+      // 받은 이미지 개수를 imageCount로 제한
+      const limitedImageUrls = imageUrls.slice(0, imageCount);
+      
       // 받은 이미지들을 순서대로 빈 슬롯에 배치
       let imageUrlIndex = 0;
-      for (let i = 0; i < newImages.length && imageUrlIndex < imageUrls.length; i++) {
+      for (let i = 0; i < newImages.length && imageUrlIndex < limitedImageUrls.length; i++) {
         if (!newImages[i] || newImages[i] === "" || newImages[i] === "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
-          newImages[i] = imageUrls[imageUrlIndex];
+          newImages[i] = limitedImageUrls[imageUrlIndex];
           imageUrlIndex++;
         }
       }
       
       // 아직 배치할 이미지가 남아있다면, 기존 이미지가 있는 슬롯도 덮어씀
-      if (imageUrlIndex < imageUrls.length) {
-        for (let i = 0; i < newImages.length && imageUrlIndex < imageUrls.length; i++) {
-          newImages[i] = imageUrls[imageUrlIndex];
+      if (imageUrlIndex < limitedImageUrls.length) {
+        for (let i = 0; i < newImages.length && imageUrlIndex < limitedImageUrls.length; i++) {
+          newImages[i] = limitedImageUrls[imageUrlIndex];
           imageUrlIndex++;
         }
       }
       
+      // 최종적으로 배열 길이를 imageCount로 제한
+      const finalImages = newImages.slice(0, imageCount);
+      
       console.log("📊 이미지 배치 결과:", {
         받은이미지: imageUrls,
+        제한된이미지: limitedImageUrls,
         이전이미지: prev,
-        새이미지: newImages
+        새이미지: newImages,
+        최종이미지: finalImages,
+        imageCount: imageCount
       });
       
-      return newImages;
+      return finalImages;
     });
-  }, []);
+  }, [imageCount]);
 
   // 개별 이미지 추가 핸들러
   const handleSingleImageAdded = React.useCallback((hasImage: boolean, imageIndex: number) => {
@@ -154,13 +186,25 @@ function GridAElement({
 
   // imageCount 변경 시 currentImages와 imagePositions 업데이트
   React.useEffect(() => {
+    console.log("🔄 imageCount 변경됨:", imageCount);
+    
     setCurrentImages(prev => {
       const newImages = [...prev];
       // 이미지 개수에 맞게 배열 크기 조정
       while (newImages.length < imageCount) {
         newImages.push("");
       }
-      return newImages.slice(0, imageCount);
+      // 항상 imageCount로 길이 제한
+      const limitedImages = newImages.slice(0, imageCount);
+      
+      console.log("🔄 currentImages 업데이트:", {
+        이전이미지: prev,
+        새이미지: newImages,
+        제한된이미지: limitedImages,
+        imageCount: imageCount
+      });
+      
+      return limitedImages;
     });
     
     setImagePositions(prev => {
@@ -414,13 +458,10 @@ function GridAElement({
     isExpanded: false,
   });
 
-  // Default images if none provided - A타입은 최대 4개로 제한
-  const defaultImages = [
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
-  ];
+  // Default images if none provided - imageCount에 맞게 동적으로 생성
+  const defaultImages = React.useMemo(() => {
+    return Array(imageCount).fill("https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg");
+  }, [imageCount]);
 
   const displayImages = images.length > 0 ? images : defaultImages;
 
@@ -604,6 +645,34 @@ function GridAElement({
       setImageCount(data.count);
     }
     
+    // 사진 배경 제거 처리 (인덱스 3)
+    if (iconIndex === 3) {
+      console.log(`그리드 ${index}의 모든 이미지 제거 (갯수 유지)`);
+      setCurrentImages(prev => {
+        const newImages = new Array(prev.length).fill("");
+        console.log("🗑️ 이미지 제거 완료:", {
+          이전이미지: prev,
+          새이미지: newImages,
+          이미지개수: newImages.length
+        });
+        return newImages;
+      });
+      
+      // 툴바 숨기기
+      handleHideToolbar();
+    }
+    
+    // 사진 틀 삭제 처리 (인덱스 4)
+    if (iconIndex === 4) {
+      console.log(`사진 틀 삭제 클릭됨 - subject 감소`);
+      if (onDecreaseSubject) {
+        onDecreaseSubject();
+      }
+      
+      // 툴바 숨기기
+      handleHideToolbar();
+    }
+    
     // 여기에 각 아이콘별 로직 구현
   };
 
@@ -706,6 +775,18 @@ function GridAElement({
         {/* 작은 그리드이고 이미지가 3개일 때는 flex 레이아웃 사용 */}
         {cardType === 'small' && imageCount === 3 ? (
           <div ref={imageContainerRef} className="flex gap-1 w-full" style={{ height: '60%' }}>
+            {(() => {
+              console.log("🎨 3개 이미지 특별 레이아웃 렌더링:", {
+                cardType,
+                imageCount,
+                currentImages,
+                currentImagesLength: currentImages.length,
+                첫번째: currentImages[0],
+                두번째: currentImages[1],
+                세번째: currentImages[2]
+              });
+              return null;
+            })()}
             {/* 왼쪽: 첫 번째 이미지 */}
             <div className="flex-1 h-full">
               <AddPicture 
@@ -717,6 +798,7 @@ function GridAElement({
                 imageIndex={0}
                 mode="multiple"
                 hasImage={Boolean(currentImages[0] && currentImages[0] !== "" && currentImages[0] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg")}
+                maxImageCount={getRemainingImageCount()}
               >
                 <div 
                   className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
@@ -727,7 +809,7 @@ function GridAElement({
                 >
                   {currentImages[0] && currentImages[0] !== "" && currentImages[0] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                     <div
-                      className="absolute inset-0 overflow-hidden rounded-md cursor-pointer"
+                      className="absolute inset-0 overflow-hidden rounded-md cursor-pointer "
                       onClick={(e) => {
                         e.stopPropagation();
                         handleImageAdjustClick(0, currentImages[0]);
@@ -792,6 +874,7 @@ function GridAElement({
                   imageIndex={1}
                   mode="multiple"
                   hasImage={Boolean(currentImages[1] && currentImages[1] !== "" && currentImages[1] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg")}
+                  maxImageCount={getRemainingImageCount()}
                 >
                   <div 
                     className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
@@ -865,6 +948,7 @@ function GridAElement({
                   imageIndex={2}
                   mode="multiple"
                   hasImage={Boolean(currentImages[2] && currentImages[2] !== "" && currentImages[2] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg")}
+                  maxImageCount={getRemainingImageCount()}
                 >
                   <div 
                     className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
@@ -940,7 +1024,17 @@ function GridAElement({
                   : `${getImageGridClass(imageCount, cardType)}` // small 카드도 이미지 개수에 따라 배치
             }`}
             style={{ height: '60%' }}>
-            {currentImages.map((imageSrc, index) => (
+            {(() => {
+              const imagesToRender = currentImages.slice(0, imageCount);
+              console.log("🎨 일반 그리드 렌더링:", {
+                cardType,
+                imageCount,
+                currentImages,
+                imagesToRender,
+                gridClass: getImageGridClass(imageCount, cardType)
+              });
+              return imagesToRender;
+            })().map((imageSrc, index) => (
               <AddPicture 
                 key={index} 
                 targetImageRatio={getImageAreaRatio(index)}
@@ -949,6 +1043,7 @@ function GridAElement({
                 onImageAdded={(hasImage) => handleSingleImageAdded(hasImage, index)}
                 imageIndex={index}
                 mode="multiple"
+                maxImageCount={getRemainingImageCount()}
               >
                 <div 
                   className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
