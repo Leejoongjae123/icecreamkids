@@ -21,6 +21,8 @@ interface ImageEditToolbarProps {
   onReset: () => void;
   onRemoveBackground: () => void;
   onCrop: () => void;
+  isClippingMode?: boolean;
+  onClippingModeToggle?: () => void;
 }
 
 export default function ImageEditToolbar({
@@ -33,59 +35,52 @@ export default function ImageEditToolbar({
   onReset,
   onRemoveBackground,
   onCrop,
+  isClippingMode = false,
+  onClippingModeToggle,
 }: ImageEditToolbarProps) {
   return (
-    <div className="flex items-center justify-center  bg-white rounded-lg">
-      {/* <Button
+    <div className="flex items-center justify-center gap-2 bg-white rounded-lg p-2">
+      {/* 클리핑 모드 토글 버튼 */}
+      {onClippingModeToggle && (
+        <Button
+          variant={isClippingMode ? "default" : "outline"}
+          size="sm"
+          onClick={onClippingModeToggle}
+          disabled={isLoading || !hasCurrentImage}
+          className={`flex items-center gap-1 border-solid transition-all duration-200 ${
+            isClippingMode 
+              ? 'bg-blue-500 hover:bg-blue-600 text-white border-blue-500' 
+              : 'border-zinc-100 bg-white hover:bg-gray-50'
+          }`}
+        >
+          <Crop className="w-4 h-4" />
+          {isClippingMode ? '클리핑 중' : '클리핑'}
+        </Button>
+      )}
+
+      {/* 리셋 버튼 */}
+      <Button
         variant="outline"
         size="sm"
-        onClick={onZoomOut}
+        onClick={onReset}
         disabled={isLoading || !hasCurrentImage}
-        className="flex items-center gap-1 border-solid border-zinc-100 bg-white"
+        className="flex items-center gap-1 border-solid border-zinc-100 bg-white hover:bg-gray-50"
       >
-        <ZoomOut className="w-4 h-4" />
-        축소
+        <Reset className="w-4 h-4" />
+        리셋
       </Button>
 
+      {/* 배경 제거 버튼 */}
       <Button
         variant="outline"
         size="sm"
-        onClick={onZoomIn}
+        onClick={onRemoveBackground}
         disabled={isLoading || !hasCurrentImage}
-        className="flex items-center gap-1 border-solid border-zinc-100 bg-white"
+        className="flex items-center gap-1 border-solid border-zinc-100 bg-white hover:bg-gray-50"
       >
-        <ZoomIn className="w-4 h-4" />
-        확대
-      </Button> */}
-
-      {/* <div className="w-px h-6 bg-gray-300 mx-2" />
-
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onRotateLeft}
-        disabled={isLoading || !hasCurrentImage}
-        className="flex items-center gap-1 border-solid border-zinc-100 bg-white"
-      >
-        <RotateCcw className="w-4 h-4" />
-        왼쪽 회전
+        <RiImageEditLine className="w-4 h-4" />
+        배경 제거
       </Button>
-
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onRotateRight}
-        disabled={isLoading || !hasCurrentImage}
-        className="flex items-center gap-1 border-solid border-zinc-100 bg-white"
-      >
-        <RotateCw className="w-4 h-4" />
-        오른쪽 회전
-      </Button> */}
-
-      {/* <div className="w-px h-6 bg-gray-300 mx-2" /> */}
-
-      
-
     </div>
   );
 } 

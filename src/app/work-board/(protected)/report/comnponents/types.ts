@@ -39,7 +39,7 @@ export interface AddPictureProps {
     x: number;
     y: number;
   };
-  onImageAdded?: (hasImage: boolean) => void;
+  onImageAdded?: (hasImage: boolean, imageUrl?: string) => void;
   onImagesAdded?: (imageUrls: string[]) => void; // 여러 이미지 추가 콜백
   imageIndex?: number; // 현재 이미지 인덱스
   mode?: 'single' | 'multiple'; // 단일 이미지 모드 또는 다중 이미지 모드

@@ -494,7 +494,7 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
       
       // 부모 컴포넌트에 이미지 추가 상태 알림
       if (onImageAdded) {
-        onImageAdded(true);
+        onImageAdded(true, selectedImageUrl);
       }
     }
     

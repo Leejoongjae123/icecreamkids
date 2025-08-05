@@ -42,22 +42,17 @@ function GridCElement({
   onDelete,
   onImageUpload,
 }: GridCElementProps) {
+  const [imageLoadError, setImageLoadError] = React.useState(false);
   const [activityKeyword, setActivityKeyword] = React.useState("");
   const [isKeywordExpanded, setIsKeywordExpanded] = React.useState(false);
   const [isInputFocused, setIsInputFocused] = React.useState(false);
   const [selectedKeyword, setSelectedKeyword] = React.useState<string>("");
   const [currentImageUrl, setCurrentImageUrl] = React.useState<string>(imageUrl);
-  const [isHovered, setIsHovered] = React.useState(false);
-  
   // placeholder 이미지 URL
   const NO_IMAGE_URL = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
 
   // KonvaImageCanvas ref
   const konvaCanvasRef = React.useRef<KonvaImageCanvasRef>(null);
-  
-  // canvas-container ref 및 크기 상태
-  const canvasContainerRef = React.useRef<HTMLDivElement>(null);
-  const [containerSize, setContainerSize] = React.useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
   // 이미지 변환 정보 상태 (위치, 스케일 동기화용)
   const [imageTransformData, setImageTransformData] = React.useState<{
@@ -74,20 +69,29 @@ function GridCElement({
     isExpanded: false,
   });
 
-  // 이미지가 있는지 확인하는 헬퍼 함수
-  const hasImage = currentImageUrl && currentImageUrl !== NO_IMAGE_URL;
+  // 이미지 로드 에러 핸들러
+  const handleImageError = () => {
+    setImageLoadError(true);
+  };
 
-  // 컨테이너 클릭 핸들러 - 툴바 표시
-  const handleContainerClick = (event: React.MouseEvent) => {
-    event.stopPropagation(); 
+  const handleImageLoad = () => {
+    setImageLoadError(false);
+  };
 
-    // 클리핑이 활성화되어 있을 때만 툴바 표시
-    if (isClippingEnabled) {
-      setToolbarState({
-        show: true,
-        isExpanded: true,
-      });
-    }
+  // 이미지 클릭 핸들러 (이벤트 전파 방지)
+  const handleImageClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
+  };
+
+  // 이미지가 아닌 영역 클릭 핸들러 - 툴바 표시
+  const handleNonImageClick = (event: React.MouseEvent) => {
+    event.stopPropagation(); // 이벤트 전파 방지
+
+    // 툴바 표시
+    setToolbarState({
+      show: true,
+      isExpanded: true,
+    });
   };
 
   // 체크박스 변경 핸들러
@@ -109,57 +113,17 @@ function GridCElement({
     setCurrentImageUrl(imageUrl);
   }, [imageUrl]);
 
-  // canvas-container 크기 감지
-  React.useEffect(() => {
-    const updateContainerSize = () => {
-      if (canvasContainerRef.current) {
-        const rect = canvasContainerRef.current.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          setContainerSize({ width: rect.width, height: rect.height });
-        }
-      }
-    };
-
-    // 초기 크기 설정
-    updateContainerSize();
-
-    // ResizeObserver를 사용하여 크기 변화 감지
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        if (width > 0 && height > 0) {
-          setContainerSize({ width, height });
-        }
-      }
-    });
-
-    if (canvasContainerRef.current) {
-      resizeObserver.observe(canvasContainerRef.current);
-    }
-
-    // window resize 이벤트도 처리
-    window.addEventListener('resize', updateContainerSize);
-
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener('resize', updateContainerSize);
-    };
-  }, []);
+  // 파일 업로드 핸들러 (기존 파일 업로드도 유지)
+  const handleFileUpload = (file: File) => {
+    const newImageUrl = URL.createObjectURL(file);
+    setCurrentImageUrl(newImageUrl);
+    onImageUpload(gridId, newImageUrl);
+  };
 
   // AddPictureClipping용 이미지 추가 핸들러
-  const handleImageAdded = (hasImage: boolean, imageUrl?: string) => {
-    if (hasImage && imageUrl) {
-      // 이미지가 추가되면 현재 이미지 URL 업데이트
-      setCurrentImageUrl(imageUrl);
-      
-      // 부모 컴포넌트에 이미지 업로드 알림
-      if (onImageUpload) {
-        onImageUpload(gridId, imageUrl);
-      }
-      
-      // hover 상태 해제
-      setIsHovered(false);
-    }
+  const handleImageAdded = (hasImage: boolean) => {
+    console.log("Image added:", hasImage);
+    // 필요시 추가 처리 로직
   };
 
   // 이미지 이동 핸들러 (KonvaImageCanvas에서 호출)
@@ -277,7 +241,7 @@ function GridCElement({
         data-grid-id={gridId}
         {...(isDragging || !isClippingEnabled ? {} : dragAttributes)}
         {...(isDragging || !isClippingEnabled ? {} : dragListeners)}
-        onClick={handleContainerClick}
+        onClick={handleNonImageClick}
       >
         {/* 체크박스 - 좌측 상단 */}
         <div
@@ -309,76 +273,107 @@ function GridCElement({
           </defs>
         </svg>
 
-        {/* 항상 표시되는 Canvas 영역 */}
-        <div 
-          ref={canvasContainerRef}
-          className="relative w-full h-full canvas-container"
-          onMouseEnter={() => !hasImage && setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-        >
-          {/* KonvaImageCanvas - 항상 표시 */}
-          <KonvaImageCanvas
-            ref={konvaCanvasRef}
-            imageUrl={hasImage ? currentImageUrl : NO_IMAGE_URL}
-            containerWidth={containerSize.width}
-            containerHeight={containerSize.height}
-            isClippingEnabled={isClippingEnabled}
-            onImageMove={handleImageMove}
-            onImageTransformUpdate={handleImageTransformUpdate}
-            clipPath={isClippingEnabled ? clipPathData.pathData : undefined}
-            gridId={gridId}
-            imageTransformData={imageTransformData}
-          />
-
-          {/* 이미지가 없을 때 hover시 업로드 UI 표시 */}
-          {!hasImage && isHovered && (
-            <div className="absolute inset-0 z-20">
-              <AddPictureClipping 
-                onImageAdded={handleImageAdded}
-                clipPathData={clipPathData}
-                gridId={gridId}
+        {/* Konva 이미지 캔버스 또는 이미지 업로드 영역 */}
+        {currentImageUrl && currentImageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
+          // 이미지가 있을 때 KonvaImageCanvas 표시
+          <div className="relative w-full h-full">
+            <KonvaImageCanvas
+              ref={konvaCanvasRef}
+              imageUrl={currentImageUrl}
+              containerWidth={300} // 기본 크기를 더 크게 설정
+              containerHeight={300}  
+              isClippingEnabled={isClippingEnabled}
+              onImageMove={handleImageMove}
+              onImageTransformUpdate={handleImageTransformUpdate}
+              clipPath={isClippingEnabled ? clipPathData.pathData : undefined}
+              gridId={gridId}
+            />
+          </div>
+        ) : (
+          // 이미지가 없을 때 AddPictureClipping으로 업로드 인터페이스 표시
+          <div
+            className="relative overflow-hidden w-full h-full"
+            style={{
+              clipPath: isClippingEnabled
+                ? `url(#clip-${clipPathData.id}-${gridId})`
+                : "none",
+            }}
+          >
+            {/* 배경 이미지 - pointer-events-none으로 마우스 이벤트 비활성화 */}
+            <div className="absolute inset-0 pointer-events-none">
+              <KonvaImageCanvas
+                ref={konvaCanvasRef}
+                imageUrl={NO_IMAGE_URL}
+                containerWidth={240}
+                containerHeight={240}
                 isClippingEnabled={isClippingEnabled}
-                imageTransformData={imageTransformData}
-              >
-                <div 
-                  className="absolute inset-0 cursor-pointer"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* 업로드 오버레이 */}
-                  <div className="absolute inset-0 bg-black bg-opacity-50 rounded-md flex flex-col items-center justify-center transition-opacity duration-200 z-10">
-                    {/* Upload icon */}
-                    <Image
-                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                      width={24}
-                      height={24}
-                      className="object-contain mb-2"
-                      alt="Upload icon"
-                    />
-                    {/* Upload text */}
-                    <div className="text-white text-[10px] font-medium text-center mb-2 px-2">
-                      이미지를 드래그하거나<br />클릭하여 업로드
-                    </div>
-                    {/* File select button */}
-                    <button 
-                      className="bg-primary text-white text-[10px] px-3 py-1.5 rounded hover:bg-primary/80 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
-                    >
-                      파일선택
-                    </button>
-                  </div>
-                </div>
-              </AddPictureClipping>
+                onImageMove={handleImageMove}
+                onImageTransformUpdate={handleImageTransformUpdate}
+                clipPath={isClippingEnabled ? clipPathData.pathData : undefined}
+                gridId={gridId}
+              />
             </div>
-          )}
-        </div>
+
+            {/* 중앙 업로드 인터페이스 */}
+            <AddPictureClipping 
+              onImageAdded={handleImageAdded}
+              clipPathData={clipPathData}
+              gridId={gridId}
+              isClippingEnabled={isClippingEnabled}
+              imageTransformData={imageTransformData}
+            >
+              <div 
+                className="absolute inset-0 cursor-pointer hover:opacity-80 transition-opacity group"
+                onClick={handleImageClick}
+              >
+                {/* Black overlay - hover 시에만 표시 */}
+                <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                  {/* Upload icon */}
+                  <Image
+                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
+                    width={20}
+                    height={20}
+                    className="object-contain mb-2"
+                    alt="Upload icon"
+                  />
+                  {/* Upload text */}
+                  <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                    이미지를 드래그하거나<br />클릭하여 업로드
+                  </div>
+                  {/* File select button */}
+                  <button 
+                    className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    파일선택
+                  </button>
+                </div>
+              </div>
+            </AddPictureClipping>
+
+            {/* 기존 파일 입력은 숨겨진 상태로 유지 (백업용) */}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  handleFileUpload(file);
+                }
+              }}
+              className="hidden"
+              id={`file-input-${gridId}`}
+            />
+          </div>
+        )}
 
         {/* 클리핑 형태 이름 라벨 */}
       </div>
 
-      {/* GridEditToolbar - element 하단 좌측에 위치 (클리핑 활성화 시에만) */}
-      {toolbarState.show && isClippingEnabled && (
+      {/* GridEditToolbar - element 하단 좌측에 위치 */}
+      {toolbarState.show && (
         <div className="grid-edit-toolbar">
           <GridEditToolbar
             show={toolbarState.show}
