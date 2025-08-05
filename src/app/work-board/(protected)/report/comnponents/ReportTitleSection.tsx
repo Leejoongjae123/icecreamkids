@@ -296,7 +296,7 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
               }`}
               onClick={handleImageClick}
             >
-              <AddPicture onImageAdded={handleImageAdded}>
+              <AddPicture onImageAdded={handleImageAdded} mode="single">
                 <div className="w-full h-full flex items-center justify-center">
                   <Image
                     src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg"

@@ -614,6 +614,7 @@ function GridAElement({
                 onImagesAdded={handleImagesAdded}
                 onImageAdded={(hasImage) => handleSingleImageAdded(hasImage, 0)}
                 imageIndex={0}
+                mode="multiple"
               >
                 <div 
                   className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
@@ -673,6 +674,7 @@ function GridAElement({
                   onImagesAdded={handleImagesAdded}
                   onImageAdded={(hasImage) => handleSingleImageAdded(hasImage, 1)}
                   imageIndex={1}
+                  mode="multiple"
                 >
                   <div 
                     className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
@@ -730,6 +732,7 @@ function GridAElement({
                   onImagesAdded={handleImagesAdded}
                   onImageAdded={(hasImage) => handleSingleImageAdded(hasImage, 2)}
                   imageIndex={2}
+                  mode="multiple"
                 >
                   <div 
                     className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
@@ -799,6 +802,7 @@ function GridAElement({
                 onImagesAdded={handleImagesAdded}
                 onImageAdded={(hasImage) => handleSingleImageAdded(hasImage, index)}
                 imageIndex={index}
+                mode="multiple"
               >
                 <div 
                   className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"

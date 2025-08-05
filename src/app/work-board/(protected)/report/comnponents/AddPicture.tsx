@@ -12,7 +12,7 @@ import FileUpload from "./FileUpload";
 import { AddPictureProps, UploadedFile } from "./types";
 import {IoClose} from "react-icons/io5"
 
-function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onImagesAdded, imageIndex = 0 }: AddPictureProps) {
+function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onImagesAdded, imageIndex = 0, mode = 'single' }: AddPictureProps) {
   const [activeTab, setActiveTab] = useState("추천자료");
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -183,14 +183,16 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
 
     console.log("✅ 조건 통과 - 이미지 적용 시작");
     
-    // 여러 이미지가 선택된 경우 모든 이미지를 부모에게 전달
-    if (imageUrls.length > 1 && onImagesAdded) {
-      console.log("🖼️ 여러 이미지 선택됨, 부모 컴포넌트에 전달:", imageUrls);
-      onImagesAdded(imageUrls);
+    // mode가 'multiple'이거나 여러 이미지가 선택된 경우
+    if (mode === 'multiple' || imageUrls.length > 1) {
+      if (onImagesAdded) {
+        console.log("🖼️ 다중 이미지 모드, 부모 컴포넌트에 전달:", imageUrls);
+        onImagesAdded(imageUrls);
+      }
     } else {
-      // 단일 이미지인 경우 기존 로직 유지
+      // mode가 'single'이고 단일 이미지인 경우
       const selectedImageUrl = imageUrls[0];
-      console.log("🖼️ 단일 이미지 적용:", selectedImageUrl);
+      console.log("🖼️ 단일 이미지 모드 적용:", selectedImageUrl);
       
       // 이미지를 cover 형태로 바로 삽입
       setInsertedImageData(selectedImageUrl);
@@ -229,15 +231,15 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
     <>
       <Dialog open={isAddPictureModalOpen} onOpenChange={setIsAddPictureModalOpen}>
         <div className="relative h-full w-full">
-          {/* 이미지가 없을 때만 기본 children 표시 */}
-          {!insertedImageData && (
+          {/* 이미지가 없거나 multiple 모드일 때 기본 children 표시 */}
+          {(!insertedImageData || mode === 'multiple') && (
             <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
               {children}
             </DialogTrigger>
           )}
           
-          {/* 추출된 이미지가 있으면 전체 div에 표시 */}
-          {insertedImageData && (
+          {/* 추출된 이미지가 있고 single 모드일 때만 전체 div에 표시 */}
+          {insertedImageData && mode === 'single' && (
             <div className="relative w-full h-full">
               <div className="relative w-full h-full cursor-default">
                 <img 
