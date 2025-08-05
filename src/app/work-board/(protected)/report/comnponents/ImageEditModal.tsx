@@ -225,6 +225,11 @@ export default function ImageEditModal({
     try {
       // 추출된 이미지를 부모 컴포넌트로 전달 (적용하기 버튼과 동일)
       console.log("📤 부모 컴포넌트로 이미지 데이터 전달 중...");
+      
+      // 드래그 앤 드롭을 다시 활성화하기 위해 모달 상태를 false로 설정
+      console.log("🎯 드래그 앤 드롭 다시 활성화 - setImageEditModalOpen(false)");
+      setImageEditModalOpen(false);
+      
       onApply(extractedImageData);
       console.log("✅ onApply 호출 완료 - 모달 닫기는 부모에서 처리됨");
       
@@ -234,9 +239,16 @@ export default function ImageEditModal({
       console.error("❌ handleExtractComplete 중 오류:", error);
       alert("이미지 적용 중 오류가 발생했습니다.");
     }
-  }, [onApply, onClose]);
+  }, [onApply, onClose, setImageEditModalOpen]);
 
   // handleApply 함수는 더 이상 필요 없음 (KonvaCanvas 내부의 적용 버튼에서 처리)
+
+  // 모달 닫기 핸들러 - 드래그 앤 드롭 상태도 함께 관리
+  const handleClose = useCallback(() => {
+    console.log("🔄 ImageEditModal 닫기 - 드래그 앤 드롭 다시 활성화");
+    setImageEditModalOpen(false);
+    onClose();
+  }, [onClose, setImageEditModalOpen]);
 
   // 이벤트 전파 차단
   const handleStopPropagation = useCallback((e: React.MouseEvent) => {
@@ -261,7 +273,7 @@ export default function ImageEditModal({
   }, [isLoading, imageError, hasCurrentImage, activeImageIndex, currentImageUrl, imageUrls.length]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose} modal={true}>
+    <Dialog open={isOpen} onOpenChange={handleClose} modal={true}>
       <DialogContent
         className="gap-y-4 max-w-[1100px] w-[95vw] h-full max-h-[95vh] p-6 z-[9999] overflow-hidden flex flex-col"
         style={{ zIndex: 9999 }}
@@ -315,7 +327,7 @@ export default function ImageEditModal({
                     setIsLoading(false);
                   }}
                   onExtractComplete={handleExtractComplete}
-                  onCancel={onClose}
+                  onCancel={handleClose}
                   // ImageThumbnailList 관련 props
                   imageUrls={imageUrls}
                   activeImageIndex={activeImageIndex}

@@ -9,23 +9,17 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import FileUpload from "./FileUpload";
-import ImageEditModal from "./ImageEditModal";
 import { AddPictureProps, UploadedFile } from "./types";
-import { useImageRatioStore } from "@/hooks/store/useImageRatioStore";
+import {IoClose} from "react-icons/io5"
 
-function AddPicture({ children, targetImageRatio, targetFrame }: AddPictureProps) {
+function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onImagesAdded, imageIndex = 0 }: AddPictureProps) {
   const [activeTab, setActiveTab] = useState("추천자료");
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [selectedUploadedFiles, setSelectedUploadedFiles] = useState<Set<number>>(new Set());
-  const [showImageEditModal, setShowImageEditModal] = useState(false);
-  const [selectedImageUrl, setSelectedImageUrl] = useState<string>("");
   const [isAddPictureModalOpen, setIsAddPictureModalOpen] = useState(false);
-  const [isAddPictureModalVisible, setIsAddPictureModalVisible] = useState(true);
   const [createdBlobUrls, setCreatedBlobUrls] = useState<string[]>([]); // 새로 생성된 Blob URL 추적
   const [insertedImageData, setInsertedImageData] = useState<string | null>(null); // 삽입된 이미지 데이터
-  
-  const { setTargetImageRatio, clearTargetImageRatio } = useImageRatioStore();
 
   // 생성된 Blob URL들 정리 함수
   const cleanupCreatedBlobUrls = () => {
@@ -171,7 +165,8 @@ function AddPicture({ children, targetImageRatio, targetFrame }: AddPictureProps
       selectedImages: Array.from(selectedImages),
       selectedUploadedFiles: Array.from(selectedUploadedFiles),
       targetFrame,
-      targetImageRatio
+      targetImageRatio,
+      imageIndex
     });
     
     if (imageUrls.length === 0) {
@@ -186,74 +181,38 @@ function AddPicture({ children, targetImageRatio, targetFrame }: AddPictureProps
       return;
     }
 
-    console.log("✅ 조건 통과 - ImageEditModal 열기 시작");
+    console.log("✅ 조건 통과 - 이미지 적용 시작");
     
-    // targetFrame이 있으면 그것을 기반으로 targetImageRatio 계산
-    if (targetFrame) {
-      console.log("🎯 AddPicture에서 받은 targetFrame:", targetFrame);
-      const calculatedRatio = {
-        width: targetFrame.width,
-        height: targetFrame.height,
-        aspectRatio: targetFrame.width / targetFrame.height
-      };
-      console.log("📐 AddPicture에서 계산한 targetImageRatio:", calculatedRatio);
-      setTargetImageRatio(calculatedRatio);
-    } else if (targetImageRatio) {
-      // 기존 방식 지원
-      console.log("📊 기존 targetImageRatio 사용:", targetImageRatio);
-      setTargetImageRatio(targetImageRatio);
+    // 여러 이미지가 선택된 경우 모든 이미지를 부모에게 전달
+    if (imageUrls.length > 1 && onImagesAdded) {
+      console.log("🖼️ 여러 이미지 선택됨, 부모 컴포넌트에 전달:", imageUrls);
+      onImagesAdded(imageUrls);
+    } else {
+      // 단일 이미지인 경우 기존 로직 유지
+      const selectedImageUrl = imageUrls[0];
+      console.log("🖼️ 단일 이미지 적용:", selectedImageUrl);
+      
+      // 이미지를 cover 형태로 바로 삽입
+      setInsertedImageData(selectedImageUrl);
+      
+      // 부모 컴포넌트에 이미지 추가 상태 알림
+      if (onImageAdded) {
+        onImageAdded(true);
+      }
     }
     
-    setSelectedImageUrl(imageUrls[0]); // 첫 번째 이미지를 기본으로 설정
-    
-    console.log("🔄 모달 상태 변경 시작...");
-    console.log("- 선택된 이미지 URL:", imageUrls[0]);
-    
-    // AddPicture 모달 숨기기 (닫지 않고 숨기기만)
-    setIsAddPictureModalVisible(false);
-    
-    // 약간의 지연을 두어 AddPicture 모달이 숨겨진 후 ImageEdit 모달 열기
-    setTimeout(() => {
-      console.log("🚀 ImageEditModal 열기 실행");
-      setShowImageEditModal(true);
-    }, 50); // 지연 시간을 줄임
-  };
-
-  const handleImageEditApply = (editedImageData: string) => {
-    // 편집된 이미지 데이터를 상태에 저장하여 children div에 표시
-    console.log("✅ 편집된 이미지 적용:", editedImageData.substring(0, 50) + "...");
-    console.log("🔄 모든 모달 닫기 및 상태 초기화");
-    
-    // 추출된 이미지 데이터를 상태에 저장
-    setInsertedImageData(editedImageData);
-    
-    // 모든 모달 상태 초기화
-    setShowImageEditModal(false);
-    setIsAddPictureModalOpen(false); // AddPicture 모달 완전히 닫기
-    setIsAddPictureModalVisible(true); // visibility 상태 초기화
-    clearTargetImageRatio(); // store 정리
+    // 모달 닫기 및 상태 초기화
+    setIsAddPictureModalOpen(false);
     cleanupCreatedBlobUrls(); // 생성된 Blob URL들 정리
     
     // 선택 상태 초기화
     setSelectedImages(new Set());
     setSelectedUploadedFiles(new Set());
     
-    console.log("🖼️ 이미지가 AddPicture div에 삽입되었습니다.");
+    console.log("🖼️ 이미지 적용 완료");
   };
 
-  const handleImageEditClose = () => {
-    console.log("🔄 ImageEditModal 닫기 시작");
-    setShowImageEditModal(false);
-    clearTargetImageRatio(); // store 정리
-    cleanupCreatedBlobUrls(); // 생성된 Blob URL들 정리
-    
-    // AddPicture 모달 다시 열기
-    setTimeout(() => {
-      console.log("🔄 AddPicture 모달 다시 열기");
-      setIsAddPictureModalOpen(true);
-      setIsAddPictureModalVisible(true);
-    }, 100);
-  };
+
 
   // 메모리 누수 방지를 위한 cleanup
   useEffect(() => {
@@ -264,42 +223,51 @@ function AddPicture({ children, targetImageRatio, targetFrame }: AddPictureProps
     };
   }, [uploadedFiles]);
 
-  // showImageEditModal 상태 변화 추적
-  useEffect(() => {
-    console.log("📊 showImageEditModal 상태 변화:", showImageEditModal);
-    if (showImageEditModal) {
-      console.log("🖼️ ImageEditModal이 열림 - 전달되는 이미지 URLs:", getSelectedImageUrls());
-    }
-  }, [showImageEditModal]);
+
 
   return (
     <>
       <Dialog open={isAddPictureModalOpen} onOpenChange={setIsAddPictureModalOpen}>
-        <div className="relative">
-          <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
-            {children}
-          </DialogTrigger>
-          {/* 추출된 이미지가 있으면 표시 */}
+        <div className="relative h-full w-full">
+          {/* 이미지가 없을 때만 기본 children 표시 */}
+          {!insertedImageData && (
+            <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
+              {children}
+            </DialogTrigger>
+          )}
+          
+          {/* 추출된 이미지가 있으면 전체 div에 표시 */}
           {insertedImageData && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-              <img 
-                src={insertedImageData} 
-                alt="추출된 이미지"
-                className="max-w-full max-h-full object-cover rounded-lg"
-                style={{
-                  width: targetFrame?.width || 'auto',
-                  height: targetFrame?.height || 'auto',
+            <div className="relative w-full h-full">
+              <div className="relative w-full h-full cursor-default">
+                <img 
+                  src={insertedImageData} 
+                  alt="추출된 이미지"
+                  className="w-full h-full object-cover rounded-[15px]"
+                />
+                {/* 이미지 위에 정보 표시 */}
+
+              </div>
+              
+              {/* X 버튼 - 이미지 삭제 */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setInsertedImageData(null);
+                  // 부모 컴포넌트에 이미지 삭제 상태 알림
+                  if (onImageAdded) {
+                    onImageAdded(false);
+                  }
                 }}
-              />
+                className="absolute top-2 right-2 w-5 h-5 bg-white rounded-full flex items-center justify-center transition-colors z-10 border-2 border-[#F0F0F]"
+                title="이미지 삭제"
+              >
+                <IoClose className="w-4 h-4 text-black" />
+              </button>
             </div>
           )}
         </div>
-      <DialogContent className="max-w-[1200px] p-0 border-none bg-transparent shadow-none z-[60]" style={{ 
-        zIndex: 60,
-        visibility: isAddPictureModalVisible ? 'visible' : 'hidden',
-        opacity: isAddPictureModalVisible ? 1 : 0,
-        transition: 'opacity 0.2s ease-in-out'
-      }}>
+      <DialogContent className="max-w-[1200px] p-0 border-none bg-transparent shadow-none z-[60]">
         <div className="flex overflow-hidden flex-col items-start py-10 pl-10 bg-white rounded-2xl max-md:pl-5">
           <div className="flex flex-wrap gap-5 justify-between w-full text-xl font-semibold tracking-tight leading-none text-gray-700 whitespace-nowrap max-w-[1120px] max-md:max-w-full">
             <div className="my-auto">업로드</div>
@@ -405,23 +373,7 @@ function AddPicture({ children, targetImageRatio, targetFrame }: AddPictureProps
       </DialogContent>
     </Dialog>
 
-    {/* 이미지 편집 모달 */}
-    {showImageEditModal && (
-      <ImageEditModal
-        key="image-edit-modal" // 고정된 key 사용
-        isOpen={showImageEditModal}
-        onClose={handleImageEditClose}
-        imageUrls={getSelectedImageUrls()}
-        selectedImageIndex={0}
-        onApply={handleImageEditApply}
-        targetFrame={targetFrame || {
-          width: 300,
-          height: 200,
-          x: 250,
-          y: 200
-        }}
-      />
-    )}
+
     </>
   );
 }

@@ -143,7 +143,7 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
   };
 
   return (
-    <div ref={containerRef} className="flex flex-col w-full gap-y-3">
+    <div ref={containerRef} className="flex flex-col w-full gap-y-3 ">
       {/* "이렇게 놀이했어요" 부분 - typeC에서만 보임 */}
       {type === "C" && visibleGrids.playActivity && (
         <div 

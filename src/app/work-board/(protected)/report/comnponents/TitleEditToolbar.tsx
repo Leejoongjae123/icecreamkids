@@ -33,7 +33,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
   onIconClick,
   targetGridId,
   limitedMode = false,
-  allowedIcons = [0, 1, 2], // 기본값: 텍스트 스티커, 꾸미기 스티커, 표 추가
+  allowedIcons = [3], // 기본값: 틀 삭제
 }) => {
   const searchParams = useSearchParams();
   const type = searchParams.get("type");
@@ -75,16 +75,12 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
 
   // 제한된 모드용 툴팁 텍스트 (ReportBottomSection에서 사용)
   const limitedTooltipTexts = [
-    "텍스트 스티커",
-    "꾸미기 스티커", 
-    "표 추가",
+    "틀 삭제",
   ];
 
   // 제한된 모드용 아이콘 URL
   const limitedIconUrls = [
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix2.svg", // 텍스트 스티커
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix3.svg", // 꾸미기 스티커
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix6.svg", // 표 추가
+    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix5.svg", // 틀 삭제
   ];
 
   // 현재 모드에 따른 설정
@@ -97,8 +93,9 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
     console.log("아이콘 클릭됨:", index);
     
     if (limitedMode) {
-      // 제한된 모드에서는 부모 컴포넌트의 핸들러로 직접 전달
-      onIconClick(index);
+      // 제한된 모드에서는 allowedIcons 배열의 실제 인덱스를 사용
+      const actualIndex = allowedIcons[index];
+      onIconClick(actualIndex);
       return;
     }
 
@@ -227,7 +224,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
               </TooltipTrigger>
               <TooltipContent
                 side="bottom"
-                className="bg-primary text-white text-sm px-2 py-1 z-[10000]"
+                className="bg-primary text-white text-sm px-2 py-1"
               >
                 {currentTooltipTexts[index]}
               </TooltipContent>

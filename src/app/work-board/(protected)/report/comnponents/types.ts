@@ -39,6 +39,9 @@ export interface AddPictureProps {
     x: number;
     y: number;
   };
+  onImageAdded?: (hasImage: boolean) => void;
+  onImagesAdded?: (imageUrls: string[]) => void; // 여러 이미지 추가 콜백
+  imageIndex?: number; // 현재 이미지 인덱스
 }
 
 export interface PhotoFrameModalProps {

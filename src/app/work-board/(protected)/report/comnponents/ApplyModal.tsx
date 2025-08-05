@@ -10,6 +10,8 @@ interface ApplyModalProps {
   confirmText?: string;
   onConfirm?: () => void;
   onCancel?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 function ApplyModal({
@@ -20,8 +22,15 @@ function ApplyModal({
   confirmText = "적용",
   onConfirm,
   onCancel,
+  open: controlledOpen,
+  onOpenChange,
 }: ApplyModalProps) {
-  const [open, setOpen] = React.useState(false);
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  
+  // controlled vs uncontrolled 모드 처리
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? (onOpenChange || (() => {})) : setInternalOpen;
 
   const handleCancel = () => {
     setOpen(false);
