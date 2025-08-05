@@ -10,28 +10,33 @@ import type { Stage as StageType, Layer as LayerType, Image as ImageType, Group 
 import type Konva from "konva";
 
 // 동적 임포트를 위한 변수
-let Stage: typeof StageType;
-let Layer: typeof LayerType;
-let KonvaImage: typeof ImageType;
-let Rect: typeof RectType;
-let Group: typeof GroupType;
-let Circle: typeof CircleType;
-let Transformer: typeof TransformerType;
-let Text: any;
-let KonvaLib: typeof Konva;
+let Stage: typeof StageType | null = null;
+let Layer: typeof LayerType | null = null;
+let KonvaImage: typeof ImageType | null = null;
+let Rect: typeof RectType | null = null;
+let Group: typeof GroupType | null = null;
+let Circle: typeof CircleType | null = null;
+let Transformer: typeof TransformerType | null = null;
+let Text: any = null;
+let KonvaLib: typeof Konva | null = null;
 
 // 클라이언트 사이드에서만 Konva 로드
 if (typeof window !== 'undefined') {
-  const ReactKonva = require('react-konva');
-  Stage = ReactKonva.Stage;
-  Layer = ReactKonva.Layer;
-  KonvaImage = ReactKonva.Image;
-  Rect = ReactKonva.Rect;
-  Group = ReactKonva.Group;
-  Circle = ReactKonva.Circle;
-  Transformer = ReactKonva.Transformer;
-  Text = ReactKonva.Text;
-  KonvaLib = require('konva').default;
+  try {
+    const ReactKonva = require('react-konva');
+    Stage = ReactKonva.Stage;
+    Layer = ReactKonva.Layer;
+    KonvaImage = ReactKonva.Image;
+    Rect = ReactKonva.Rect;
+    Group = ReactKonva.Group;
+    Circle = ReactKonva.Circle;
+    Transformer = ReactKonva.Transformer;
+    Text = ReactKonva.Text;
+    KonvaLib = require('konva').default;
+    console.log("✅ Konva 라이브러리 로드 성공");
+  } catch (error) {
+    console.error("❌ Konva 라이브러리 로드 실패:", error);
+  }
 }
 
 interface KonvaCanvasProps {
@@ -92,6 +97,7 @@ interface ExtractArea {
       const transformerRef = useRef<any>(null);
       const [konvaImage, setKonvaImage] = useState<HTMLImageElement | null>(null);
       const [isLoading, setIsLoading] = useState(true);
+      const [isKonvaLoaded, setIsKonvaLoaded] = useState(false);
       const [editMode, setEditMode] = useState<EditMode>('edit');
       const [isDragging, setIsDragging] = useState(false);
       const [isCropHandleDragging, setIsCropHandleDragging] = useState<string | null>(null);
@@ -352,6 +358,44 @@ interface ExtractArea {
     const containerRef = useRef<HTMLDivElement>(null);
     const CANVAS_WIDTH = canvasSize.width;
     const CANVAS_HEIGHT = canvasSize.height;
+
+    // Konva 라이브러리 로딩 상태 확인
+    useEffect(() => {
+      let timeoutId: NodeJS.Timeout | null = null;
+      let attempts = 0;
+      const maxAttempts = 50; // 최대 5초 동안 시도
+
+      const checkKonvaLoading = () => {
+        if (typeof window !== 'undefined' && Stage && Layer && KonvaImage && Transformer && Rect && Group && Circle) {
+          console.log("✅ Konva 모든 컴포넌트 로드 완료");
+          setIsKonvaLoaded(true);
+        } else if (attempts < maxAttempts) {
+          attempts++;
+          console.log(`⏳ Konva 라이브러리 로딩 중... (${attempts}/${maxAttempts})`, {
+            window: typeof window !== 'undefined',
+            Stage: !!Stage,
+            Layer: !!Layer,
+            KonvaImage: !!KonvaImage,
+            Transformer: !!Transformer
+          });
+          // 100ms 후 다시 확인
+          timeoutId = setTimeout(checkKonvaLoading, 100);
+        } else {
+          console.error("❌ Konva 라이브러리 로딩 실패 - 최대 시도 횟수 초과");
+          // 실패 시에도 일단 true로 설정하여 에러 메시지 대신 빈 화면이라도 보여줌
+          setIsKonvaLoaded(true);
+        }
+      };
+
+      checkKonvaLoading();
+
+      // cleanup 함수
+      return () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      };
+    }, []);
 
     // 컨테이너 크기에 맞춰 캔버스 크기 동적 조정
     useEffect(() => {
@@ -1130,8 +1174,8 @@ interface ExtractArea {
       ];
     }, [editMode, cropArea]);
 
-    // 서버 사이드에서는 렌더링하지 않음
-    if (typeof window === 'undefined' || !Stage || !Layer || !KonvaImage || !Transformer) {
+    // 서버 사이드이거나 Konva 라이브러리가 아직 로드되지 않은 경우
+    if (typeof window === 'undefined' || !isKonvaLoaded || !Stage || !Layer || !KonvaImage || !Transformer) {
       return <div className="w-full h-full flex items-center justify-center bg-gray-100">
         <div className="text-gray-500">이미지 편집기 로딩 중...</div>
       </div>;

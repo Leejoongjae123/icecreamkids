@@ -5,6 +5,8 @@ import AddPicture from "./AddPicture";
 import { Input } from "@/components/ui/input";
 import GridEditToolbar from "./GridEditToolbar";
 import { Loader2 } from "lucide-react";
+import ImageEditModal from "./ImageEditModal";
+import { ImagePosition } from "../types";
 
 interface GridBElementProps {
   index: number;
@@ -99,6 +101,24 @@ function GridBElement({
     return Math.max(0, imageCount - currentCount);
   }, [getCurrentImageCount, imageCount]);
 
+  // 이미지 위치 정보 상태
+  const [imagePositions, setImagePositions] = React.useState<ImagePosition[]>(() => 
+    Array(imageCount).fill({ x: 0, y: 0, scale: 1 })
+  );
+
+  // 이미지 편집 모달 상태
+  const [imageEditModal, setImageEditModal] = React.useState<{
+    isOpen: boolean;
+    imageUrls: string[];
+    selectedImageIndex: number;
+    originalImageIndex: number; // 클릭한 원래 이미지 인덱스
+  }>({
+    isOpen: false,
+    imageUrls: [],
+    selectedImageIndex: 0,
+    originalImageIndex: 0
+  });
+
   // 여러 이미지 추가 핸들러
   const handleImagesAdded = React.useCallback((imageUrls: string[]) => {
     console.log("📥 GridBElement에서 여러 이미지 받음:", imageUrls);
@@ -148,7 +168,7 @@ function GridBElement({
     console.log(`📥 GridB 개별 이미지 ${imageIndex} 변경:`, hasImage);
   }, []);
 
-  // imageCount 변경 시 currentImages 업데이트
+  // imageCount 변경 시 currentImages와 imagePositions 업데이트
   React.useEffect(() => {
     console.log("🔄 GridB imageCount 변경됨:", imageCount);
     
@@ -169,6 +189,16 @@ function GridBElement({
       });
       
       return limitedImages;
+    });
+
+    setImagePositions(prev => {
+      const newPositions = [...prev];
+      // 이미지 개수가 증가한 경우 기본 위치 정보 추가
+      while (newPositions.length < imageCount) {
+        newPositions.push({ x: 0, y: 0, scale: 1 });
+      }
+      // 이미지 개수가 감소한 경우 배열 크기 조정
+      return newPositions.slice(0, imageCount);
     });
   }, [imageCount]);
 
@@ -206,6 +236,198 @@ function GridBElement({
     }
   };
 
+  // 이미지 컨테이너 ref 추가
+  const imageContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // 개별 이미지 셀 크기 측정 함수 - 특정 인덱스의 이미지 크기 계산
+  const measureImageCellSize = React.useCallback((imageIndex: number) => {
+    if (imageContainerRef.current) {
+      const containerRect = imageContainerRef.current.getBoundingClientRect();
+      
+      // 그리드 gap 크기 (CSS에서 gap-1 = 4px)
+      const gap = 4;
+      
+      // 이미지 개수에 따른 개별 셀 크기 계산
+      let cellWidth = containerRect.width;
+      let cellHeight = containerRect.height;
+      let cellX = containerRect.left;
+      let cellY = containerRect.top;
+      
+      // 합친 경우(isExpanded)이고 이미지가 3개일 때 특별한 레이아웃
+      if (isExpanded && imageCount === 3) {
+        const leftWidth = (containerRect.width * 2) / 3; // 좌측 전체 너비 (66.67%)
+        const rightWidth = containerRect.width / 3; // 우측 너비 (33.33%)
+        const halfWidth = leftWidth / 2; // 좌측 반쪽 너비
+        
+        switch (imageIndex) {
+          case 0: // 좌좌
+            cellWidth = halfWidth;
+            cellHeight = containerRect.height;
+            cellX = containerRect.left;
+            cellY = containerRect.top;
+            break;
+          case 1: // 좌우
+            cellWidth = halfWidth - gap;
+            cellHeight = containerRect.height;
+            cellX = containerRect.left + halfWidth + gap;
+            cellY = containerRect.top;
+            break;
+          case 2: // 우측
+            cellWidth = rightWidth - gap;
+            cellHeight = containerRect.height;
+            cellX = containerRect.left + leftWidth + gap;
+            cellY = containerRect.top;
+            break;
+        }
+      } else {
+        // 기본 레이아웃
+        switch (imageCount) {
+          case 1:
+            // 단일 이미지는 전체 영역 사용
+            break;
+          case 2:
+            // 2개 이미지는 가로로 분할 (grid-cols-2)
+            cellWidth = (containerRect.width - gap) / 2;
+            cellX = containerRect.left + (imageIndex * (cellWidth + gap));
+            break;
+          case 3:
+            // 3개 이미지는 가로로 분할 (grid-cols-3)
+            cellWidth = (containerRect.width - gap * 2) / 3;
+            cellX = containerRect.left + (imageIndex * (cellWidth + gap));
+            break;
+          case 4:
+            // 2x2 그리드 (grid-cols-2)
+            cellWidth = (containerRect.width - gap) / 2;
+            cellHeight = (containerRect.height - gap) / 2;
+            cellX = containerRect.left + ((imageIndex % 2) * (cellWidth + gap));
+            cellY = containerRect.top + (Math.floor(imageIndex / 2) * (cellHeight + gap));
+            break;
+          case 6:
+            // 3x2 그리드 (grid-cols-3)
+            cellWidth = (containerRect.width - gap * 2) / 3;
+            cellHeight = (containerRect.height - gap) / 2;
+            cellX = containerRect.left + ((imageIndex % 3) * (cellWidth + gap));
+            cellY = containerRect.top + (Math.floor(imageIndex / 3) * (cellHeight + gap));
+            break;
+          case 9:
+            // 3x3 그리드 (grid-cols-3)
+            cellWidth = (containerRect.width - gap * 2) / 3;
+            cellHeight = (containerRect.height - gap * 2) / 3;
+            cellX = containerRect.left + ((imageIndex % 3) * (cellWidth + gap));
+            cellY = containerRect.top + (Math.floor(imageIndex / 3) * (cellHeight + gap));
+            break;
+        }
+      }
+      
+      const targetFrame = {
+        width: Math.round(cellWidth),
+        height: Math.round(cellHeight),
+        x: Math.round(cellX),
+        y: Math.round(cellY)
+      };
+      
+      console.log(`📏 GridB 이미지 ${imageIndex} 실제 측정된 셀 크기:`, {
+        imageCount,
+        isExpanded,
+        imageIndex,
+        containerSize: { width: containerRect.width, height: containerRect.height },
+        cellSize: targetFrame
+      });
+      
+      return targetFrame;
+    }
+    return undefined;
+  }, [imageCount, isExpanded]);
+
+  // 모든 이미지의 기본 크기 (이전 함수와의 호환성을 위해 유지)
+  const measureSingleImageCellSize = React.useCallback(() => {
+    return measureImageCellSize(0);
+  }, [measureImageCellSize]);
+
+  // 컴포넌트 마운트 후와 리사이즈 시 크기 측정
+  React.useEffect(() => {
+    measureSingleImageCellSize();
+    
+    const handleResize = () => {
+      measureSingleImageCellSize();
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [measureSingleImageCellSize, isExpanded, imageCount]);
+
+  // 특정 이미지 인덱스의 영역 크기를 계산하여 비율 반환
+  const getImageAreaRatio = React.useCallback((imageIndex: number = 0) => {
+    // 실제 측정된 크기가 있으면 그것을 사용
+    const actualFrame = measureImageCellSize(imageIndex);
+    if (actualFrame) {
+      return {
+        width: actualFrame.width,
+        height: actualFrame.height,
+        aspectRatio: actualFrame.width / actualFrame.height
+      };
+    }
+    
+    // 실제 측정 크기가 없을 때만 추정 크기 사용 (fallback)
+    let baseWidth = 180; // 기본 카드 폭
+    let baseHeight = 120; // 기본 카드 높이
+    
+    // isExpanded인 경우 폭이 더 넓어짐
+    if (isExpanded) {
+      baseWidth *= 2; // 대략 2배 넓어짐
+    }
+    
+    // imageCount에 따른 개별 이미지 크기 계산
+    let imageWidth = baseWidth;
+    let imageHeight = baseHeight;
+    
+    if (isExpanded && imageCount === 3) {
+      // 특별한 3개 이미지 레이아웃
+      if (imageIndex === 0 || imageIndex === 1) {
+        // 좌측 이미지들
+        imageWidth = baseWidth / 3; // 전체 너비의 1/3
+      } else {
+        // 우측 이미지
+        imageWidth = (baseWidth * 2) / 3; // 전체 너비의 2/3
+      }
+    } else {
+      switch (imageCount) {
+        case 1:
+          // 단일 이미지는 전체 영역 사용
+          break;
+        case 2:
+          // 2개 이미지는 가로로 분할
+          imageWidth = baseWidth / 2 - 4; // gap 고려
+          break;
+        case 3:
+          // 3개 이미지는 가로로 분할
+          imageWidth = baseWidth / 3 - 4; // gap 고려
+          break;
+        case 4:
+          // 2x2 그리드
+          imageWidth = baseWidth / 2 - 4; // gap 고려
+          imageHeight = baseHeight / 2 - 4; // gap 고려
+          break;
+        case 6:
+          // 3x2 그리드
+          imageWidth = baseWidth / 3 - 4; // gap 고려
+          imageHeight = baseHeight / 2 - 4; // gap 고려
+          break;
+        case 9:
+          // 3x3 그리드
+          imageWidth = baseWidth / 3 - 4; // gap 고려
+          imageHeight = baseHeight / 3 - 4; // gap 고려
+          break;
+      }
+    }
+    
+    return {
+      width: imageWidth,
+      height: imageHeight,
+      aspectRatio: imageWidth / imageHeight
+    };
+  }, [measureImageCellSize, isExpanded, imageCount]);
+
   const [inputValue, setInputValue] = React.useState("");
   
   // 툴바 상태 관리
@@ -214,15 +436,10 @@ function GridBElement({
     isExpanded: false,
   });
 
-  // Default images if none provided
-  const defaultImages = [
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg",
-  ];
+  // Default images if none provided - imageCount에 맞게 동적으로 생성
+  const defaultImages = React.useMemo(() => {
+    return Array(imageCount).fill("https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg");
+  }, [imageCount]);
 
   const displayImages = images.length > 0 ? images : defaultImages;
 
@@ -263,6 +480,67 @@ function GridBElement({
     if (onImageUpload) {
       onImageUpload();
     }
+  };
+
+  // 이미지 편집 모달 열기 핸들러
+  const handleImageAdjustClick = (imageIndex: number, imageUrl: string) => {
+    if (imageUrl && imageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
+      // 모든 유효한 이미지들을 가져와서 ImageEditModal 사용
+      const validImages = currentImages.filter(img => 
+        img && img !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+      );
+      
+      if (validImages.length > 0) {
+        // 클릭한 이미지가 유효한 이미지 목록에서 몇 번째인지 찾기
+        const clickedImageIndex = validImages.findIndex(img => img === imageUrl);
+        const finalSelectedIndex = clickedImageIndex >= 0 ? clickedImageIndex : 0;
+        
+        setImageEditModal({
+          isOpen: true,
+          imageUrls: validImages,
+          selectedImageIndex: finalSelectedIndex,
+          originalImageIndex: imageIndex // 클릭한 원래 이미지 인덱스 저장
+        });
+      }
+    }
+  };
+
+  // ImageEditModal에서 편집된 이미지 적용 핸들러
+  const handleImageEditApply = (editedImageData: string) => {
+    console.log("📸 GridB 편집된 이미지 데이터 받음:", editedImageData.substring(0, 50) + "...");
+    
+    // 편집된 이미지로 원래 위치의 이미지 교체
+    // selectedImageIndex는 필터링된 배열에서의 인덱스이므로
+    // 실제 원래 이미지 URL을 찾아서 교체해야 함
+    const selectedImageUrl = imageEditModal.imageUrls[imageEditModal.selectedImageIndex];
+    
+    setCurrentImages(prev => {
+      const newImages = [...prev];
+      // 원래 이미지 배열에서 해당 URL의 인덱스를 찾아서 교체
+      const originalIndex = newImages.findIndex(img => img === selectedImageUrl);
+      if (originalIndex >= 0) {
+        newImages[originalIndex] = editedImageData;
+      }
+      return newImages;
+    });
+
+    // 모달 닫기
+    setImageEditModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  // ImageEditModal에서 이미지 순서 변경 핸들러
+  const handleImageOrderChange = (newOrder: string[]) => {
+    console.log("🔄 GridB 이미지 순서 변경:", newOrder);
+    setCurrentImages(prev => {
+      const newImages = [...prev];
+      // 유효한 이미지들만 새로운 순서로 교체
+      newOrder.forEach((imageUrl, index) => {
+        if (index < newImages.length) {
+          newImages[index] = imageUrl;
+        }
+      });
+      return newImages;
+    });
   };
 
   // 텍스트 새로고침(토글) 핸들러
@@ -409,6 +687,7 @@ function GridBElement({
 
         {/* 이미지 그리드 - 계산된 높이로 설정하여 공간 최적화 */}
         <div 
+          ref={imageContainerRef}
           className={`grid gap-1 w-full ${getImageGridLayout(imageCount).className}`}
           style={{ 
             height: 'calc(100% - 70px)', // 전체 높이에서 하단 입력 영역(70px) 제외
@@ -435,6 +714,8 @@ function GridBElement({
             return (
               <AddPicture 
                 key={index}
+                targetImageRatio={getImageAreaRatio(index)}
+                targetFrame={measureImageCellSize(index)}
                 onImagesAdded={handleImagesAdded}
                 onImageAdded={(hasImage) => handleSingleImageAdded(hasImage, index)}
                 imageIndex={index}
@@ -445,15 +726,31 @@ function GridBElement({
                 <div 
                   className="flex relative cursor-pointer hover:opacity-80 transition-opacity group h-full"
                   style={gridAreaStyle}
-                  onClick={handleImageClick}
+                  onClick={(e) => {
+                    // 클릭 시에도 크기 측정
+                    measureImageCellSize(index);
+                    handleImageClick(e);
+                  }}
                 >
                 {imageSrc && imageSrc !== "" && imageSrc !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
-                  <Image
-                    src={imageSrc}
-                    alt={`Image ${index + 1}`}
-                    fill
-                    className="object-cover rounded-md"
-                  />
+                  <div
+                    className="absolute inset-0 overflow-hidden rounded-md cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleImageAdjustClick(index, imageSrc);
+                    }}
+                  >
+                    <Image
+                      src={imageSrc}
+                      alt={`Image ${index + 1}`}
+                      fill
+                      className="object-cover rounded-md"
+                      style={{
+                        transform: `translate(${imagePositions[index]?.x || 0}px, ${imagePositions[index]?.y || 0}px) scale(${imagePositions[index]?.scale || 1})`,
+                        transformOrigin: 'center'
+                      }}
+                    />
+                  </div>
                 ) : (
                   <>
                     <Image
@@ -635,6 +932,17 @@ function GridBElement({
           />
         </div>
       )}
+
+      {/* 이미지 편집 모달 */}
+      <ImageEditModal
+        isOpen={imageEditModal.isOpen}
+        onClose={() => setImageEditModal(prev => ({ ...prev, isOpen: false }))}
+        imageUrls={imageEditModal.imageUrls}
+        selectedImageIndex={imageEditModal.selectedImageIndex}
+        onApply={handleImageEditApply}
+        onImageOrderChange={handleImageOrderChange}
+        targetFrame={measureImageCellSize(imageEditModal.originalImageIndex || 0)}
+      />
     </div>
   );
 }

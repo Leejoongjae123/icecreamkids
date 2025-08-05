@@ -60,7 +60,7 @@ function ReportCContent() {
 
   return (
     <TooltipProvider>
-      <div className="w-full h-full relative flex flex-col">
+      <div className="w-full relative flex flex-col" style={{ height: "1123px" }}>
         
         {/* Header with A4 Template */}
         <div className="bg-image w-full flex-1 shadow-custom border border-gray-200 rounded-xl pt-4 bg-cover bg-center bg-no-repeat flex flex-col">
@@ -127,20 +127,35 @@ function ReportCContent() {
 
           <div
             ref={stickerContainerRef}
-            className="flex flex-col w-full h-full justify-between gap-y-3 px-4 py-4 rounded-br-xl rounded-bl-xl relative"
+            className="flex flex-col w-full px-4 py-4 rounded-br-xl rounded-bl-xl relative"
             style={{
               backgroundImage: backgroundImageUrl,
               overflow: "visible",
+              height: "calc(1123px - 66px)", // 전체 높이에서 헤더 높이만 제외
             }}
           >
-            <ReportTitleSection />
+            {/* Title Section - 고정 높이 */}
+            <div style={{ height: "84px", flexShrink: 0 }}>
+              <ReportTitleSection />
+            </div>
 
-            {/* GridC 컴포넌트 */}
-            <div className="flex-1 w-full h-full">
+            {/* GridC 컴포넌트 - flex로 나머지 공간 자동 할당 */}
+            <div 
+              className="w-full flex-1"
+              style={{ 
+                marginTop: "12px",
+                marginBottom: "12px",
+                minHeight: 0, // flex 아이템이 축소될 수 있도록
+                overflow: "hidden"
+              }}
+            >
               <GridC isClippingEnabled={isClippingEnabled} photoCount={photoCount} />
             </div>
 
-            <ReportBottomSection type="C" />
+            {/* Bottom Section - 고정 높이 */}
+            <div style={{ height: "287px", flexShrink: 0 }}>
+              <ReportBottomSection type="C" />
+            </div>
             
             {/* 스티커 렌더링 */}
             {stickers.map((sticker) => (

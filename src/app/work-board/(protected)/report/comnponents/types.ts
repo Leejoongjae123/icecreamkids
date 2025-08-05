@@ -45,6 +45,22 @@ export interface AddPictureProps {
   mode?: 'single' | 'multiple'; // 단일 이미지 모드 또는 다중 이미지 모드
   hasImage?: boolean; // 이미지가 있는지 여부
   maxImageCount?: number; // 최대 선택 가능한 이미지 개수
+  // 클리핑 관련 props 추가
+  clipPathData?: {
+    id: string;
+    name: string;
+    pathData: string;
+  };
+  gridId?: string;
+  isClippingEnabled?: boolean;
+  // 이미지 변환 데이터 추가 (위치, 스케일 동기화용)
+  imageTransformData?: {
+    x: number;
+    y: number;
+    scale: number;
+    width: number;
+    height: number;
+  } | null;
 }
 
 export interface PhotoFrameModalProps {

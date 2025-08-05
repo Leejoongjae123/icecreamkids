@@ -107,7 +107,9 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
         const activeIndex = currentItems.findIndex(item => item.id === active.id);
         const overIndex = currentItems.findIndex(item => item.id === over.id);
 
-        if (activeIndex === -1 || overIndex === -1) return currentItems;
+        if (activeIndex === -1 || overIndex === -1) {
+          return currentItems;
+        }
 
         // 배열 위치 이동
         const reorderedItems = arrayMove(currentItems, activeIndex, overIndex);
@@ -161,7 +163,9 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
 
   // 그리드 컬럼 수 계산 (최대 3컬럼)
   const getGridCols = () => {
-    if (photoCount <= 3) return photoCount;
+    if (photoCount <= 3) {
+      return photoCount;
+    }
     return 3;
   };
 
@@ -172,11 +176,14 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     return `grid ${colsClass} gap-4 w-full h-full max-w-4xl mx-auto`;
   };
 
-  // 그리드 스타일 생성 (GridA와 유사하게)
+  // 그리드 스타일 생성 - 높이를 고정하고 균등하게 배분
   const getGridStyle = () => {
+    const cols = getGridCols();
+    const rows = Math.ceil(photoCount / cols);
+    
     return {
-      gridTemplateRows: "repeat(auto-fit, minmax(0, 1fr))",
-      minHeight: "400px"
+      gridTemplateRows: `repeat(${rows}, 1fr)`,
+      height: "100%"
     };
   };
 
@@ -191,7 +198,7 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
         items={items.map(item => item.id)} 
         strategy={rectSortingStrategy}
       >
-        <div className="w-full h-full relative">
+        <div className="w-full h-full relative flex flex-col">
           <div className={getGridClass()} style={getGridStyle()}>
             {items.map((item) => (
               <SortableGridCItem

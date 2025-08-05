@@ -8,7 +8,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
-import AddPicture from "./AddPicture";
+import AddPictureClipping from "./AddPictureClipping";
+import KonvaImageCanvas, { KonvaImageCanvasRef } from "./KonvaImageCanvas";
 import GridEditToolbar from "./GridEditToolbar";
 import { ClipPathItem } from "../dummy/types";
 
@@ -46,6 +47,21 @@ function GridCElement({
   const [isKeywordExpanded, setIsKeywordExpanded] = React.useState(false);
   const [isInputFocused, setIsInputFocused] = React.useState(false);
   const [selectedKeyword, setSelectedKeyword] = React.useState<string>("");
+  const [currentImageUrl, setCurrentImageUrl] = React.useState<string>(imageUrl);
+  // placeholder 이미지 URL
+  const NO_IMAGE_URL = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
+
+  // KonvaImageCanvas ref
+  const konvaCanvasRef = React.useRef<KonvaImageCanvasRef>(null);
+
+  // 이미지 변환 정보 상태 (위치, 스케일 동기화용)
+  const [imageTransformData, setImageTransformData] = React.useState<{
+    x: number;
+    y: number;
+    scale: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   // 툴바 상태 관리
   const [toolbarState, setToolbarState] = React.useState({
@@ -92,11 +108,60 @@ function GridCElement({
     }
   };
 
+  // 이미지 URL 변경 감지
+  React.useEffect(() => {
+    setCurrentImageUrl(imageUrl);
+  }, [imageUrl]);
+
   // 파일 업로드 핸들러 (기존 파일 업로드도 유지)
   const handleFileUpload = (file: File) => {
-    const imageUrl = URL.createObjectURL(file);
-    onImageUpload(gridId, imageUrl);
+    const newImageUrl = URL.createObjectURL(file);
+    setCurrentImageUrl(newImageUrl);
+    onImageUpload(gridId, newImageUrl);
   };
+
+  // AddPictureClipping용 이미지 추가 핸들러
+  const handleImageAdded = (hasImage: boolean) => {
+    console.log("Image added:", hasImage);
+    // 필요시 추가 처리 로직
+  };
+
+  // 이미지 이동 핸들러 (KonvaImageCanvas에서 호출)
+  const handleImageMove = React.useCallback((x: number, y: number) => {
+    console.log("이미지 이동:", { x, y, gridId });
+    
+    // 현재 이미지 데이터 업데이트
+    if (konvaCanvasRef.current) {
+      const currentImageData = konvaCanvasRef.current.getImageData();
+      if (currentImageData) {
+        setImageTransformData({
+          x: currentImageData.x,
+          y: currentImageData.y,
+          scale: currentImageData.scale,
+          width: currentImageData.width || 0,
+          height: currentImageData.height || 0
+        });
+      }
+    }
+  }, [gridId]);
+
+  // 이미지 변환 데이터 업데이트 핸들러
+  const handleImageTransformUpdate = React.useCallback((transformData: {
+    x: number;
+    y: number;
+    scale: number;
+    width: number;
+    height: number;
+  }) => {
+    setImageTransformData(transformData);
+  }, []);
+
+  // 이미지 위치 초기화
+  const handleResetImagePosition = React.useCallback(() => {
+    if (konvaCanvasRef.current) {
+      konvaCanvasRef.current.resetImagePosition();
+    }
+  }, []);
 
   // 툴바 숨기기 핸들러
   const handleHideToolbar = () => {
@@ -162,7 +227,7 @@ function GridCElement({
 
   // input 변경시 선택된 키워드 상태도 업데이트
   const handleKeywordInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+    const { value } = e.target;
     setActivityKeyword(value);
     
     // 현재 input의 키워드를 selectedKeyword에 설정
@@ -172,10 +237,10 @@ function GridCElement({
   return (
     <div className="relative w-full h-full">
       <div
-        className={`relative w-full h-full ${!isClippingEnabled ? "bg-white rounded-xl" : "bg-transparent"} overflow-hidden ${containerClass} ${isDragging ? "opacity-100" : ""} transition-all duration-200 ${!isDragging ? "cursor-grab active:cursor-grabbing" : ""} ${borderClass}`}
+        className={`relative w-full h-full ${!isClippingEnabled ? "bg-white rounded-xl" : "bg-transparent"} overflow-hidden ${containerClass} ${isDragging ? "opacity-100" : ""} transition-all duration-200 ${!isDragging && isClippingEnabled ? "cursor-grab active:cursor-grabbing" : ""} ${borderClass}`}
         data-grid-id={gridId}
-        {...(!isDragging ? dragAttributes : {})}
-        {...(!isDragging ? dragListeners : {})}
+        {...(isDragging || !isClippingEnabled ? {} : dragAttributes)}
+        {...(isDragging || !isClippingEnabled ? {} : dragListeners)}
         onClick={handleNonImageClick}
       >
         {/* 체크박스 - 좌측 상단 */}
@@ -194,23 +259,7 @@ function GridCElement({
         </div>
 
         {/* 삭제 버튼 - 우측 상단 */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onDelete) {
-              handleDelete();
-            }
-          }}
-          className="absolute top-2 right-2 w-7 h-7 bg-white border border-[#F0F0F0] rounded-md flex items-center justify-center z-30 shadow-sm hover:shadow-md transition-shadow"
-        >
-          <Image
-            src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/trash.svg"
-            width={14}
-            height={14}
-            className="object-contain hover:opacity-80"
-            alt="Delete"
-          />
-        </button>
+       
 
         {/* SVG 클리핑 마스크 정의 */}
         <svg width="0" height="0" className="absolute">
@@ -224,17 +273,86 @@ function GridCElement({
           </defs>
         </svg>
 
-        {/* 클리핑된 이미지 컨테이너 - AddPicture로 감싸기 */}
-        <AddPicture>
+        {/* Konva 이미지 캔버스 또는 이미지 업로드 영역 */}
+        {currentImageUrl && currentImageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
+          // 이미지가 있을 때 KonvaImageCanvas 표시
+          <div className="relative w-full h-full">
+            <KonvaImageCanvas
+              ref={konvaCanvasRef}
+              imageUrl={currentImageUrl}
+              containerWidth={300} // 기본 크기를 더 크게 설정
+              containerHeight={300}  
+              isClippingEnabled={isClippingEnabled}
+              onImageMove={handleImageMove}
+              onImageTransformUpdate={handleImageTransformUpdate}
+              clipPath={isClippingEnabled ? clipPathData.pathData : undefined}
+              gridId={gridId}
+            />
+          </div>
+        ) : (
+          // 이미지가 없을 때 AddPictureClipping으로 업로드 인터페이스 표시
           <div
-            className="w-full h-full relative overflow-hidden transition-all duration-200 hover:scale-105"
+            className="relative overflow-hidden w-full h-full"
             style={{
               clipPath: isClippingEnabled
                 ? `url(#clip-${clipPathData.id}-${gridId})`
                 : "none",
             }}
-            onClick={handleImageClick}
           >
+            {/* 배경 이미지 - pointer-events-none으로 마우스 이벤트 비활성화 */}
+            <div className="absolute inset-0 pointer-events-none">
+              <KonvaImageCanvas
+                ref={konvaCanvasRef}
+                imageUrl={NO_IMAGE_URL}
+                containerWidth={240}
+                containerHeight={240}
+                isClippingEnabled={isClippingEnabled}
+                onImageMove={handleImageMove}
+                onImageTransformUpdate={handleImageTransformUpdate}
+                clipPath={isClippingEnabled ? clipPathData.pathData : undefined}
+                gridId={gridId}
+              />
+            </div>
+
+            {/* 중앙 업로드 인터페이스 */}
+            <AddPictureClipping 
+              onImageAdded={handleImageAdded}
+              clipPathData={clipPathData}
+              gridId={gridId}
+              isClippingEnabled={isClippingEnabled}
+              imageTransformData={imageTransformData}
+            >
+              <div 
+                className="absolute inset-0 cursor-pointer hover:opacity-80 transition-opacity group"
+                onClick={handleImageClick}
+              >
+                {/* Black overlay - hover 시에만 표시 */}
+                <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                  {/* Upload icon */}
+                  <Image
+                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
+                    width={20}
+                    height={20}
+                    className="object-contain mb-2"
+                    alt="Upload icon"
+                  />
+                  {/* Upload text */}
+                  <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                    이미지를 드래그하거나<br />클릭하여 업로드
+                  </div>
+                  {/* File select button */}
+                  <button 
+                    className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    파일선택
+                  </button>
+                </div>
+              </div>
+            </AddPictureClipping>
+
             {/* 기존 파일 입력은 숨겨진 상태로 유지 (백업용) */}
             <input
               type="file"
@@ -248,52 +366,8 @@ function GridCElement({
               className="hidden"
               id={`file-input-${gridId}`}
             />
-
-            <div className="relative w-full h-full group">
-              <Image
-                src={
-                  imageLoadError
-                    ? "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
-                    : imageUrl
-                }
-                alt={`클리핑된 이미지 - ${clipPathData.name}`}
-                fill
-                className="object-cover w-full h-full"
-                onError={handleImageError}
-                onLoad={handleImageLoad}
-              />
-
-              {/* 호버 시 오버레이 */}
-              <div className="absolute inset-0 bg-black bg-opacity-40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-                {/* Upload icon */}
-                <Image
-                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                  width={24}
-                  height={24}
-                  className="object-contain mb-2"
-                  alt="Upload icon"
-                />
-                {/* Upload text */}
-                <div className="text-white text-xs font-medium text-center mb-2 px-2">
-                  이미지를 드래그하거나
-                  <br />
-                  클릭하여 업로드
-                </div>
-                {/* File select button - AddPicture로 감싸기 */}
-                <AddPicture>
-                  <button
-                    className="bg-primary text-white text-xs px-3 py-1.5 rounded hover:bg-primary/80 transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
-                  >
-                    파일선택
-                  </button>
-                </AddPicture>
-              </div>
-            </div>
           </div>
-        </AddPicture>
+        )}
 
         {/* 클리핑 형태 이름 라벨 */}
       </div>
@@ -311,16 +385,17 @@ function GridCElement({
         </div>
       )}
 
-      {/* Keyword Input Component at the bottom - 이미지 위에 표시 */}
-      <div className="absolute bottom-0 left-0 right-0 z-50 p-2 photo-description-input">
-        <div className="flex overflow-hidden flex-col px-3.5 py-3.5 text-xs tracking-tight leading-none text-gray-700 bg-white rounded-lg w-full shadow-[1px_1px_10px_rgba(0,0,0,0.1)]">
-          {/* 검색 입력 */}
-          <Collapsible
-            open={isKeywordExpanded}
-            onOpenChange={setIsKeywordExpanded}
-          >
+      {/* Keyword Input Component at the bottom - 클리핑 활성화 시에만 표시 */}
+      {isClippingEnabled && (
+        <div className="absolute bottom-0 left-0 right-0 z-50 p-2 photo-description-input">
+          <div className="flex overflow-hidden flex-col px-3 py-2 text-xs tracking-tight leading-none text-gray-700 bg-white rounded-lg w-full shadow-[1px_1px_10px_rgba(0,0,0,0.1)]">
+            {/* 검색 입력 */}
+            <Collapsible
+              open={isKeywordExpanded}
+              onOpenChange={setIsKeywordExpanded}
+            >
             <div className="flex gap-2.5 text-zinc-400 w-full">
-              <div className={`flex-1 flex overflow-hidden flex-col justify-center items-start px-3 py-2.5 bg-white rounded-md border border-solid transition-colors ${isInputFocused ? 'border-primary' : 'border-zinc-100'}`}>
+              <div className={`flex-1 flex overflow-hidden flex-col justify-center items-start px-2 py-1 bg-white rounded-md border border-solid transition-colors ${isInputFocused ? 'border-primary' : 'border-zinc-100'}`}>
                 <input
                   type="text"
                   value={activityKeyword}
@@ -573,6 +648,7 @@ function GridCElement({
           </Collapsible>
         </div>
       </div>
+      )}
     </div>
   );
 }

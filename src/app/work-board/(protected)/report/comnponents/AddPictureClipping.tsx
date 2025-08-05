@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,9 +10,34 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import FileUpload from "./FileUpload";
 import { AddPictureProps, UploadedFile } from "./types";
-import {IoClose} from "react-icons/io5"
 
-function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onImagesAdded, imageIndex = 0, mode = 'single', hasImage = false, maxImageCount }: AddPictureProps) {
+// Konva 동적 임포트
+import type { Stage as StageType, Layer as LayerType, Image as ImageType, Group as GroupType } from "react-konva";
+import type Konva from "konva";
+
+// 동적 임포트를 위한 변수
+let Stage: typeof StageType | null = null;
+let Layer: typeof LayerType | null = null;
+let KonvaImage: typeof ImageType | null = null;
+let Group: typeof GroupType | null = null;
+let KonvaLib: typeof Konva | null = null;
+
+// 클라이언트 사이드에서만 Konva 로드
+if (typeof window !== 'undefined') {
+  try {
+    const ReactKonva = require('react-konva');
+    Stage = ReactKonva.Stage;
+    Layer = ReactKonva.Layer;
+    KonvaImage = ReactKonva.Image;
+    Group = ReactKonva.Group;
+    KonvaLib = require('konva').default;
+    console.log("✅ AddPictureClipping - Konva 라이브러리 로드 성공");
+  } catch (error) {
+    console.error("❌ AddPictureClipping - Konva 라이브러리 로드 실패:", error);
+  }
+}
+
+function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onImagesAdded, imageIndex = 0, mode = 'single', hasImage = false, maxImageCount, clipPathData, gridId, isClippingEnabled = false, imageTransformData }: AddPictureProps) {
   const [activeTab, setActiveTab] = useState("추천자료");
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
   const [selectedImagesOrder, setSelectedImagesOrder] = useState<number[]>([]); // 선택 순서 추적
@@ -22,6 +47,196 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
   const [isAddPictureModalOpen, setIsAddPictureModalOpen] = useState(false);
   const [createdBlobUrls, setCreatedBlobUrls] = useState<string[]>([]); // 새로 생성된 Blob URL 추적
   const [insertedImageData, setInsertedImageData] = useState<string | null>(null); // 삽입된 이미지 데이터
+
+  // Konva 관련 상태
+  const stageRef = useRef<any>(null);
+  const imageRef = useRef<any>(null);
+  const [konvaImage, setKonvaImage] = useState<HTMLImageElement | null>(null);
+  const [isKonvaLoaded, setIsKonvaLoaded] = useState(false);
+  const [isImageLoading, setIsImageLoading] = useState(false);
+  const [canvasSize, setCanvasSize] = useState({ width: 200, height: 150 }); // 기본 캔버스 크기
+  const [imagePosition, setImagePosition] = useState({ x: 100, y: 75 });
+  const [imageScale, setImageScale] = useState(1);
+  const [originalImageSize, setOriginalImageSize] = useState({ width: 0, height: 0 });
+
+  // 컨테이너 참조
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // 캔버스 크기 동적 조정
+  useEffect(() => {
+    const updateCanvasSize = () => {
+      if (containerRef.current) {
+        const container = containerRef.current;
+        const rect = container.getBoundingClientRect();
+        
+        // 컨테이너 크기에서 여백을 뺀 실제 사용 가능한 공간 계산
+        const availableWidth = Math.max(200, rect.width - 20);
+        const availableHeight = Math.max(150, rect.height - 20);
+        
+        console.log("📏 캔버스 크기 업데이트:", {
+          container: { width: rect.width, height: rect.height },
+          available: { width: availableWidth, height: availableHeight }
+        });
+        
+        setCanvasSize({ 
+          width: Math.round(availableWidth), 
+          height: Math.round(availableHeight) 
+        });
+      }
+    };
+
+    // 초기 크기 설정
+    updateCanvasSize();
+
+    // 윈도우 리사이즈 이벤트 리스너
+    const handleResize = () => {
+      requestAnimationFrame(updateCanvasSize);
+    };
+
+    window.addEventListener('resize', handleResize);
+    
+    // 컨테이너 크기 변화 감지를 위한 ResizeObserver
+    let resizeObserver: ResizeObserver | null = null;
+    if (containerRef.current) {
+      resizeObserver = new ResizeObserver(handleResize);
+      resizeObserver.observe(containerRef.current);
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
+  }, []);
+
+  // Konva 라이브러리 로딩 확인
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null;
+    let attempts = 0;
+    const maxAttempts = 50;
+
+    const checkKonvaLoading = () => {
+      if (typeof window !== 'undefined' && Stage && Layer && KonvaImage && Group) {
+        console.log("✅ AddPictureClipping - Konva 모든 컴포넌트 로드 완료");
+        setIsKonvaLoaded(true);
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        timeoutId = setTimeout(checkKonvaLoading, 100);
+      } else {
+        console.error("❌ AddPictureClipping - Konva 라이브러리 로딩 실패");
+        setIsKonvaLoaded(true); // 에러 상태라도 UI는 표시
+      }
+    };
+
+    checkKonvaLoading();
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, []);
+
+  // 이미지 로드 함수
+  const loadKonvaImage = useCallback((imageUrl: string) => {
+    console.log("🖼️ Konva 이미지 로드 시작:", imageUrl);
+    setIsImageLoading(true);
+
+    const imageObj = new window.Image();
+    imageObj.crossOrigin = "anonymous";
+    
+    imageObj.onload = () => {
+      const imgWidth = imageObj.width;
+      const imgHeight = imageObj.height;
+      
+      console.log("📏 원본 이미지 크기:", { width: imgWidth, height: imgHeight });
+      console.log("🔄 전달받은 이미지 변환 데이터:", imageTransformData);
+      
+      let finalX, finalY, finalScale;
+      
+      // 이미지 변환 데이터가 있으면 그것을 사용, 없으면 기본 계산
+      if (imageTransformData && imageTransformData.width === imgWidth && imageTransformData.height === imgHeight) {
+        // 동일한 이미지의 변환 데이터 사용
+        finalX = imageTransformData.x;
+        finalY = imageTransformData.y;
+        finalScale = imageTransformData.scale;
+        
+        console.log("✅ 기존 이미지 변환 데이터 사용:", {
+          position: { x: finalX, y: finalY },
+          scale: finalScale
+        });
+      } else {
+        // 기본 계산: 캔버스 크기에 맞게 이미지 스케일 계산
+        const scaleX = canvasSize.width / imgWidth;
+        const scaleY = canvasSize.height / imgHeight;
+        finalScale = Math.min(scaleX, scaleY, 1); // 최대 1배까지만 확대
+        
+        // 이미지를 캔버스 중앙에 배치
+        finalX = canvasSize.width / 2;
+        finalY = canvasSize.height / 2;
+        
+        console.log("🔧 기본 계산 사용:", {
+          position: { x: finalX, y: finalY },
+          scale: finalScale,
+          canvasSize
+        });
+      }
+      
+      setOriginalImageSize({ width: imgWidth, height: imgHeight });
+      setImagePosition({ x: finalX, y: finalY });
+      setImageScale(finalScale);
+      setKonvaImage(imageObj);
+      setIsImageLoading(false);
+      
+      console.log("✅ Konva 이미지 로드 완료");
+    };
+
+    imageObj.onerror = () => {
+      console.error("❌ 이미지 로드 실패:", imageUrl);
+      setIsImageLoading(false);
+    };
+
+    imageObj.src = imageUrl;
+  }, [canvasSize, imageTransformData]);
+
+  // 이미지 드래그 핸들러
+  const handleImageDrag = useCallback((e: any) => {
+    if (!isClippingEnabled) {
+      return; // 클리핑 비활성화 시 드래그 비활성화
+    }
+    
+    const newX = e.target.x();
+    const newY = e.target.y();
+    
+    console.log("🚚 이미지 드래그:", { x: newX, y: newY, isClippingEnabled });
+    
+    // 이미지가 캔버스 경계를 벗어나지 않도록 제한
+    const imageWidth = originalImageSize.width * imageScale;
+    const imageHeight = originalImageSize.height * imageScale;
+    
+    const minX = imageWidth / 2;
+    const maxX = canvasSize.width - imageWidth / 2;
+    const minY = imageHeight / 2;
+    const maxY = canvasSize.height - imageHeight / 2;
+    
+    const boundedX = Math.max(minX, Math.min(maxX, newX));
+    const boundedY = Math.max(minY, Math.min(maxY, newY));
+    
+    setImagePosition({ x: boundedX, y: boundedY });
+    
+    // Konva 객체의 실제 위치도 업데이트
+    e.target.x(boundedX);
+    e.target.y(boundedY);
+  }, [isClippingEnabled, imageScale, originalImageSize, canvasSize]);
+
+  // Konva가 로드되고 이미지 URL이 있을 때 자동으로 이미지 로드
+  useEffect(() => {
+    if (isKonvaLoaded && insertedImageData && !konvaImage && !isImageLoading) {
+      console.log("🔄 Konva 로드 완료 후 기존 이미지 자동 로드:", insertedImageData);
+      loadKonvaImage(insertedImageData);
+    }
+  }, [isKonvaLoaded, insertedImageData, konvaImage, isImageLoading, loadKonvaImage]);
 
   // 생성된 Blob URL들 정리 함수
   const cleanupCreatedBlobUrls = () => {
@@ -65,16 +280,16 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
     {
       id:7,
       url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/logo2.png"
-    },
+    }
     ,
     {
       id:8,
-      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bo1.png"
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bo1.webp"
     }
     ,
     {
       id:9,
-      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bo2.png"
+      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bo2.jpg"
     },
     {
       id:10,
@@ -172,9 +387,9 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
     setSelectedUploadedFiles(prev => {
       const newSet = new Set(prev);
       files.forEach((_, index) => {
-                                if (index < files.length) {
-                          return;
-                        }
+        if (index < files.length) {
+          return;
+        }
         newSet.delete(index);
       });
       return newSet;
@@ -216,7 +431,7 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
             return file.preview; // 실패시 기존 URL 사용
           }
         }
-        return file?.preview || '';
+        return file?.preview;
       }).filter(Boolean);
       
       // 새로 생성된 Blob URL들을 상태에 저장
@@ -269,8 +484,13 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
       const selectedImageUrl = imageUrls[0];
       console.log("🖼️ 단일 이미지 모드 적용:", selectedImageUrl);
       
-      // 이미지를 cover 형태로 바로 삽입
+      // Konva 이미지로 로드
       setInsertedImageData(selectedImageUrl);
+      if (isKonvaLoaded) {
+        loadKonvaImage(selectedImageUrl);
+      } else {
+        console.warn("⚠️ Konva가 아직 로드되지 않음, 이미지 URL만 저장");
+      }
       
       // 부모 컴포넌트에 이미지 추가 상태 알림
       if (onImageAdded) {
@@ -299,15 +519,37 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
       uploadedFiles.forEach(file => {
         URL.revokeObjectURL(file.preview);
       });
+      
+      // Konva 이미지 정리
+      if (konvaImage) {
+        setKonvaImage(null);
+      }
+      
+      // 생성된 Blob URL들 정리
+      cleanupCreatedBlobUrls();
     };
-  }, [uploadedFiles]);
+  }, [uploadedFiles, konvaImage]);
 
 
 
   return (
     <>
       <Dialog open={isAddPictureModalOpen} onOpenChange={setIsAddPictureModalOpen}>
-        <div className="relative h-full w-full">
+        <div ref={containerRef} className="relative h-full w-full">
+          {/* SVG 클리핑 마스크 정의 - 클리핑이 활성화되고 클리핑 데이터가 있을 때만 */}
+          {isClippingEnabled && clipPathData && gridId && (
+            <svg width="0" height="0" className="absolute">
+              <defs>
+                <clipPath
+                  id={`clip-${clipPathData.id}-${gridId}`}
+                  clipPathUnits="objectBoundingBox"
+                >
+                  <path d={clipPathData.pathData} />
+                </clipPath>
+              </defs>
+            </svg>
+          )}
+
           {/* 이미지가 없거나 (multiple 모드이면서 hasImage가 false)일 때만 DialogTrigger 표시 */}
           {(mode === 'single' && !insertedImageData) || (mode === 'multiple' && !hasImage) ? (
             <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -318,38 +560,147 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
             mode === 'multiple' && hasImage && children
           )}
           
-          {/* 추출된 이미지가 있고 single 모드일 때만 전체 div에 표시 */}
-          {insertedImageData && mode === 'single' && (
+          {/* Konva Canvas로 이미지 표시 - single 모드일 때만 */}
+          {insertedImageData && mode === 'single' && isKonvaLoaded && (
             <div className="relative w-full h-full">
-              {/* pre-clipping-image 영역 - 캔버스 */}
-              <div className="pre-clipping-image relative w-full h-full cursor-default">
-                <canvas
-                  className="w-full h-full object-cover rounded-[15px]"
+              {/* 클리핑이 활성화된 경우의 렌더링 */}
+              {isClippingEnabled && clipPathData && gridId ? (
+                <div 
+                  className="relative w-full h-full"
                   style={{
-                    backgroundImage: `url(${insertedImageData})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    backgroundRepeat: 'no-repeat'
+                    clipPath: `url(#clip-${clipPathData.id}-${gridId})`,
                   }}
-                />
-                {/* 이미지 위에 정보 표시 */}
-              </div>
-              
-              {/* X 버튼 - 이미지 삭제 */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setInsertedImageData(null);
-                  // 부모 컴포넌트에 이미지 삭제 상태 알림
-                  if (onImageAdded) {
-                    onImageAdded(false);
-                  }
+                >
+                  {/* 클리핑된 상태에서도 동일한 위치/스케일로 표시 */}
+                  {konvaImage && imageTransformData ? (
+                    <div 
+                      style={{
+                        position: 'relative',
+                        width: '100%',
+                        height: '100%',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <img 
+                        src={insertedImageData} 
+                        alt="클리핑된 이미지"
+                        style={{
+                          position: 'absolute',
+                          left: `${imageTransformData.x - (imageTransformData.width * imageTransformData.scale) / 2}px`,
+                          top: `${imageTransformData.y - (imageTransformData.height * imageTransformData.scale) / 2}px`,
+                          width: `${imageTransformData.width * imageTransformData.scale}px`,
+                          height: `${imageTransformData.height * imageTransformData.scale}px`,
+                          objectFit: 'cover'
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <img 
+                      src={insertedImageData} 
+                      alt="클리핑된 이미지"
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                </div>
+              ) : (
+                /* 클리핑이 비활성화된 경우 Konva 캔버스로 표시 */
+                <div className="relative w-full h-full">
+                  {isImageLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
+                      <div className="text-gray-500 text-sm">이미지 로딩 중...</div>
+                    </div>
+                  )}
+                  
+                  {Stage && Layer && KonvaImage && Group && (
+                    <Stage 
+                      width={canvasSize.width} 
+                      height={canvasSize.height} 
+                      ref={stageRef}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: 'transparent'
+                      }}
+                    >
+                      <Layer>
+                        {konvaImage && (
+                          <Group>
+                            <KonvaImage
+                              ref={imageRef}
+                              image={konvaImage}
+                              x={imagePosition.x}
+                              y={imagePosition.y}
+                              width={originalImageSize.width}
+                              height={originalImageSize.height}
+                              scaleX={imageScale}
+                              scaleY={imageScale}
+                              offsetX={originalImageSize.width / 2}
+                              offsetY={originalImageSize.height / 2}
+                              draggable={isClippingEnabled}
+                              onDragMove={handleImageDrag}
+                              style={{
+                                cursor: isClippingEnabled ? 'move' : 'default'
+                              }}
+                            />
+                          </Group>
+                        )}
+                      </Layer>
+                    </Stage>
+                  )}
+                  
+                  {/* 이동 가능 상태 표시 */}
+                  {isClippingEnabled && konvaImage && (
+                    <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                      이미지 이동 가능
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Konva가 로드되지 않았을 때 폴백 */}
+          {insertedImageData && mode === 'single' && !isKonvaLoaded && (
+            <div className="relative w-full h-full">
+              <div 
+                className="relative w-full h-full cursor-default"
+                style={{
+                  clipPath: isClippingEnabled && clipPathData && gridId
+                    ? `url(#clip-${clipPathData.id}-${gridId})`
+                    : "none",
                 }}
-                className="absolute top-2 right-2 w-5 h-5 bg-white rounded-full flex items-center justify-center transition-colors z-10 border-2 border-[#F0F0F]"
-                title="이미지 삭제"
               >
-                <IoClose className="w-4 h-4 text-black" />
-              </button>
+                {/* Konva가 로드되지 않은 경우에도 변환 데이터가 있으면 동일한 위치/스케일 적용 */}
+                {imageTransformData ? (
+                  <div 
+                    style={{
+                      position: 'relative',
+                      width: '100%',
+                      height: '100%',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <img 
+                      src={insertedImageData} 
+                      alt="이미지"
+                      style={{
+                        position: 'absolute',
+                        left: `${imageTransformData.x - (imageTransformData.width * imageTransformData.scale) / 2}px`,
+                        top: `${imageTransformData.y - (imageTransformData.height * imageTransformData.scale) / 2}px`,
+                        width: `${imageTransformData.width * imageTransformData.scale}px`,
+                        height: `${imageTransformData.height * imageTransformData.scale}px`,
+                        objectFit: 'cover'
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <img 
+                    src={insertedImageData} 
+                    alt="이미지"
+                    className="w-full h-full object-cover"
+                  />
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -407,7 +758,7 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
                       <div key={index} className="flex flex-col relative">
                         <div className="relative">
                           <img
-                            src={currentImage?.url || ''}
+                            src={currentImage.url}
                             className={`object-cover rounded-xl aspect-[1.34] w-full cursor-pointer transition-all ${
                               selectedImages.has(index) ? '' : ''
                             }`}
