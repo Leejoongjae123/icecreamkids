@@ -66,12 +66,10 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
       id:7,
       url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/logo2.png"
     },
-    ,
     {
       id:8,
       url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bo1.png"
-    }
-    ,
+    },
     {
       id:9,
       url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bo2.png"
@@ -224,7 +222,9 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
       
       return imageUrls;
     } else if (activeTab !== "내컴퓨터" && selectedImages.size > 0) {
-      return Array.from(selectedImages).map(index => images[index].url);
+      return Array.from(selectedImages)
+        .map(index => images[index]?.url)
+        .filter(Boolean);
     }
     return [];
   };

@@ -1264,70 +1264,72 @@ interface ExtractArea {
             </div>
           )}
           
-          <Stage 
-            width={CANVAS_WIDTH} 
-            height={CANVAS_HEIGHT} 
-            ref={stageRef}
-            onWheel={handleWheel}
-            onMouseMove={handleStageMouseMove}
-            onMouseUp={handleStageMouseUp}
-            style={{
-              backgroundColor: '#ffffff',
-              borderRadius: '8px',
-              maxWidth: '100%',
-              maxHeight: '100%',
-            }}
-          >
-            <Layer>
-              {/* 배경 */}
-              <Rect
-                x={0}
-                y={0}
-                width={CANVAS_WIDTH}
-                height={CANVAS_HEIGHT}
-                fill="#ffffff"
-              />
+          {/* Konva 컴포넌트들이 로드되었을 때만 렌더링 */}
+          {(Stage !== null && Layer !== null && Rect !== null && Group !== null && KonvaImage !== null && Transformer !== null) ? (
+            <Stage 
+              width={CANVAS_WIDTH} 
+              height={CANVAS_HEIGHT} 
+              ref={stageRef}
+              onWheel={handleWheel}
+              onMouseMove={handleStageMouseMove}
+              onMouseUp={handleStageMouseUp}
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '8px',
+                maxWidth: '100%',
+                maxHeight: '100%',
+              }}
+            >
+              <Layer>
+                {/* 배경 */}
+                <Rect
+                  x={0}
+                  y={0}
+                  width={CANVAS_WIDTH}
+                  height={CANVAS_HEIGHT}
+                  fill="#ffffff"
+                />
 
-              {/* 이미지 */}
-              {konvaImage && (
-                <>
-                  {/* 드래그 중이 아닐 때만 클리핑 적용 */}
-                  <Group
-                    clipX={isDragging ? 0 : cropArea.x}
-                    clipY={isDragging ? 0 : cropArea.y}
-                    clipWidth={isDragging ? CANVAS_WIDTH : cropArea.width}
-                    clipHeight={isDragging ? CANVAS_HEIGHT : cropArea.height}
-                  >
-                    <KonvaImage
-                      ref={imageRef}
-                      image={konvaImage}
-                      x={imageData.x}
-                      y={imageData.y}
-                      width={imageData.width}
-                      height={imageData.height}
-                      scaleX={imageData.scaleX}
-                      scaleY={imageData.scaleY}
-                      rotation={imageData.rotation}
-                      offsetX={imageData.width / 2}
-                      offsetY={imageData.height / 2}
-                      draggable={true} // 모든 모드에서 드래그 가능
-                      onDragStart={handleImageDragStart}
-                      onDragMove={handleImageDrag}
-                      onDragEnd={handleImageDragEnd}
-                      onTransformEnd={handleTransformEnd}
-                    />
-                  </Group>
+                {/* 이미지 */}
+                {konvaImage && (
+                  <>
+                    {/* 드래그 중이 아닐 때만 클리핑 적용 */}
+                    <Group
+                      clipX={isDragging ? 0 : cropArea.x}
+                      clipY={isDragging ? 0 : cropArea.y}
+                      clipWidth={isDragging ? CANVAS_WIDTH : cropArea.width}
+                      clipHeight={isDragging ? CANVAS_HEIGHT : cropArea.height}
+                    >
+                      <KonvaImage
+                        ref={imageRef}
+                        image={konvaImage}
+                        x={imageData.x}
+                        y={imageData.y}
+                        width={imageData.width}
+                        height={imageData.height}
+                        scaleX={imageData.scaleX}
+                        scaleY={imageData.scaleY}
+                        rotation={imageData.rotation}
+                        offsetX={imageData.width / 2}
+                        offsetY={imageData.height / 2}
+                        draggable={true} // 모든 모드에서 드래그 가능
+                        onDragStart={handleImageDragStart}
+                        onDragMove={handleImageDrag}
+                        onDragEnd={handleImageDragEnd}
+                        onTransformEnd={handleTransformEnd}
+                      />
+                    </Group>
 
-                  {/* Transformer - 편집 모드에서만 표시 */}
-                  {editMode === 'edit' && (
-                    <Transformer
-                      ref={transformerRef}
-                      flipEnabled={false}
-                      rotateEnabled={true}
-                      borderDash={[3, 3]}
-                      borderStroke="#3D8BFF"
-                      borderStrokeWidth={2}
-                      anchorFill="#ffffff"
+                    {/* Transformer - 편집 모드에서만 표시 */}
+                    {editMode === 'edit' && (
+                      <Transformer
+                        ref={transformerRef}
+                        flipEnabled={false}
+                        rotateEnabled={true}
+                        borderDash={[3, 3]}
+                        borderStroke="#3D8BFF"
+                        borderStrokeWidth={2}
+                        anchorFill="#ffffff"
                       anchorStroke="#3D8BFF"
                       anchorStrokeWidth={2}
                       anchorSize={12}
@@ -1404,6 +1406,25 @@ interface ExtractArea {
               )}
             </Layer>
           </Stage>
+          ) : (
+            <div 
+              style={{
+                width: CANVAS_WIDTH,
+                height: CANVAS_HEIGHT,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#f5f5f5',
+                borderRadius: '8px',
+                border: '2px dashed #ccc'
+              }}
+            >
+              <div style={{ color: '#666', textAlign: 'center' }}>
+                <div>캔버스 로딩 중...</div>
+                <div style={{ fontSize: '12px', marginTop: '8px' }}>Konva 라이브러리를 불러오고 있습니다.</div>
+              </div>
+            </div>
+          )}
         </div>
 
 
