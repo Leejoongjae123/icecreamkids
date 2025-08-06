@@ -1274,20 +1274,20 @@ interface ExtractArea {
               onMouseMove={handleStageMouseMove}
               onMouseUp={handleStageMouseUp}
               style={{
-                backgroundColor: '#ffffff',
+                backgroundColor: 'transparent',
                 borderRadius: '8px',
                 maxWidth: '100%',
                 maxHeight: '100%',
               }}
             >
               <Layer>
-                {/* 배경 */}
+                {/* 배경 - 투명하게 설정 */}
                 <Rect
                   x={0}
                   y={0}
                   width={CANVAS_WIDTH}
                   height={CANVAS_HEIGHT}
-                  fill="#ffffff"
+                  fill="transparent"
                 />
 
                 {/* 이미지 */}

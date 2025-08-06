@@ -16,6 +16,7 @@ interface SortableGridCItemProps {
   onDelete?: () => void;
   onImageUpload: (gridId: string, imageUrl: string) => void;
   isOverlay?: boolean;
+  style?: React.CSSProperties;
 }
 
 function SortableGridCItem({
@@ -29,6 +30,7 @@ function SortableGridCItem({
   onDelete,
   onImageUpload,
   isOverlay = false,
+  style,
 }: SortableGridCItemProps) {
   const {
     attributes,
@@ -43,6 +45,7 @@ function SortableGridCItem({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    ...style, // 그리드 레이아웃 스타일 적용
   };
 
   return (

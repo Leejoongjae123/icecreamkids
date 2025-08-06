@@ -161,30 +161,136 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
 
   const activeItem = items.find(item => item.id === activeId);
 
-  // 그리드 컬럼 수 계산 (최대 3컬럼)
-  const getGridCols = () => {
-    if (photoCount <= 3) {
-      return photoCount;
+  // photo 값에 따른 그리드 레이아웃 설정
+  const getGridLayoutConfig = () => {
+    switch (photoCount) {
+      case 1:
+        // 1개: 전체를 하나로 구성
+        return {
+          className: "grid grid-cols-1 grid-rows-1 gap-4 w-full h-full max-w-4xl mx-auto",
+          itemStyles: {
+            0: { gridColumn: "1 / -1", gridRow: "1 / -1" }
+          } as Record<number, React.CSSProperties>
+        };
+      
+      case 2:
+        // 2개: 전체를 가로로 2개 배치
+        return {
+          className: "grid grid-cols-2 grid-rows-1 gap-4 w-full h-full max-w-4xl mx-auto",
+          itemStyles: {
+            0: { gridColumn: "1", gridRow: "1" },
+            1: { gridColumn: "2", gridRow: "1" }
+          } as Record<number, React.CSSProperties>
+        };
+      
+      case 3:
+        // 3개: 2x2격자에서 1,1과 1,2를 합치고 2,1과 2,2는 별도로 구성
+        return {
+          className: "grid grid-cols-2 grid-rows-2 gap-4 w-full h-full max-w-4xl mx-auto",
+          itemStyles: {
+            0: { gridColumn: "1 / 3", gridRow: "1" }, // 첫 번째 행 전체
+            1: { gridColumn: "1", gridRow: "2" },      // 두 번째 행 왼쪽
+            2: { gridColumn: "2", gridRow: "2" }       // 두 번째 행 오른쪽
+          } as Record<number, React.CSSProperties>
+        };
+      
+      case 4:
+        // 4개: 2x2격자로 구성
+        return {
+          className: "grid grid-cols-2 grid-rows-2 gap-4 w-full h-full max-w-4xl mx-auto",
+          itemStyles: {
+            0: { gridColumn: "1", gridRow: "1" },
+            1: { gridColumn: "2", gridRow: "1" },
+            2: { gridColumn: "1", gridRow: "2" },
+            3: { gridColumn: "2", gridRow: "2" }
+          } as Record<number, React.CSSProperties>
+        };
+      
+      case 5:
+        // 5개: 3x3격자에서 1,1과 1,2와 2,1과 2,2를 합치고, 3,2와 3,3을 합치고, 나머지는 개별격자로 구성
+        return {
+          className: "grid grid-cols-3 grid-rows-3 gap-4 w-full h-full max-w-4xl mx-auto",
+          itemStyles: {
+            0: { gridColumn: "1 / 3", gridRow: "1 / 3" }, // 큰 영역 (1,1부터 2,2까지)
+            1: { gridColumn: "3", gridRow: "1" },          // 오른쪽 위 (3,1)
+            2: { gridColumn: "3", gridRow: "2" },          // 오른쪽 중간 (3,2)
+            3: { gridColumn: "1", gridRow: "3" },          // 아래쪽 왼쪽 (1,3)
+            4: { gridColumn: "2 / 4", gridRow: "3" }       // 아래쪽 오른쪽 합친 영역 (2,3부터 3,3까지)
+          } as Record<number, React.CSSProperties>
+        };
+      
+      case 6:
+        // 6개: 3x3격자에서 1,1과 1,2와 2,1과 2,2를 합치고 나머지는 개별격자로 구성
+        return {
+          className: "grid grid-cols-3 grid-rows-3 gap-4 w-full h-full max-w-4xl mx-auto",
+          itemStyles: {
+            0: { gridColumn: "1 / 3", gridRow: "1 / 3" }, // 큰 영역 (1,1부터 2,2까지)
+            1: { gridColumn: "3", gridRow: "1" },          // 오른쪽 위 (3,1)
+            2: { gridColumn: "3", gridRow: "2" },          // 오른쪽 중간 (3,2)
+            3: { gridColumn: "1", gridRow: "3" },          // 아래쪽 왼쪽 (1,3)
+            4: { gridColumn: "2", gridRow: "3" },          // 아래쪽 중간 (2,3)
+            5: { gridColumn: "3", gridRow: "3" }           // 아래쪽 오른쪽 (3,3)
+          } as Record<number, React.CSSProperties>
+        };
+      
+      case 7:
+        // 7개: 3x3격자에서 1,1과 1,2를 합치고 3,2와 3,3을 합치고 나머지는 개별격자로 구성
+        return {
+          className: "grid grid-cols-3 grid-rows-3 gap-4 w-full h-full max-w-4xl mx-auto",
+          itemStyles: {
+            0: { gridColumn: "1 / 3", gridRow: "1" },      // 첫 번째 행 합친 영역 (1,1부터 1,2까지)
+            1: { gridColumn: "3", gridRow: "1" },          // 오른쪽 위 (3,1)
+            2: { gridColumn: "1", gridRow: "2" },          // 두 번째 행 왼쪽 (1,2)
+            3: { gridColumn: "2", gridRow: "2" },          // 두 번째 행 중간 (2,2)
+            4: { gridColumn: "3", gridRow: "2" },          // 두 번째 행 오른쪽 (3,2)
+            5: { gridColumn: "1", gridRow: "3" },          // 세 번째 행 왼쪽 (1,3)
+            6: { gridColumn: "2 / 4", gridRow: "3" }       // 세 번째 행 합친 영역 (2,3부터 3,3까지)
+          } as Record<number, React.CSSProperties>
+        };
+      
+      case 8:
+        // 8개: 3x3격자에서 3,2와 3,3을 합치고 나머지는 개별격자로 구성
+        return {
+          className: "grid grid-cols-3 grid-rows-3 gap-4 w-full h-full max-w-4xl mx-auto",
+          itemStyles: {
+            0: { gridColumn: "1", gridRow: "1" },          // (1,1)
+            1: { gridColumn: "2", gridRow: "1" },          // (2,1)
+            2: { gridColumn: "3", gridRow: "1" },          // (3,1)
+            3: { gridColumn: "1", gridRow: "2" },          // (1,2)
+            4: { gridColumn: "2", gridRow: "2" },          // (2,2)
+            5: { gridColumn: "3", gridRow: "2" },          // (3,2)
+            6: { gridColumn: "1", gridRow: "3" },          // (1,3)
+            7: { gridColumn: "2 / 4", gridRow: "3" }       // 세 번째 행 합친 영역 (2,3부터 3,3까지)
+          } as Record<number, React.CSSProperties>
+        };
+      
+      case 9:
+        // 9개: 3x3격자로 구성
+        return {
+          className: "grid grid-cols-3 grid-rows-3 gap-4 w-full h-full max-w-4xl mx-auto",
+          itemStyles: {
+            0: { gridColumn: "1", gridRow: "1" },          // (1,1)
+            1: { gridColumn: "2", gridRow: "1" },          // (2,1)
+            2: { gridColumn: "3", gridRow: "1" },          // (3,1)
+            3: { gridColumn: "1", gridRow: "2" },          // (1,2)
+            4: { gridColumn: "2", gridRow: "2" },          // (2,2)
+            5: { gridColumn: "3", gridRow: "2" },          // (3,2)
+            6: { gridColumn: "1", gridRow: "3" },          // (1,3)
+            7: { gridColumn: "2", gridRow: "3" },          // (2,3)
+            8: { gridColumn: "3", gridRow: "3" }           // (3,3)
+          } as Record<number, React.CSSProperties>
+        };
+      
+      default:
+        // 기본값 (기존 로직)
+        const cols = Math.min(photoCount, 3);
+        const rows = Math.ceil(photoCount / cols);
+        return {
+          className: `grid grid-cols-${cols} gap-4 w-full h-full max-w-4xl mx-auto`,
+          itemStyles: {} as Record<number, React.CSSProperties>,
+          gridTemplateRows: `repeat(${rows}, 1fr)`
+        };
     }
-    return 3;
-  };
-
-  // 그리드 클래스 생성
-  const getGridClass = () => {
-    const cols = getGridCols();
-    const colsClass = `grid-cols-${cols}`;
-    return `grid ${colsClass} gap-4 w-full h-full max-w-4xl mx-auto`;
-  };
-
-  // 그리드 스타일 생성 - 높이를 고정하고 균등하게 배분
-  const getGridStyle = () => {
-    const cols = getGridCols();
-    const rows = Math.ceil(photoCount / cols);
-    
-    return {
-      gridTemplateRows: `repeat(${rows}, 1fr)`,
-      height: "100%"
-    };
   };
 
   return (
@@ -199,21 +305,27 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
         strategy={rectSortingStrategy}
       >
         <div className="w-full h-full relative flex flex-col">
-          <div className={getGridClass()} style={getGridStyle()}>
-            {items.map((item) => (
-              <SortableGridCItem
-                key={item.id}
-                id={item.id}
-                index={item.index}
-                clipPathData={item.clipPathData}
-                imageUrl={item.imageUrl}
-                isClippingEnabled={isClippingEnabled}
-                isSelected={selectedItems.has(item.id)}
-                onSelectChange={(isSelected) => handleSelectChange(item.id, isSelected)}
-                onDelete={() => handleDelete(item.id)}
-                onImageUpload={handleImageUpload}
-              />
-            ))}
+          <div className={getGridLayoutConfig().className}>
+            {items.map((item, index) => {
+              const layoutConfig = getGridLayoutConfig();
+              const itemStyle = layoutConfig.itemStyles[index] || {};
+              
+              return (
+                <SortableGridCItem
+                  key={item.id}
+                  id={item.id}
+                  index={item.index}
+                  clipPathData={item.clipPathData}
+                  imageUrl={item.imageUrl}
+                  isClippingEnabled={isClippingEnabled}
+                  isSelected={selectedItems.has(item.id)}
+                  onSelectChange={(isSelected) => handleSelectChange(item.id, isSelected)}
+                  onDelete={() => handleDelete(item.id)}
+                  onImageUpload={handleImageUpload}
+                  style={itemStyle}
+                />
+              );
+            })}
           </div>
         </div>
       </SortableContext>
