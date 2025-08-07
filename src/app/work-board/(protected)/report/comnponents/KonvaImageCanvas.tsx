@@ -548,7 +548,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
           height={canvasSize.height} 
           ref={stageRef}
           style={{
-            backgroundColor: '#f8f9fa',
+            backgroundColor: 'transparent',
             borderRadius: '12px',
             width: '100%',
             height: '100%'
@@ -562,13 +562,18 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
                   <KonvaImage
                     ref={imageRef}
                     image={clippedImage}
-                    x={canvasSize.width / 2}
-                    y={canvasSize.height / 2}
+                    x={imagePosition.x}
+                    y={imagePosition.y}
                     width={(clipBounds.right - clipBounds.left) * canvasSize.width}
                     height={(clipBounds.bottom - clipBounds.top) * canvasSize.height}
                     offsetX={(clipBounds.right - clipBounds.left) * canvasSize.width / 2}
                     offsetY={(clipBounds.bottom - clipBounds.top) * canvasSize.height / 2}
-                    draggable={false}
+                    draggable={!isPlaceholder && (!isClippingEnabled || isClippingApplied)}
+                    onDragMove={handleImageDrag}
+                    onTransformEnd={handleTransformEnd}
+                    style={{
+                      cursor: (!isPlaceholder && (!isClippingEnabled || isClippingApplied)) ? 'move' : 'default'
+                    }}
                   />
                 ) : (
                   <KonvaImage
@@ -760,18 +765,17 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
         
         {/* 클리핑 모드 토글 플로팅 버튼 */}
         {!isPlaceholder && !isClippingApplied && (
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-50">
             <Button
               onClick={toggleClippingMode}
-              className={`h-12 px-4 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl ${
+              className={`h-10 px-4 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl text-lg ${
                 isClippingMode 
-                  ? 'bg-red-500 hover:bg-red-600 text-white' 
-                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+                  ? 'bg-primary text-white' 
+                  : 'bg-primary text-white'
               }`}
               size="sm"
             >
-              <Crop className="w-4 h-4 mr-2" />
-              {isClippingMode ? '오려내기 완료' : '오려내기 시작'}
+              {isClippingMode ? '크롭 완료' : '크롭 시작'}
             </Button>
           </div>
         )}

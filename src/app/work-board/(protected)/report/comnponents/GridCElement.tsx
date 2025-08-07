@@ -294,6 +294,13 @@ function GridCElement({
           />
         </div>
 
+        {/* 그리드 번호 - 좌측 상단 체크박스 아래 */}
+        <div className="absolute top-8 left-2 z-30 pointer-events-none">
+          <div className="flex items-center justify-center w-6 h-6 bg-primary text-white text-xs font-bold rounded-full shadow-md">
+            {index + 1}
+          </div>
+        </div>
+
         {/* 삭제 버튼 - 우측 상단 */}
        
 

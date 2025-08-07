@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+/* 드래그 앤 드롭 최적화 */
+.dnd-item {
+  backface-visibility: hidden;
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
+
+.dnd-overlay {
+  pointer-events: none;
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* 부드러운 드래그를 위한 GPU 가속 */
+.will-change-transform {
+  will-change: transform;
+}
+
+/* 드래그 중일 때 transition 비활성화 */
+.transition-none {
+  transition: none !important;
+}

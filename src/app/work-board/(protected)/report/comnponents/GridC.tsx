@@ -3,6 +3,8 @@ import * as React from "react";
 import {
   DndContext,
   closestCenter,
+  rectIntersection,
+  pointerWithin,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -10,6 +12,7 @@ import {
   DragEndEvent,
   DragStartEvent,
   DragOverlay,
+  CollisionDetection,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -76,10 +79,17 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     setItems(newItems);
     // 아이템이 변경되면 선택 상태 초기화
     setSelectedItems(new Set());
+    // photoCount가 3일 때 큰 아이템 위치 초기화 (기본값: 위쪽)
+    if (photoCount === 3) {
+      setLargeItemPosition(0);
+    }
   }, [photoCount]);
 
   // 현재 드래그 중인 아이템
   const [activeId, setActiveId] = React.useState<string | null>(null);
+
+  // photoCount가 3일 때 큰 아이템의 위치 추적 (0: 위쪽, 2: 아래쪽)
+  const [largeItemPosition, setLargeItemPosition] = React.useState<number>(0);
 
   // 센서 설정
   const sensors = useSensors(
@@ -93,12 +103,49 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     })
   );
 
+  // 커스텀 collision detection - 다양한 크기의 그리드를 고려
+  const customCollisionDetection: CollisionDetection = (args) => {
+    // 1) 포인터가 위치한 droppable 우선
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) {
+      return pointerCollisions;
+    }
+
+    // 2) 사각형 교차 영역 확인
+    const rectCollisions = rectIntersection(args);
+    if (rectCollisions.length > 0) {
+      return rectCollisions;
+    }
+
+    // 3) 마지막으로 center 기준
+    return closestCenter(args);
+  };
+
+  // photoCount가 3일 때 레이아웃 재계산 함수
+  const recalculateLayoutForPhoto3 = (items: GridCItem[], targetLargeIndex: number): GridCItem[] => {
+    if (photoCount !== 3) {
+      return items;
+    }
+    
+    // 2x2 그리드에서 큰 아이템은 첫 번째 위치(0) 또는 마지막 위치(2)에만 가능
+    // targetLargeIndex가 마지막 위치일 때만 마지막으로, 나머지는 첫 번째로
+    const largeIndex = targetLargeIndex === items.length - 1 ? items.length - 1 : 0;
+    
+    // 큰 아이템 위치 state 업데이트
+    setLargeItemPosition(largeIndex);
+    
+    return items.map((item, index) => ({
+      ...item,
+      index,
+    }));
+  };
+
   // 드래그 시작 핸들러
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   };
 
-  // 드래그 종료 핸들러
+  // 드래그 종료 핸들러 (GridA와 동일한 로직)
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -111,14 +158,41 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
           return currentItems;
         }
 
-        // 배열 위치 이동
+        // 배열 위치 이동 (arrayMove 사용)
         const reorderedItems = arrayMove(currentItems, activeIndex, overIndex);
         
-        // 인덱스 재정렬
-        return reorderedItems.map((item, index) => ({
-          ...item,
-          index
-        }));
+        // photoCount가 3이 아닌 경우 단순 위치 이동만 처리
+        if (photoCount !== 3) {
+          return reorderedItems.map((item, index) => ({
+            ...item,
+            index
+          }));
+        }
+        
+        // photoCount가 3인 경우만 큰 아이템 로직 처리
+        // 큰 아이템은 첫 번째(위쪽 큰 영역) 또는 마지막(아래쪽 큰 영역)에 위치
+        const isLargeAtTop = (index: number) => index === 0;
+        const isLargeAtBottom = (index: number) => index === 2;
+        const isCurrentlyLargeAtTop = isLargeAtTop(0); // 항상 현재 레이아웃에서 첫 번째가 큰 영역
+        
+        // 드래그된 아이템이 첫 번째나 마지막 위치로 이동한 경우
+        const activeWasFirst = activeIndex === 0;
+        const overIsFirst = overIndex === 0;
+        const overIsLast = overIndex === 2;
+        
+        if (activeWasFirst) {
+          // 첫 번째(큰) 아이템을 드래그한 경우
+          return recalculateLayoutForPhoto3(reorderedItems, overIndex);
+        } else if (overIsFirst || overIsLast) {
+          // 작은 아이템을 첫 번째나 마지막 위치로 드래그한 경우
+          return recalculateLayoutForPhoto3(reorderedItems, overIndex);
+        } else {
+          // 작은 아이템들끼리의 위치 변경
+          return reorderedItems.map((item, index) => ({
+            ...item,
+            index
+          }));
+        }
       });
     }
 
@@ -162,7 +236,7 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
   const activeItem = items.find(item => item.id === activeId);
 
   // photo 값에 따른 그리드 레이아웃 설정
-  const getGridLayoutConfig = () => {
+  const getGridLayoutConfig = (currentItems: GridCItem[] = items) => {
     switch (photoCount) {
       case 1:
         // 1개: 전체를 하나로 구성
@@ -184,13 +258,24 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
         };
       
       case 3:
-        // 3개: 2x2격자에서 1,1과 1,2를 합치고 2,1과 2,2는 별도로 구성
+        // 3개: 2x2격자에서 큰 아이템 위치에 따라 동적 레이아웃
+        // 큰 아이템이 위에 있으면: 첫 번째 행 전체 + 두 번째 행 좌우
+        // 큰 아이템이 아래에 있으면: 첫 번째 행 좌우 + 두 번째 행 전체
+        
+        // largeItemPosition state를 사용하여 큰 아이템 위치 결정
+        const isLargeAtBottom = largeItemPosition === 2;
+        const isLargeAtTop = !isLargeAtBottom;
+        
         return {
           className: "grid grid-cols-2 grid-rows-2 gap-4 w-full h-full max-w-4xl mx-auto",
-          itemStyles: {
-            0: { gridColumn: "1 / 3", gridRow: "1" }, // 첫 번째 행 전체
-            1: { gridColumn: "1", gridRow: "2" },      // 두 번째 행 왼쪽
-            2: { gridColumn: "2", gridRow: "2" }       // 두 번째 행 오른쪽
+          itemStyles: isLargeAtTop ? {
+            0: { gridColumn: "1 / 3", gridRow: "1" }, // 첫 번째 행 전체 (큰 아이템)
+            1: { gridColumn: "1", gridRow: "2" },      // 두 번째 행 왼쪽 (작은 아이템)
+            2: { gridColumn: "2", gridRow: "2" }       // 두 번째 행 오른쪽 (작은 아이템)
+          } : {
+            0: { gridColumn: "1", gridRow: "1" },      // 첫 번째 행 왼쪽 (작은 아이템)
+            1: { gridColumn: "2", gridRow: "1" },      // 첫 번째 행 오른쪽 (작은 아이템)  
+            2: { gridColumn: "1 / 3", gridRow: "2" }   // 두 번째 행 전체 (큰 아이템)
           } as Record<number, React.CSSProperties>
         };
       
@@ -296,7 +381,7 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={customCollisionDetection}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
