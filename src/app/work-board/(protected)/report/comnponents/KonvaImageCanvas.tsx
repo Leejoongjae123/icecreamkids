@@ -1,10 +1,25 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from "react";
+import React, { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle, useMemo } from "react";
 import type { Stage as StageType, Layer as LayerType, Image as ImageType, Group as GroupType, Transformer as TransformerType, Rect as RectType, Line as LineType } from "react-konva";
 import type Konva from "konva";
 import { Button } from "@/components/ui/button";
 import { Crop } from "lucide-react";
+
+// throttle 함수 - 드래그 성능 최적화를 위함
+const throttle = <T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): T => {
+  let inThrottle: boolean;
+  return ((...args: any[]) => {
+    if (!inThrottle) {
+      func.apply(null, args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  }) as T;
+};
 
 // 동적 임포트를 위한 변수
 let Stage: typeof StageType | null = null;
@@ -331,8 +346,8 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
       node.scaleY(scale);
     }, [onImageTransformUpdate, initialImageData]);
 
-    // 이미지 경계 계산 함수
-    const getImageBounds = useCallback(() => {
+    // 이미지 경계 계산 - useMemo로 최적화
+    const imageBounds = useMemo(() => {
       if (!initialImageData) {
         return { left: 0, top: 0, right: 1, bottom: 1 };
       }
@@ -348,30 +363,72 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
       return { left, top, right, bottom };
     }, [initialImageData, imageScale, imagePosition, canvasSize]);
 
-    // 클리핑 핸들 드래그 핸들러들 (이미지 경계 제한 포함)
+    // 클리핑 핸들 드래그 핸들러들 - throttling 적용으로 성능 최적화
+    const updateClipBounds = useCallback(
+      throttle((newBounds: Partial<typeof clipBounds>) => {
+        setClipBounds(prev => ({ ...prev, ...newBounds }));
+      }, 16) // 60fps (약 16ms마다 업데이트)
+    , []);
+
     const handleLeftClipDrag = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
-      const imageBounds = getImageBounds();
-      const newLeft = Math.max(imageBounds.left, Math.min(clipBounds.right - 0.05, e.target.x() / canvasSize.width));
-      setClipBounds(prev => ({ ...prev, left: newLeft }));
-    }, [clipBounds.right, canvasSize.width, getImageBounds]);
+      const newX = e.target.x();
+      const normalizedX = newX / canvasSize.width;
+      const constrainedLeft = Math.max(
+        imageBounds.left, 
+        Math.min(clipBounds.right - 0.05, normalizedX)
+      );
+      
+      // 즉시 핸들 위치 업데이트 (시각적 반응성)
+      e.target.x(constrainedLeft * canvasSize.width);
+      
+      // throttled 상태 업데이트
+      updateClipBounds({ left: constrainedLeft });
+    }, [clipBounds.right, canvasSize.width, imageBounds, updateClipBounds]);
 
     const handleRightClipDrag = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
-      const imageBounds = getImageBounds();
-      const newRight = Math.max(clipBounds.left + 0.05, Math.min(imageBounds.right, e.target.x() / canvasSize.width));
-      setClipBounds(prev => ({ ...prev, right: newRight }));
-    }, [clipBounds.left, canvasSize.width, getImageBounds]);
+      const newX = e.target.x();
+      const normalizedX = newX / canvasSize.width;
+      const constrainedRight = Math.max(
+        clipBounds.left + 0.05, 
+        Math.min(imageBounds.right, normalizedX)
+      );
+      
+      // 즉시 핸들 위치 업데이트 (시각적 반응성)
+      e.target.x(constrainedRight * canvasSize.width);
+      
+      // throttled 상태 업데이트
+      updateClipBounds({ right: constrainedRight });
+    }, [clipBounds.left, canvasSize.width, imageBounds, updateClipBounds]);
 
     const handleTopClipDrag = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
-      const imageBounds = getImageBounds();
-      const newTop = Math.max(imageBounds.top, Math.min(clipBounds.bottom - 0.05, e.target.y() / canvasSize.height));
-      setClipBounds(prev => ({ ...prev, top: newTop }));
-    }, [clipBounds.bottom, canvasSize.height, getImageBounds]);
+      const newY = e.target.y();
+      const normalizedY = newY / canvasSize.height;
+      const constrainedTop = Math.max(
+        imageBounds.top, 
+        Math.min(clipBounds.bottom - 0.05, normalizedY)
+      );
+      
+      // 즉시 핸들 위치 업데이트 (시각적 반응성)
+      e.target.y(constrainedTop * canvasSize.height);
+      
+      // throttled 상태 업데이트
+      updateClipBounds({ top: constrainedTop });
+    }, [clipBounds.bottom, canvasSize.height, imageBounds, updateClipBounds]);
 
     const handleBottomClipDrag = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
-      const imageBounds = getImageBounds();
-      const newBottom = Math.max(clipBounds.top + 0.05, Math.min(imageBounds.bottom, e.target.y() / canvasSize.height));
-      setClipBounds(prev => ({ ...prev, bottom: newBottom }));
-    }, [clipBounds.top, canvasSize.height, getImageBounds]);
+      const newY = e.target.y();
+      const normalizedY = newY / canvasSize.height;
+      const constrainedBottom = Math.max(
+        clipBounds.top + 0.05, 
+        Math.min(imageBounds.bottom, normalizedY)
+      );
+      
+      // 즉시 핸들 위치 업데이트 (시각적 반응성)
+      e.target.y(constrainedBottom * canvasSize.height);
+      
+      // throttled 상태 업데이트
+      updateClipBounds({ bottom: constrainedBottom });
+    }, [clipBounds.top, canvasSize.height, imageBounds, updateClipBounds]);
 
     // 클리핑 적용 함수 - 디버깅 로그 추가
     const applyClipping = useCallback(() => {
@@ -862,15 +919,23 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
                   fill="transparent"
                 />
 
-                {/* 클리핑 핸들들 */}
+                {/* 클리핑 핸들들 - 최적화된 위치 계산 */}
                 {(() => {
-                  const imageBounds = getImageBounds();
+                  // 핸들 위치 계산을 메모이제이션으로 최적화
+                  const leftHandleX = clipBounds.left * canvasSize.width - 4;
+                  const rightHandleX = clipBounds.right * canvasSize.width - 4;
+                  const topHandleY = clipBounds.top * canvasSize.height - 4;
+                  const bottomHandleY = clipBounds.bottom * canvasSize.height - 4;
+                  
+                  const centerX = clipBounds.left * canvasSize.width + (clipBounds.right - clipBounds.left) * canvasSize.width / 2 - 15;
+                  const centerY = clipBounds.top * canvasSize.height + (clipBounds.bottom - clipBounds.top) * canvasSize.height / 2 - 15;
+                  
                   return (
                     <>
                       {/* 왼쪽 핸들 */}
                       <Rect
-                        x={clipBounds.left * canvasSize.width - 4}
-                        y={clipBounds.top * canvasSize.height + (clipBounds.bottom - clipBounds.top) * canvasSize.height / 2 - 15}
+                        x={leftHandleX}
+                        y={centerY}
                         width={8}
                         height={30}
                         fill="#ffffff"
@@ -878,18 +943,16 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
                         strokeWidth={2}
                         cornerRadius={4}
                         draggable={true}
-                        dragBoundFunc={(pos) => ({
-                          x: Math.max(imageBounds.left * canvasSize.width, Math.min((clipBounds.right - 0.05) * canvasSize.width, pos.x)),
-                          y: clipBounds.top * canvasSize.height + (clipBounds.bottom - clipBounds.top) * canvasSize.height / 2 - 15
-                        })}
+                        perfectDrawEnabled={false} // 성능 최적화
+                        listening={true}
                         onDragMove={handleLeftClipDrag}
                         style={{ cursor: 'ew-resize' }}
                       />
 
                       {/* 오른쪽 핸들 */}
                       <Rect
-                        x={clipBounds.right * canvasSize.width - 4}
-                        y={clipBounds.top * canvasSize.height + (clipBounds.bottom - clipBounds.top) * canvasSize.height / 2 - 15}
+                        x={rightHandleX}
+                        y={centerY}
                         width={8}
                         height={30}
                         fill="#ffffff"
@@ -897,18 +960,16 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
                         strokeWidth={2}
                         cornerRadius={4}
                         draggable={true}
-                        dragBoundFunc={(pos) => ({
-                          x: Math.max((clipBounds.left + 0.05) * canvasSize.width, Math.min(imageBounds.right * canvasSize.width, pos.x)),
-                          y: clipBounds.top * canvasSize.height + (clipBounds.bottom - clipBounds.top) * canvasSize.height / 2 - 15
-                        })}
+                        perfectDrawEnabled={false} // 성능 최적화
+                        listening={true}
                         onDragMove={handleRightClipDrag}
                         style={{ cursor: 'ew-resize' }}
                       />
 
                       {/* 위쪽 핸들 */}
                       <Rect
-                        x={clipBounds.left * canvasSize.width + (clipBounds.right - clipBounds.left) * canvasSize.width / 2 - 15}
-                        y={clipBounds.top * canvasSize.height - 4}
+                        x={centerX}
+                        y={topHandleY}
                         width={30}
                         height={8}
                         fill="#ffffff"
@@ -916,18 +977,16 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
                         strokeWidth={2}
                         cornerRadius={4}
                         draggable={true}
-                        dragBoundFunc={(pos) => ({
-                          x: clipBounds.left * canvasSize.width + (clipBounds.right - clipBounds.left) * canvasSize.width / 2 - 15,
-                          y: Math.max(imageBounds.top * canvasSize.height, Math.min((clipBounds.bottom - 0.05) * canvasSize.height, pos.y))
-                        })}
+                        perfectDrawEnabled={false} // 성능 최적화
+                        listening={true}
                         onDragMove={handleTopClipDrag}
                         style={{ cursor: 'ns-resize' }}
                       />
 
                       {/* 아래쪽 핸들 */}
                       <Rect
-                        x={clipBounds.left * canvasSize.width + (clipBounds.right - clipBounds.left) * canvasSize.width / 2 - 15}
-                        y={clipBounds.bottom * canvasSize.height - 4}
+                        x={centerX}
+                        y={bottomHandleY}
                         width={30}
                         height={8}
                         fill="#ffffff"
@@ -935,10 +994,8 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
                         strokeWidth={2}
                         cornerRadius={4}
                         draggable={true}
-                        dragBoundFunc={(pos) => ({
-                          x: clipBounds.left * canvasSize.width + (clipBounds.right - clipBounds.left) * canvasSize.width / 2 - 15,
-                          y: Math.max((clipBounds.top + 0.05) * canvasSize.height, Math.min(imageBounds.bottom * canvasSize.height, pos.y))
-                        })}
+                        perfectDrawEnabled={false} // 성능 최적화
+                        listening={true}
                         onDragMove={handleBottomClipDrag}
                         style={{ cursor: 'ns-resize' }}
                       />

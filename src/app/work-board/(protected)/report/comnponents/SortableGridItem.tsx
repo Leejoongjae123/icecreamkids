@@ -17,6 +17,8 @@ interface SortableGridItemProps {
   cardType?: 'large' | 'small'; // 카드 타입 추가
   isExpanded?: boolean; // 확장 상태 추가
   onDecreaseSubject?: () => void; // subject 감소 함수 추가
+  imagePositions?: any[]; // 이미지 위치 정보
+  onImagePositionsUpdate?: (positions: any[]) => void; // 이미지 위치 업데이트 핸들러
 }
 
 function SortableGridItem({
@@ -32,6 +34,8 @@ function SortableGridItem({
   cardType,
   isExpanded = false,
   onDecreaseSubject,
+  imagePositions = [],
+  onImagePositionsUpdate,
 }: SortableGridItemProps) {
   const {
     attributes,
@@ -70,6 +74,8 @@ function SortableGridItem({
         cardType={cardType}
         isExpanded={isExpanded}
         onDecreaseSubject={onDecreaseSubject}
+        imagePositions={imagePositions}
+        onImagePositionsUpdate={onImagePositionsUpdate}
       />
     </div>
   );

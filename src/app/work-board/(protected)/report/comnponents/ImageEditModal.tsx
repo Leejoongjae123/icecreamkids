@@ -98,11 +98,21 @@ export default function ImageEditModal({
       console.log("📏 계산된 비율:", width / height);
       
       // 일반적인 비율들에 대해 표준 클래스 사용
-      if (width === 16 && height === 9) return "aspect-video";
-      if (width === 4 && height === 3) return "aspect-[4/3]";
-      if (width === 3 && height === 4) return "aspect-[3/4]";
-      if (width === 1 && height === 1) return "aspect-square";
-      if (width === 9 && height === 16) return "aspect-[9/16]";
+      if (width === 16 && height === 9) {
+        return "aspect-video";
+      }
+      if (width === 4 && height === 3) {
+        return "aspect-[4/3]";
+      }
+      if (width === 3 && height === 4) {
+        return "aspect-[3/4]";
+      }
+      if (width === 1 && height === 1) {
+        return "aspect-square";
+      }
+      if (width === 9 && height === 16) {
+        return "aspect-[9/16]";
+      }
       
       // 커스텀 비율 - 소수점이 있을 수 있으므로 정수로 변환
       const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b);
@@ -247,7 +257,7 @@ export default function ImageEditModal({
       setImageEditModalOpen(false);
       
       // 변환 데이터와 함께 전달
-      onApply(extractedImageData, transformData);
+      onApply(extractedImageData, transformData || undefined);
       console.log("✅ onApply 호출 완료 - 모달 닫기는 부모에서 처리됨");
       
       // onApply에서 모든 모달 닫기 처리를 하므로 onClose()는 호출하지 않음

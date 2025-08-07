@@ -108,6 +108,14 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
     }));
   };
 
+  // 이미지 위치 정보 업데이트 핸들러
+  const handleImagePositionsUpdate = (gridId: string, imagePositions: any[]) => {
+    setImagePositionsMap(prev => ({
+      ...prev,
+      [gridId]: imagePositions
+    }));
+  };
+
   // 레이아웃 재계산 함수 - subject에 따라 다른 레이아웃 적용
   const recalculateLayout = (items: GridItem[], targetSpanTwoIndex: number): GridItem[] => {
     if (subject !== 3) {
@@ -157,7 +165,9 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
         const activeIndex = currentItems.findIndex(item => item.id === active.id);
         const overIndex = currentItems.findIndex(item => item.id === over.id);
 
-        if (activeIndex === -1 || overIndex === -1) return currentItems;
+        if (activeIndex === -1 || overIndex === -1) {
+          return currentItems;
+        }
 
         // 배열 위치 이동 (arrayMove 사용)
         const reorderedItems = arrayMove(currentItems, activeIndex, overIndex);
@@ -201,7 +211,9 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
         const activeIndex = items.findIndex(item => item.id === active.id);
         const overIndex = items.findIndex(item => item.id === over.id);
         
-        if (activeIndex === -1 || overIndex === -1) return prev;
+        if (activeIndex === -1 || overIndex === -1) {
+          return prev;
+        }
         
         const reorderedItems = arrayMove(items, activeIndex, overIndex);
         const newCheckedItems: Record<string, boolean> = {};
@@ -257,6 +269,8 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
         cardType={item.cardType}
         isExpanded={item.colSpan === 2}
         onDecreaseSubject={onDecreaseSubject}
+        imagePositions={imagePositionsMap[item.id] || []}
+        onImagePositionsUpdate={(positions) => handleImagePositionsUpdate(item.id, positions)}
       />
     ));
   };
@@ -300,6 +314,8 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
               placeholderText={`ex) 아이들과 ${activeItem.category}를 했어요`}
               isDragging={true}
               cardType={activeItem.cardType}
+              imagePositions={imagePositionsMap[activeItem.id] || []}
+              onImagePositionsUpdate={() => {}} // 드래그 중에는 위치 업데이트하지 않음
             />
           </div>
         ) : null}

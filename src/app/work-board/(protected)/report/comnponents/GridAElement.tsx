@@ -38,6 +38,8 @@ interface GridAElementProps {
     x: number;
     y: number;
   };
+  imagePositions?: any[]; // 외부에서 전달받은 이미지 위치 정보
+  onImagePositionsUpdate?: (positions: any[]) => void; // 이미지 위치 업데이트 핸들러
 }
 
 function GridAElement({
@@ -64,6 +66,8 @@ function GridAElement({
   imageCount: initialImageCount = 1, // 초기 이미지 개수
   mode = 'single', // 이미지 편집 모드
   onDecreaseSubject, // subject 감소 함수 추가
+  imagePositions: externalImagePositions = [], // 외부에서 전달받은 이미지 위치 정보
+  onImagePositionsUpdate, // 이미지 위치 업데이트 핸들러
 }: GridAElementProps) {
   // 이미지 개수 상태 관리
   const [imageCount, setImageCount] = React.useState(initialImageCount);
@@ -117,10 +121,13 @@ function GridAElement({
     return Math.max(0, imageCount - currentCount);
   }, [getCurrentImageCount, imageCount]);
 
-  // 이미지 위치 정보 상태
-  const [imagePositions, setImagePositions] = React.useState<ImagePosition[]>(() => 
-    Array(imageCount).fill({ x: 0, y: 0, scale: 1 })
-  );
+  // 이미지 위치 정보 상태 - 외부에서 전달받은 데이터 우선 사용
+  const [imagePositions, setImagePositions] = React.useState<ImagePosition[]>(() => {
+    if (externalImagePositions.length > 0) {
+      return externalImagePositions;
+    }
+    return Array(imageCount).fill({ x: 0, y: 0, scale: 1 });
+  });
 
   // 이미지 편집 모달 상태
   const [imageEditModal, setImageEditModal] = React.useState<{
@@ -222,6 +229,14 @@ function GridAElement({
   React.useEffect(() => {
     console.log("isDescriptionExpanded 상태 변경됨:", isDescriptionExpanded);
   }, [isDescriptionExpanded]);
+
+  // 외부에서 전달받은 이미지 위치 정보 동기화
+  React.useEffect(() => {
+    if (externalImagePositions.length > 0) {
+      setImagePositions(externalImagePositions);
+      console.log("📍 외부 이미지 위치 정보 동기화:", externalImagePositions);
+    }
+  }, [externalImagePositions]);
 
   // 이미지 그리드 레이아웃 클래스 결정
   const getImageGridClass = (count: number, cardType?: string) => {
@@ -390,7 +405,7 @@ function GridAElement({
     
     // isWideCard인 경우 폭이 더 넓어짐
     if (isWideCard) {
-      baseWidth = baseWidth * 2; // 대략 2배 넓어짐
+      baseWidth *= 2; // 대략 2배 넓어짐
     }
     
     // imageCount에 따른 개별 이미지 크기 계산
@@ -573,6 +588,12 @@ function GridAElement({
             position: newPositions[currentImageIndex]
           });
         }
+        
+        // 상위 컴포넌트로 위치 정보 전달
+        if (onImagePositionsUpdate) {
+          onImagePositionsUpdate(newPositions);
+        }
+        
         return newPositions;
       });
     }
@@ -625,10 +646,8 @@ function GridAElement({
     event.stopPropagation(); // 이벤트 전파 방지
     
     // 삭제 확인 대화상자
-    if (window.confirm('정말로 이 카드를 삭제하시겠습니까?')) {
-      if (onDelete) {
-        onDelete();
-      }
+    if (window.confirm('정말로 이 카드를 삭제하시겠습니까?') && onDelete) {
+      onDelete();
     }
   };
 
