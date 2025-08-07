@@ -83,6 +83,21 @@ function GridCElement({
 
     // 클리핑이 활성화되어 있을 때만 툴바 표시
     if (isClippingEnabled) {
+      // 툴바 표시 전에 현재 이미지 상태를 저장
+      if (konvaCanvasRef.current) {
+        const currentImageData = konvaCanvasRef.current.getImageData();
+        if (currentImageData) {
+          console.log("툴바 표시 전 현재 이미지 상태 저장:", currentImageData);
+          setImageTransformData({
+            x: currentImageData.x,
+            y: currentImageData.y,
+            scale: currentImageData.scale,
+            width: currentImageData.width,
+            height: currentImageData.height
+          });
+        }
+      }
+
       setToolbarState({
         show: true,
         isExpanded: true,
@@ -189,6 +204,7 @@ function GridCElement({
     width: number;
     height: number;
   }) => {
+    console.log("이미지 변환 데이터 업데이트:", transformData);
     setImageTransformData(transformData);
   }, []);
 
@@ -201,6 +217,21 @@ function GridCElement({
 
   // 툴바 숨기기 핸들러
   const handleHideToolbar = () => {
+    // 툴바 숨기기 전에 현재 이미지 상태를 저장
+    if (konvaCanvasRef.current) {
+      const currentImageData = konvaCanvasRef.current.getImageData();
+      if (currentImageData) {
+        console.log("툴바 숨기기 전 현재 이미지 상태 저장:", currentImageData);
+        setImageTransformData({
+          x: currentImageData.x,
+          y: currentImageData.y,
+          scale: currentImageData.scale,
+          width: currentImageData.width,
+          height: currentImageData.height
+        });
+      }
+    }
+
     setToolbarState({
       show: false,
       isExpanded: false,
@@ -211,7 +242,43 @@ function GridCElement({
   const handleToolbarIconClick = (iconIndex: number, data?: any) => {
     console.log(`툴바 아이콘 ${iconIndex} 클릭됨, Grid ${index}`, data);
 
-    // 여기에 각 아이콘별 로직 구현
+    // 사진 배경 제거 처리 (인덱스 3)
+    if (iconIndex === 3) {
+      console.log(`그리드 ${index}의 이미지 제거 (사진 배경 제거)`);
+      
+      // 현재 이미지 URL 초기화
+      setCurrentImageUrl("");
+      
+      // 이미지 변환 데이터 초기화
+      setImageTransformData(null);
+      
+      // 부모 컴포넌트에 이미지 제거 알림
+      if (onImageUpload) {
+        onImageUpload(gridId, "");
+      }
+      
+      // 툴바 숨기기
+      handleHideToolbar();
+      
+      console.log("🗑️ GridC 이미지 제거 완료:", {
+        gridId,
+        이전이미지: currentImageUrl,
+        새이미지: ""
+      });
+    }
+    
+    // 사진 틀 삭제 처리 (인덱스 4)
+    if (iconIndex === 4) {
+      console.log(`그리드 ${index}의 사진 틀 삭제`);
+      if (onDelete) {
+        onDelete();
+      }
+      
+      // 툴바 숨기기
+      handleHideToolbar();
+    }
+
+    // 여기에 다른 아이콘별 로직 구현
   };
 
   // 전역 클릭 이벤트로 툴바 숨기기
@@ -294,12 +361,7 @@ function GridCElement({
           />
         </div>
 
-        {/* 그리드 번호 - 좌측 상단 체크박스 아래 */}
-        <div className="absolute top-8 left-2 z-30 pointer-events-none">
-          <div className="flex items-center justify-center w-6 h-6 bg-primary text-white text-xs font-bold rounded-full shadow-md">
-            {index + 1}
-          </div>
-        </div>
+
 
         {/* 삭제 버튼 - 우측 상단 */}
        

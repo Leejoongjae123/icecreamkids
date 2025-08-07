@@ -217,20 +217,36 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
         };
         
         setInitialImageData(imageData);
-        setImagePosition({ x, y });
-        setImageScale(scale);
         setKonvaImage(imageObj);
         setIsLoading(false);
         
-        // 초기 이미지 변환 데이터를 부모에게 전달
-        if (onImageTransformUpdate) {
-          onImageTransformUpdate({
-            x,
-            y,
-            scale,
-            width: imgWidth,
-            height: imgHeight
-          });
+        // 부모로부터 전달받은 변환 데이터가 있으면 그것을 우선 적용
+        if (imageTransformData && 
+            imageTransformData.width === imgWidth && 
+            imageTransformData.height === imgHeight) {
+          console.log("기존 변환 데이터 적용:", imageTransformData);
+          setImagePosition({ x: imageTransformData.x, y: imageTransformData.y });
+          setImageScale(imageTransformData.scale);
+          
+          // 초기 이미지 변환 데이터를 부모에게 전달 (기존 데이터 유지)
+          if (onImageTransformUpdate) {
+            onImageTransformUpdate(imageTransformData);
+          }
+        } else {
+          console.log("새로운 이미지 데이터 적용:", imageData);
+          setImagePosition({ x, y });
+          setImageScale(scale);
+          
+          // 초기 이미지 변환 데이터를 부모에게 전달
+          if (onImageTransformUpdate) {
+            onImageTransformUpdate({
+              x,
+              y,
+              scale,
+              width: imgWidth,
+              height: imgHeight
+            });
+          }
         }
       };
 
@@ -239,19 +255,81 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
       };
 
       imageObj.src = imageUrl;
-    }, [imageUrl, isKonvaLoaded, canvasSize]);
+    }, [imageUrl, isKonvaLoaded, canvasSize, imageTransformData]);
+
+    // 이미지 위치와 스케일이 변경될 때 Konva 노드 동기화
+    useEffect(() => {
+      if (imageRef.current && konvaImage) {
+        const currentX = imageRef.current.x();
+        const currentY = imageRef.current.y();
+        const currentScaleX = imageRef.current.scaleX();
+        
+        // 상태와 Konva 노드가 다르면 동기화
+        const needsUpdate = 
+          Math.abs(currentX - imagePosition.x) > 0.1 ||
+          Math.abs(currentY - imagePosition.y) > 0.1 ||
+          Math.abs(currentScaleX - imageScale) > 0.01;
+        
+        if (needsUpdate) {
+          console.log("이미지 위치/스케일 변경 감지, Konva 노드 동기화:", {
+            새상태: { x: imagePosition.x, y: imagePosition.y, scale: imageScale },
+            기존노드: { x: currentX, y: currentY, scale: currentScaleX }
+          });
+          
+          imageRef.current.x(imagePosition.x);
+          imageRef.current.y(imagePosition.y);
+          imageRef.current.scaleX(imageScale);
+          imageRef.current.scaleY(imageScale);
+          
+          const layer = imageRef.current.getLayer();
+          if (layer) {
+            layer.batchDraw();
+          }
+        }
+      }
+    }, [imagePosition, imageScale, konvaImage]);
 
     // 부모로부터 전달받은 이미지 변환 데이터 복원
     useEffect(() => {
       if (imageTransformData && initialImageData && konvaImage && imageRef.current) {
-        setImagePosition({ x: imageTransformData.x, y: imageTransformData.y });
-        setImageScale(imageTransformData.scale);
+        console.log("이미지 변환 데이터 복원:", imageTransformData);
         
-        // Konva 객체의 위치도 업데이트
-        imageRef.current.x(imageTransformData.x);
-        imageRef.current.y(imageTransformData.y);
-        imageRef.current.scaleX(imageTransformData.scale);
-        imageRef.current.scaleY(imageTransformData.scale);
+        // 현재 Konva 노드 상태와 비교하여 변경이 필요한지 확인
+        const currentX = imageRef.current.x();
+        const currentY = imageRef.current.y();
+        const currentScale = imageRef.current.scaleX();
+        
+        const hasChanges = 
+          Math.abs(currentX - imageTransformData.x) > 0.1 ||
+          Math.abs(currentY - imageTransformData.y) > 0.1 ||
+          Math.abs(currentScale - imageTransformData.scale) > 0.01;
+        
+        if (hasChanges) {
+          console.log("이미지 상태 변경 감지, 복원 진행:", {
+            current: { x: currentX, y: currentY, scale: currentScale },
+            restore: { x: imageTransformData.x, y: imageTransformData.y, scale: imageTransformData.scale }
+          });
+          
+          // React 상태 업데이트
+          setImagePosition({ x: imageTransformData.x, y: imageTransformData.y });
+          setImageScale(imageTransformData.scale);
+          
+          // Konva 객체의 위치도 즉시 업데이트
+          imageRef.current.x(imageTransformData.x);
+          imageRef.current.y(imageTransformData.y);
+          imageRef.current.scaleX(imageTransformData.scale);
+          imageRef.current.scaleY(imageTransformData.scale);
+          
+          // 레이어 강제 재그리기로 시각적 업데이트 보장
+          const layer = imageRef.current.getLayer();
+          if (layer) {
+            layer.batchDraw();
+          }
+          
+          console.log("이미지 변환 데이터 복원 완료");
+        } else {
+          console.log("이미지 상태 변경 없음, 복원 건너뜀");
+        }
       }
     }, [imageTransformData, initialImageData, konvaImage]);
 
@@ -709,12 +787,37 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
       }
     }, [initialImageData]);
 
-    // 이미지 데이터 반환
+    // 이미지 데이터 반환 - 실제 Konva 노드의 현재 상태를 우선 반환
     const getImageData = useCallback(() => {
       if (!initialImageData) {
         return null;
       }
       
+      // 실제 Konva 노드가 있으면 그 상태를 우선 반환
+      if (imageRef.current) {
+        const actualX = imageRef.current.x();
+        const actualY = imageRef.current.y();
+        const actualScaleX = imageRef.current.scaleX();
+        const actualScaleY = imageRef.current.scaleY();
+        
+        console.log("실제 Konva 노드 상태 반환:", {
+          x: actualX,
+          y: actualY,
+          scale: actualScaleX,
+          width: initialImageData.width,
+          height: initialImageData.height
+        });
+        
+        return {
+          x: actualX,
+          y: actualY,
+          scale: actualScaleX, // 일반적으로 X, Y 스케일이 동일하므로 X 스케일 사용
+          width: initialImageData.width,
+          height: initialImageData.height
+        };
+      }
+      
+      // Konva 노드가 없으면 React 상태 반환
       return {
         x: imagePosition.x,
         y: imagePosition.y,
