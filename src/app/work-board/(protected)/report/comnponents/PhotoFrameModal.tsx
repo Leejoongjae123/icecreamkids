@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { clipPathItems } from "../dummy/svgData";
 
 interface PhotoFrameModalProps {
   isOpen: boolean;
@@ -110,53 +111,72 @@ const PhotoFrameModal: React.FC<PhotoFrameModalProps> = ({
         {/* Frame Grid */}
         <div className="flex-1 px-10 py-6 max-md:px-5 max-sm:px-4 overflow-y-auto min-h-0">
           <div className="grid grid-cols-4 gap-3 min-h-[400px]">
-            {/* First Row */}
-            {[0, 1, 2, 3].map((frameIndex) => (
-              <div
-                key={frameIndex}
-                className={cn(
-                  "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors",
-                  selectedFrame === frameIndex && "border-2 border-amber-400 border-solid",
-                )}
-                onClick={() => handleFrameSelect(frameIndex)}
-              />
-            ))}
-            
-            {/* Second Row */}
-            {[4, 5, 6, 7].map((frameIndex) => (
-              <div
-                key={frameIndex}
-                className={cn(
-                  "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors",
-                  selectedFrame === frameIndex && "border-2 border-amber-400 border-solid",
-                )}
-                onClick={() => handleFrameSelect(frameIndex)}
-              />
-            ))}
-            
-            {/* Third Row */}
-            {[8, 9, 10, 11].map((frameIndex) => (
-              <div
-                key={frameIndex}
-                className={cn(
-                  "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors",
-                  selectedFrame === frameIndex && "border-2 border-amber-400 border-solid",
-                )}
-                onClick={() => handleFrameSelect(frameIndex)}
-              />
-            ))}
-            
-            {/* Fourth Row */}
-            {[12, 13, 14, 15].map((frameIndex) => (
-              <div
-                key={frameIndex}
-                className={cn(
-                  "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors",
-                  selectedFrame === frameIndex && "border-2 border-amber-400 border-solid",
-                )}
-                onClick={() => handleFrameSelect(frameIndex)}
-              />
-            ))}
+            {/* All frames (16 total) */}
+            {[...Array(16)].map((_, frameIndex) => {
+              // 첫 번째(0)와 두 번째(1) 위치에 실제 사진틀 표시
+              const clipPathData = frameIndex === 0 
+                ? clipPathItems[0] // 원형
+                : frameIndex === 1 
+                ? clipPathItems[1] // 둥근 사각형
+                : null;
+
+              return (
+                <div
+                  key={frameIndex}
+                  className={cn(
+                    "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors relative overflow-hidden",
+                    selectedFrame === frameIndex && "border-2 border-amber-400 border-solid",
+                  )}
+                  onClick={() => handleFrameSelect(frameIndex)}
+                >
+                  {clipPathData && (
+                    <div className="absolute inset-0 p-2">
+                      <div className="w-full h-full relative">
+                        <svg 
+                          width="100%" 
+                          height="100%" 
+                          viewBox="0 0 1 1" 
+                          className="absolute inset-0"
+                        >
+                          <defs>
+                            <clipPath id={`preview-clip-${clipPathData.id}`} clipPathUnits="objectBoundingBox">
+                              <path d={clipPathData.pathData} />
+                            </clipPath>
+                          </defs>
+                          {/* 배경 이미지 영역 */}
+                          <rect
+                            x="0"
+                            y="0"
+                            width="1"
+                            height="1"
+                            fill="#e5e7eb"
+                            clipPath={`url(#preview-clip-${clipPathData.id})`}
+                          />
+                          {/* 테두리 표시 */}
+                          <path
+                            d={clipPathData.pathData}
+                            fill="none"
+                            stroke="#9ca3af"
+                            strokeWidth="0.02"
+                            vectorEffect="non-scaling-stroke"
+                          />
+                        </svg>
+                        {/* 프레임 이름 표시 */}
+                        <div className="absolute bottom-1 left-1 text-xs text-gray-600 bg-white/80 px-1 py-0.5 rounded text-[10px]">
+                          {frameIndex === 0 ? "원형" : "사각형"}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {/* 빈 프레임에는 인덱스 번호만 표시 */}
+                  {!clipPathData && (
+                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+                      {frameIndex + 1}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 

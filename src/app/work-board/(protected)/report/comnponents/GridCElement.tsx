@@ -26,6 +26,7 @@ interface GridCElementProps {
   onSelectChange?: (isSelected: boolean) => void;
   onDelete?: () => void;
   onImageUpload: (gridId: string, imageUrl: string) => void;
+  onClipPathChange?: (gridId: string, clipPathData: ClipPathItem) => void;
 }
 
 function GridCElement({
@@ -41,6 +42,7 @@ function GridCElement({
   onSelectChange,
   onDelete,
   onImageUpload,
+  onClipPathChange,
 }: GridCElementProps) {
   const [activityKeyword, setActivityKeyword] = React.useState("");
   const [isKeywordExpanded, setIsKeywordExpanded] = React.useState(false);
@@ -241,6 +243,27 @@ function GridCElement({
   // 툴바 아이콘 클릭 핸들러
   const handleToolbarIconClick = (iconIndex: number, data?: any) => {
     console.log(`툴바 아이콘 ${iconIndex} 클릭됨, Grid ${index}`, data);
+
+    // 사진틀 변경 처리 (인덱스 0 + 특정 액션)
+    if (data && data.action === 'changePhotoFrame' && data.clipPathData) {
+      console.log(`그리드 ${gridId}의 사진틀 변경:`, data.clipPathData);
+      
+      // 부모 컴포넌트에 clipPath 변경 요청
+      if (onClipPathChange) {
+        onClipPathChange(gridId, data.clipPathData);
+      }
+      
+      console.log("사진틀 변경 요청:", {
+        gridId,
+        이전클립패스: clipPathData,
+        새클립패스: data.clipPathData
+      });
+      
+      // 툴바 숨기기
+      handleHideToolbar();
+      
+      return;
+    }
 
     // 사진 배경 제거 처리 (인덱스 3)
     if (iconIndex === 3) {

@@ -15,6 +15,7 @@ interface SortableGridCItemProps {
   onSelectChange?: (isSelected: boolean) => void;
   onDelete?: () => void;
   onImageUpload: (gridId: string, imageUrl: string) => void;
+  onClipPathChange?: (gridId: string, clipPathData: ClipPathItem) => void;
   isOverlay?: boolean;
   style?: React.CSSProperties;
 }
@@ -29,6 +30,7 @@ function SortableGridCItem({
   onSelectChange,
   onDelete,
   onImageUpload,
+  onClipPathChange,
   isOverlay = false,
   style,
 }: SortableGridCItemProps) {
@@ -67,6 +69,7 @@ function SortableGridCItem({
         onSelectChange={onSelectChange}
         onDelete={onDelete}
         onImageUpload={onImageUpload}
+        onClipPathChange={onClipPathChange}
       />
     </div>
   );

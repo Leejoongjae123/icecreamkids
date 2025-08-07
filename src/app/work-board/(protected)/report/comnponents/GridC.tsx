@@ -210,6 +210,16 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     );
   };
 
+  // 클립패스 변경 핸들러
+  const handleClipPathChange = (gridId: string, clipPathData: ClipPathItem) => {
+    console.log("GridC - 클립패스 변경:", { gridId, clipPathData });
+    setItems(prevItems => 
+      prevItems.map(item => 
+        item.id === gridId ? { ...item, clipPathData } : item
+      )
+    );
+  };
+
   // 선택 상태 변경 핸들러
   const handleSelectChange = (gridId: string, isSelected: boolean) => {
     setSelectedItems(prev => {
@@ -407,6 +417,7 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
                   onSelectChange={(isSelected) => handleSelectChange(item.id, isSelected)}
                   onDelete={() => handleDelete(item.id)}
                   onImageUpload={handleImageUpload}
+                  onClipPathChange={handleClipPathChange}
                   style={itemStyle}
                 />
               );
@@ -427,6 +438,7 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
               isDragging={true}
               isSelected={selectedItems.has(activeItem.id)}
               onImageUpload={() => {}}
+              onClipPathChange={() => {}}
             />
           </div>
         ) : null}

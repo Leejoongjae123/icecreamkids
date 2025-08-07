@@ -12,6 +12,7 @@ import TextStickerModal from "./TextStickerModal";
 import DecorationStickerModal from "./DecorationStickerModal";
 import ImageCountModal from "./ImageCountModal";
 import { MdPhotoLibrary } from "react-icons/md";
+import { clipPathItems } from "../dummy/svgData";
 
 interface GridEditToolbarProps {
   show: boolean;
@@ -135,8 +136,25 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
 
   const handlePhotoFrameApply = (selectedFrame: number) => {
     console.log("Selected photo frame:", selectedFrame);
-    // 여기서 선택된 프레임을 적용하는 로직을 구현할 수 있습니다
-    onIconClick(0); // 기존 로직도 호출
+    
+    // 선택된 프레임 인덱스에 따라 clipPath 데이터 가져오기
+    let clipPathData = null;
+    if (selectedFrame === 0) {
+      clipPathData = clipPathItems[0]; // 원형
+    } else if (selectedFrame === 1) {
+      clipPathData = clipPathItems[1]; // 둥근 사각형
+    }
+    
+    // 선택된 사진틀 데이터를 부모 컴포넌트로 전달
+    if (clipPathData && targetGridId) {
+      onIconClick(0, { 
+        action: 'changePhotoFrame', 
+        gridId: targetGridId, 
+        clipPathData: clipPathData 
+      });
+    } else {
+      onIconClick(0); // 기존 로직도 호출
+    }
   };
 
   const handleTextStickerModalClose = () => {
