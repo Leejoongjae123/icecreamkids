@@ -226,11 +226,28 @@ export default function ImageEditModal({
       // 추출된 이미지를 부모 컴포넌트로 전달 (적용하기 버튼과 동일)
       console.log("📤 부모 컴포넌트로 이미지 데이터 전달 중...");
       
+      // KonvaCanvas에서 현재 이미지 변환 데이터 가져오기
+      let transformData = null;
+      if (canvasRef.current) {
+        const canvasData = canvasRef.current.getCanvasData();
+        if (canvasData && canvasData.imageData) {
+          transformData = {
+            x: canvasData.imageData.x || 0,
+            y: canvasData.imageData.y || 0,
+            scale: canvasData.imageData.scaleX || 1,
+            width: canvasData.imageData.width || 0,
+            height: canvasData.imageData.height || 0
+          };
+          console.log("📊 KonvaCanvas에서 가져온 변환 데이터:", transformData);
+        }
+      }
+      
       // 드래그 앤 드롭을 다시 활성화하기 위해 모달 상태를 false로 설정
       console.log("🎯 드래그 앤 드롭 다시 활성화 - setImageEditModalOpen(false)");
       setImageEditModalOpen(false);
       
-      onApply(extractedImageData);
+      // 변환 데이터와 함께 전달
+      onApply(extractedImageData, transformData);
       console.log("✅ onApply 호출 완료 - 모달 닫기는 부모에서 처리됨");
       
       // onApply에서 모든 모달 닫기 처리를 하므로 onClose()는 호출하지 않음

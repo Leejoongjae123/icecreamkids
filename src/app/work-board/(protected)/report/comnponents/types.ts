@@ -232,7 +232,7 @@ export interface ImageEditModalProps {
   onClose: () => void;
   imageUrls: string[];
   selectedImageIndex?: number;
-  onApply: (editedImageData: string) => void;
+  onApply: (editedImageData: string, transformData?: { x: number; y: number; scale: number; width: number; height: number }) => void;
   onImageOrderChange?: (newOrder: string[]) => void;
   targetFrame?: {
     width: number;

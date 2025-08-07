@@ -533,8 +533,9 @@ function GridAElement({
 
 
   // ImageEditModal에서 편집된 이미지 적용 핸들러
-  const handleImageEditApply = (editedImageData: string) => {
+  const handleImageEditApply = (editedImageData: string, transformData?: { x: number; y: number; scale: number; width: number; height: number }) => {
     console.log("📸 편집된 이미지 데이터 받음:", editedImageData.substring(0, 50) + "...");
+    console.log("📸 편집된 이미지 변환 데이터:", transformData);
     
     // 편집된 이미지로 원래 위치의 이미지 교체
     // selectedImageIndex는 필터링된 배열에서의 인덱스이므로
@@ -550,6 +551,31 @@ function GridAElement({
       }
       return newImages;
     });
+
+    // 이미지 위치 정보가 있다면 imagePositions 업데이트
+    if (transformData) {
+      const selectedImageUrl = imageEditModal.imageUrls[imageEditModal.selectedImageIndex];
+      
+      setImagePositions(prev => {
+        const newPositions = [...prev];
+        // 원래 이미지 배열에서 해당 URL의 인덱스를 찾아서 위치 정보 업데이트
+        const currentImageIndex = currentImages.findIndex(img => img === selectedImageUrl);
+        if (currentImageIndex >= 0 && currentImageIndex < newPositions.length) {
+          // KonvaImageCanvas의 변환 데이터를 ImagePosition 형태로 변환
+          // 여기서는 간단히 x, y, scale만 사용 (회전이나 다른 변환은 필요시 추가)
+          newPositions[currentImageIndex] = {
+            x: transformData.x,
+            y: transformData.y,
+            scale: transformData.scale
+          };
+          console.log("📍 이미지 위치 정보 업데이트:", {
+            imageIndex: currentImageIndex,
+            position: newPositions[currentImageIndex]
+          });
+        }
+        return newPositions;
+      });
+    }
 
     // 모달 닫기
     setImageEditModal(prev => ({ ...prev, isOpen: false }));

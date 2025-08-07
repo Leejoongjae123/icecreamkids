@@ -49,6 +49,9 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
     return initialItems;
   });
 
+  // 각 그리드 아이템의 이미지 위치 정보 관리 (DnD 시에도 유지됨)
+  const [imagePositionsMap, setImagePositionsMap] = React.useState<Record<string, any[]>>({});
+
   // 현재 드래그 중인 아이템
   const [activeId, setActiveId] = React.useState<string | null>(null);
   
