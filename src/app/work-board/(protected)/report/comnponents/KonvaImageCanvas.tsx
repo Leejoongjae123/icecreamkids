@@ -181,6 +181,13 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
         return;
       }
 
+      // 크롭이 적용된 상태에서는 원본 이미지 재로딩 방지
+      if (isClippingApplied && clippedImage) {
+        console.log('🚫 크롭 적용된 상태 - 이미지 재로딩 건너뜀');
+        return;
+      }
+
+      console.log('📂 이미지 로딩 시작:', { imageUrl, isClippingApplied });
       setIsLoading(true);
 
       const imageObj = new window.Image();
@@ -255,7 +262,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
       };
 
       imageObj.src = imageUrl;
-    }, [imageUrl, isKonvaLoaded, canvasSize, imageTransformData]);
+    }, [imageUrl, isKonvaLoaded, canvasSize, imageTransformData, isClippingApplied, clippedImage]);
 
     // 이미지 위치와 스케일이 변경될 때 Konva 노드 동기화
     useEffect(() => {
@@ -335,8 +342,10 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
 
     // 클리핑 상태에 따른 편집 모드 설정
     useEffect(() => {
-      setIsEditing(!isClippingEnabled && !isPlaceholder && !isClippingMode && !isClippingApplied);
-    }, [isClippingEnabled, isPlaceholder, isClippingMode, isClippingApplied]);
+      // placeholder가 아니고, 클리핑이 비활성화되어 있으며, 클리핑 모드가 아닐 때 편집 가능
+      // 크롭이 적용된 후에도 편집 가능하도록 isClippingApplied 조건 제거
+      setIsEditing(!isClippingEnabled && !isPlaceholder && !isClippingMode);
+    }, [isClippingEnabled, isPlaceholder, isClippingMode]);
 
     // Transformer를 이미지에 연결
     useEffect(() => {
@@ -654,11 +663,11 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
             console.log('🔧 Konva 노드 속성 강제 업데이트 완료');
           }
           
-          // 클리핑 모드 종료하고 편집 모드로 복귀
-          setClippedImage(null);
-          setIsClippingApplied(false);
+          // 클리핑 모드 종료하고 크롭된 상태로 편집 모드 진입
           setIsClippingMode(false);
-          setClippedImageUrl(null);
+          setIsClippingApplied(true);  // 크롭이 적용되었음을 표시 (재로딩 방지)
+          setClippedImage(clippedImageObj);  // 크롭된 이미지 보존 (재로딩 방지)
+          setClippedImageUrl(clippedDataUrl);  // 크롭된 이미지 URL 보존
           
           // 새로운 이미지 전체 영역으로 클리핑 영역 재설정
           const displayWidth = croppedImageWidth * optimalScale;
@@ -737,7 +746,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
           setImagePosition({ x: actualX, y: actualY });
           setImageScale(actualScaleX);
           
-          // 3단계: 실제 이미지 경계 계산 (원본 크기 기준)
+          // 3단계: 현재 이미지의 실제 표시 영역 계산
           const scaledWidth = initialImageData.width * actualScaleX;
           const scaledHeight = initialImageData.height * actualScaleY;
           const imageLeft = actualX - scaledWidth / 2;
@@ -757,20 +766,23 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
             원본크기: { width: initialImageData.width, height: initialImageData.height },
             스케일된크기: { width: scaledWidth, height: scaledHeight },
             이미지경계: { left: imageLeft, top: imageTop, right: imageRight, bottom: imageBottom },
-            클립영역: newClipBounds
+            클립영역: newClipBounds,
+            크롭상태: { isClippingApplied, hasClippedImage: !!clippedImage }
           });
           
           setClipBounds(newClipBounds);
         }
         
         setIsClippingMode(true);
-        setIsClippingApplied(false);
-        setClippedImageUrl(null);
-        setClippedImage(null);
+        // 크롭된 상태에서 추가 크롭을 위해 기존 크롭 정보는 유지
         
-        console.log('✅ 크롭 모드 시작됨');
+        console.log('✅ 크롭 모드 시작됨 - 기존 크롭 정보 유지:', {
+          isClippingApplied,
+          hasClippedImage: !!clippedImage,
+          hasClippedUrl: !!clippedImageUrl
+        });
       }
-    }, [isClippingMode, applyClipping, initialImageData, imageScale, imagePosition, canvasSize]);
+    }, [isClippingMode, applyClipping, initialImageData, imageScale, imagePosition, canvasSize, isClippingApplied, clippedImage, clippedImageUrl]);
 
     // 이미지 위치 초기화
     const resetImagePosition = useCallback(() => {
@@ -904,44 +916,25 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
           <Layer>
             {konvaImage && initialImageData && Group && KonvaImage && Transformer && (
               <Group>
-                {/* 클리핑이 적용된 경우 클리핑된 이미지 표시, 아니면 원본 이미지 표시 */}
-                {isClippingApplied && clippedImage ? (
-                  <KonvaImage
-                    ref={imageRef}
-                    image={clippedImage}
-                    x={imagePosition.x}
-                    y={imagePosition.y}
-                    width={(clipBounds.right - clipBounds.left) * canvasSize.width}
-                    height={(clipBounds.bottom - clipBounds.top) * canvasSize.height}
-                    offsetX={(clipBounds.right - clipBounds.left) * canvasSize.width / 2}
-                    offsetY={(clipBounds.bottom - clipBounds.top) * canvasSize.height / 2}
-                    draggable={!isPlaceholder && (!isClippingEnabled || isClippingApplied)}
-                    onDragMove={handleImageDrag}
-                    onTransformEnd={handleTransformEnd}
-                    style={{
-                      cursor: (!isPlaceholder && (!isClippingEnabled || isClippingApplied)) ? 'move' : 'default'
-                    }}
-                  />
-                ) : (
-                  <KonvaImage
-                    ref={imageRef}
-                    image={konvaImage}
-                    x={imagePosition.x}
-                    y={imagePosition.y}
-                    width={initialImageData.width}
-                    height={initialImageData.height}
-                    scaleX={imageScale}
-                    scaleY={imageScale}
-                    offsetX={initialImageData.width / 2}
-                    offsetY={initialImageData.height / 2}
-                    draggable={!isPlaceholder && (!isClippingEnabled || isClippingMode) && !isClippingApplied} // placeholder가 아니고 클리핑이 적용되지 않았으며 (클리핑이 비활성화되었거나 클리핑 모드인 경우)에 드래그 가능
-                    onDragMove={handleImageDrag}
-                    onTransformEnd={handleTransformEnd}
-                    style={{
-                      cursor: (!isPlaceholder && (!isClippingEnabled || isClippingMode) && !isClippingApplied) ? 'move' : 'default'
-                    }}
-                  />
-                )}
+                {/* 현재 이미지 표시 - 크롭 적용 시 konvaImage가 크롭된 이미지로 교체됨 */}
+                <KonvaImage
+                  ref={imageRef}
+                  image={konvaImage}
+                  x={imagePosition.x}
+                  y={imagePosition.y}
+                  width={initialImageData.width}
+                  height={initialImageData.height}
+                  scaleX={imageScale}
+                  scaleY={imageScale}
+                  offsetX={initialImageData.width / 2}
+                  offsetY={initialImageData.height / 2}
+                  draggable={!isPlaceholder && (!isClippingEnabled || !isClippingMode)}
+                  onDragMove={handleImageDrag}
+                  onTransformEnd={handleTransformEnd}
+                  style={{
+                    cursor: (!isPlaceholder && (!isClippingEnabled || !isClippingMode)) ? 'move' : 'default'
+                  }}
+                />
                 
                 {/* Transformer - 편집 모드에서만 표시 (점선 테두리와 코너 핸들) */}
                 {isEditing && (
@@ -974,7 +967,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
             )}
 
             {/* 클리핑 모드 오버레이 */}
-            {isClippingMode && !isPlaceholder && !isClippingApplied && Group && Rect && (
+            {isClippingMode && !isPlaceholder && Group && Rect && (
               <Group>
                 {/* 클리핑 영역 외부 오버레이 (반투명 검정) */}
                 {/* 왼쪽 영역 */}
@@ -1111,7 +1104,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
         </Stage>
         
         {/* 클리핑 모드 토글 플로팅 버튼 */}
-        {!isPlaceholder && !isClippingApplied && (
+        {!isPlaceholder && (
           <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-50">
             <Button
               onClick={toggleClippingMode}
@@ -1127,24 +1120,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
           </div>
         )}
 
-        {/* 클리핑 완료 후 다시 편집 버튼 */}
-        {!isPlaceholder && isClippingApplied && (
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-50">
-            <Button
-              onClick={() => {
-                setIsClippingApplied(false);
-                setClippedImageUrl(null);
-                setClippedImage(null);
-                setIsClippingMode(true);
-              }}
-              className="h-12 px-4 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl bg-green-500 hover:bg-green-600 text-white"
-              size="sm"
-            >
-              <Crop className="w-4 h-4 mr-2" />
-              다시 편집
-            </Button>
-          </div>
-        )}
+
 
       </div>
     );

@@ -112,6 +112,9 @@ interface ExtractArea {
     aspectRatio: 0, // 이미지 로드 전에는 0으로 설정
   });
 
+  // 이전 이미지 URL 저장하여 불필요한 재로딩 방지
+  const prevImageUrlRef = useRef<string>('');
+
   // 추출 영역 상태 (targetFrame을 캔버스 좌표계로 변환한 것)
   const [extractArea, setExtractArea] = useState<ExtractArea>({
     x: 100,
@@ -502,10 +505,19 @@ interface ExtractArea {
 
     // 이미지 로드
     useEffect(() => {
-      if (!imageUrl) return;
+      if (!imageUrl) {
+        return;
+      }
+
+      // 이미지 URL이 이전과 동일하면 재로딩하지 않음
+      if (prevImageUrlRef.current === imageUrl && konvaImage) {
+        console.log("🔄 동일한 이미지 URL - 재로딩 건너뜀:", imageUrl);
+        return;
+      }
 
       console.log("🖼️ 이미지 로드 시작:", imageUrl);
       setIsLoading(true);
+      prevImageUrlRef.current = imageUrl;
 
       const imageObj = new window.Image();
       imageObj.crossOrigin = "anonymous";
@@ -549,7 +561,11 @@ interface ExtractArea {
           cropArea: newCropArea
         };
         
+        // 이미지 로드 완료 후 상태 정리
         setIsLoading(false);
+        setIsDragging(false);
+        setIsCropHandleDragging(null);
+        
         onImageLoad?.();
         console.log("✅ 이미지 로드 완료");
       };
@@ -561,7 +577,7 @@ interface ExtractArea {
       };
 
       imageObj.src = imageUrl;
-    }, [imageUrl, onImageLoad, onImageError, getImageBounds]);
+    }, [imageUrl, onImageLoad, onImageError, getImageBounds, konvaImage]);
 
     // Transformer를 이미지에 연결
     useEffect(() => {
@@ -778,7 +794,12 @@ interface ExtractArea {
     const handleImageDragStart = useCallback(() => {
       console.log("🚚 이미지 드래그 시작 - 핸들과 외곽선 숨김");
       setIsDragging(true);
-    }, []);
+      
+      // 드래그 시작 시 로딩 상태를 false로 설정하여 로딩 메시지 숨김
+      if (isLoading && konvaImage) {
+        setIsLoading(false);
+      }
+    }, [isLoading, konvaImage]);
 
     // 이미지 드래그 핸들러
     const handleImageDrag = useCallback((e: Konva.KonvaEventObject<DragEvent>) => {
@@ -814,6 +835,11 @@ interface ExtractArea {
       
       console.log("🎯 드래그 완료 - 핸들과 외곽선 다시 표시");
       setIsDragging(false); // 드래그 상태 해제
+      
+      // 드래그 완료 시 로딩 상태를 false로 설정
+      if (isLoading && konvaImage) {
+        setIsLoading(false);
+      }
       
       // 최종 이미지 데이터 업데이트
       const finalImageData = { ...imageData, x: newX, y: newY };
@@ -859,7 +885,7 @@ interface ExtractArea {
           return adjustedCropArea;
         });
       }
-    }, [imageData, cropArea, editMode, getImageBounds]);
+    }, [imageData, cropArea, editMode, getImageBounds, isLoading, konvaImage]);
 
 
 
@@ -867,7 +893,12 @@ interface ExtractArea {
     const handleCropHandleMouseDown = useCallback((handleId: string) => {
       console.log("🎯 크롭 핸들 마우스 다운:", handleId);
       setIsCropHandleDragging(handleId);
-    }, []);
+      
+      // 크롭 핸들 드래그 시작 시 로딩 상태를 false로 설정하여 로딩 메시지 숨김
+      if (isLoading && konvaImage) {
+        setIsLoading(false);
+      }
+    }, [isLoading, konvaImage]);
 
     // 스테이지 마우스 이동 핸들러 (크롭 핸들 드래그용)
     const handleStageMouseMove = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -936,8 +967,13 @@ interface ExtractArea {
       if (isCropHandleDragging) {
         console.log("🎯 크롭 핸들 드래그 종료:", isCropHandleDragging);
         setIsCropHandleDragging(null);
+        
+        // 크롭 핸들 드래그 완료 시 로딩 상태를 false로 설정
+        if (isLoading && konvaImage) {
+          setIsLoading(false);
+        }
       }
-    }, [isCropHandleDragging]);
+    }, [isCropHandleDragging, isLoading, konvaImage]);
 
 
 
@@ -1248,7 +1284,7 @@ interface ExtractArea {
             minHeight: '400px',
           }}
         >
-          {isLoading && (
+          {isLoading && !isDragging && !isCropHandleDragging && (
             <div 
               style={{
                 position: 'absolute',
