@@ -139,10 +139,11 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
     
     // 선택된 프레임 인덱스에 따라 clipPath 데이터 가져오기
     let clipPathData = null;
-    if (selectedFrame === 0) {
-      clipPathData = clipPathItems[0]; // 원형
-    } else if (selectedFrame === 1) {
-      clipPathData = clipPathItems[1]; // 둥근 사각형
+    
+    // clipPathItems 배열의 인덱스와 selectedFrame을 매핑
+    if (selectedFrame >= 0 && selectedFrame < clipPathItems.length) {
+      clipPathData = clipPathItems[selectedFrame];
+      console.log("적용할 클립패스 데이터:", clipPathData);
     }
     
     // 선택된 사진틀 데이터를 부모 컴포넌트로 전달
@@ -153,6 +154,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
         clipPathData: clipPathData 
       });
     } else {
+      console.log("클립패스 데이터가 없거나 타겟 그리드 ID가 없음:", { clipPathData, targetGridId });
       onIconClick(0); // 기존 로직도 호출
     }
   };

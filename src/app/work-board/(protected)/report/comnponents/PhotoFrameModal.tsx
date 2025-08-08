@@ -111,13 +111,11 @@ const PhotoFrameModal: React.FC<PhotoFrameModalProps> = ({
         {/* Frame Grid */}
         <div className="flex-1 px-10 py-6 max-md:px-5 max-sm:px-4 overflow-y-auto min-h-0">
           <div className="grid grid-cols-4 gap-3 min-h-[400px]">
-            {/* All frames (16 total) */}
+            {/* 4x4 그리드 유지 (16개 칸) */}
             {[...Array(16)].map((_, frameIndex) => {
-              // 첫 번째(0)와 두 번째(1) 위치에 실제 사진틀 표시
-              const clipPathData = frameIndex === 0 
-                ? clipPathItems[0] // 원형
-                : frameIndex === 1 
-                ? clipPathItems[1] // 둥근 사각형
+              // 처음 5개에만 svgData의 형상들을 표시
+              const clipPathData = frameIndex < clipPathItems.length 
+                ? clipPathItems[frameIndex] 
                 : null;
 
               return (
@@ -161,19 +159,14 @@ const PhotoFrameModal: React.FC<PhotoFrameModalProps> = ({
                             vectorEffect="non-scaling-stroke"
                           />
                         </svg>
-                        {/* 프레임 이름 표시 */}
+                        {/* 프레임 이름 표시 (name 값 사용) */}
                         <div className="absolute bottom-1 left-1 text-xs text-gray-600 bg-white/80 px-1 py-0.5 rounded text-[10px]">
-                          {frameIndex === 0 ? "원형" : "사각형"}
+                          {clipPathData.name}
                         </div>
                       </div>
                     </div>
                   )}
-                  {/* 빈 프레임에는 인덱스 번호만 표시 */}
-                  {!clipPathData && (
-                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
-                      {frameIndex + 1}
-                    </div>
-                  )}
+                  {/* 빈 프레임은 그냥 빈 상태로 유지 */}
                 </div>
               );
             })}
@@ -205,3 +198,4 @@ const PhotoFrameModal: React.FC<PhotoFrameModalProps> = ({
 };
 
 export default PhotoFrameModal;
+
