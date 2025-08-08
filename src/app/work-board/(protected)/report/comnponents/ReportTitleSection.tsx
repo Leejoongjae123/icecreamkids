@@ -54,10 +54,20 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
     "image" | "text" | "date" | null
   >(null);
 
-  // 텍스트 길이에 따라 폰트 사이즈 조절 (제목용)
+  // 텍스트 길이와 줄바꿈에 따라 폰트 사이즈 조절 (제목용)
   useEffect(() => {
+    // 개행 감지 - textContent와 innerHTML 모두 확인
+    const hasLineBreaks = text.includes('\n') || 
+                         (contentRef.current && 
+                          (contentRef.current.innerHTML.includes('<br>') || 
+                           contentRef.current.innerHTML.includes('<div>') ||
+                           contentRef.current.innerHTML.includes('\n')));
+    
     if (text.length === 0) {
       setFontSize("text-4xl");
+    } else if (hasLineBreaks) {
+      // 개행이 있으면 바로 작은 크기로
+      setFontSize("text-2xl");
     } else if (text.length <= 10) {
       setFontSize("text-4xl");
     } else if (text.length <= 20) {
@@ -154,7 +164,20 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
 
   const handleInput = () => {
     if (contentRef.current) {
-      setText(contentRef.current.textContent || "");
+      // textContent와 innerHTML을 모두 확인하여 개행 감지
+      const textContent = contentRef.current.textContent || "";
+      const innerHTML = contentRef.current.innerHTML || "";
+      
+      // innerHTML에서 <br>이나 <div> 태그가 있으면 개행으로 간주
+      const hasHTMLLineBreaks = innerHTML.includes('<br>') || innerHTML.includes('<div>');
+      
+      // textContent에 실제 줄바꿈 문자가 있거나 HTML에 줄바꿈 태그가 있으면
+      // textContent에 줄바꿈 문자를 추가하여 상태 동기화
+      if (hasHTMLLineBreaks && !textContent.includes('\n')) {
+        setText(textContent + '\n');
+      } else {
+        setText(textContent);
+      }
     }
   };
 
@@ -393,12 +416,23 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
               <div
                 ref={contentRef}
                 contentEditable
-                className={`w-full h-full outline-none text-center flex items-center justify-center font-medium ${fontSize} transition-all duration-200`}
+                className={`w-full outline-none text-center font-medium ${fontSize} transition-all duration-200 leading-tight`}
                 onFocus={handleFocus}
                 onBlur={handleBlur}
                 onInput={handleInput}
                 suppressContentEditableWarning={true}
-                style={{ minHeight: "100%", height: "100%" }}
+                style={{ 
+                  minHeight: "100%", 
+                  height: "100%",
+                  wordWrap: "break-word",
+                  whiteSpace: "pre-wrap",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "column",
+                  padding: "8px",
+                  overflow: "hidden"
+                }}
                 data-placeholder={text === "" ? "제목을 입력하세요" : ""}
               />
 
