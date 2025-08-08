@@ -187,7 +187,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
         return;
       }
 
-      console.log('📂 이미지 로딩 시작:', { imageUrl, isClippingApplied });
+      // console.log('📂 이미지 로딩 시작:', { imageUrl, isClippingApplied });
       setIsLoading(true);
 
       const imageObj = new window.Image();
@@ -231,7 +231,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
         if (imageTransformData && 
             imageTransformData.width === imgWidth && 
             imageTransformData.height === imgHeight) {
-          console.log("기존 변환 데이터 적용:", imageTransformData);
+          // console.log("기존 변환 데이터 적용:", imageTransformData);
           setImagePosition({ x: imageTransformData.x, y: imageTransformData.y });
           setImageScale(imageTransformData.scale);
           
@@ -240,7 +240,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
             onImageTransformUpdate(imageTransformData);
           }
         } else {
-          console.log("새로운 이미지 데이터 적용:", imageData);
+          // console.log("새로운 이미지 데이터 적용:", imageData);
           setImagePosition({ x, y });
           setImageScale(scale);
           
@@ -299,7 +299,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
     // 부모로부터 전달받은 이미지 변환 데이터 복원
     useEffect(() => {
       if (imageTransformData && initialImageData && konvaImage && imageRef.current) {
-        console.log("이미지 변환 데이터 복원:", imageTransformData);
+        // console.log("이미지 변환 데이터 복원:", imageTransformData);
         
         // 현재 Konva 노드 상태와 비교하여 변경이 필요한지 확인
         const currentX = imageRef.current.x();
@@ -333,7 +333,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
             layer.batchDraw();
           }
           
-          console.log("이미지 변환 데이터 복원 완료");
+          // console.log("이미지 변환 데이터 복원 완료");
         } else {
           console.log("이미지 상태 변경 없음, 복원 건너뜀");
         }

@@ -206,7 +206,7 @@ function GridCElement({
     width: number;
     height: number;
   }) => {
-    console.log("이미지 변환 데이터 업데이트:", transformData);
+    // console.log("이미지 변환 데이터 업데이트:", transformData);
     setImageTransformData(transformData);
   }, []);
 

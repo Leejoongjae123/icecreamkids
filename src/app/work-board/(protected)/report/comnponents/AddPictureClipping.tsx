@@ -31,9 +31,9 @@ if (typeof window !== 'undefined') {
     KonvaImage = ReactKonva.Image;
     Group = ReactKonva.Group;
     KonvaLib = require('konva').default;
-    console.log("✅ AddPictureClipping - Konva 라이브러리 로드 성공");
+    // console.log("✅ AddPictureClipping - Konva 라이브러리 로드 성공");
   } catch (error) {
-    console.error("❌ AddPictureClipping - Konva 라이브러리 로드 실패:", error);
+    // console.error("❌ AddPictureClipping - Konva 라이브러리 로드 실패:", error);
   }
 }
 
@@ -73,10 +73,10 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
         const availableWidth = Math.max(200, rect.width - 20);
         const availableHeight = Math.max(150, rect.height - 20);
         
-        console.log("📏 캔버스 크기 업데이트:", {
-          container: { width: rect.width, height: rect.height },
-          available: { width: availableWidth, height: availableHeight }
-        });
+        // console.log("📏 캔버스 크기 업데이트:", {
+        //   container: { width: rect.width, height: rect.height },
+        //   available: { width: availableWidth, height: availableHeight }
+        // });
         
         setCanvasSize({ 
           width: Math.round(availableWidth), 
@@ -118,13 +118,13 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
 
     const checkKonvaLoading = () => {
       if (typeof window !== 'undefined' && Stage && Layer && KonvaImage && Group) {
-        console.log("✅ AddPictureClipping - Konva 모든 컴포넌트 로드 완료");
+        // console.log("✅ AddPictureClipping - Konva 모든 컴포넌트 로드 완료");
         setIsKonvaLoaded(true);
       } else if (attempts < maxAttempts) {
         attempts++;
         timeoutId = setTimeout(checkKonvaLoading, 100);
       } else {
-        console.error("❌ AddPictureClipping - Konva 라이브러리 로딩 실패");
+        // console.error("❌ AddPictureClipping - Konva 라이브러리 로딩 실패");
         setIsKonvaLoaded(true); // 에러 상태라도 UI는 표시
       }
     };
@@ -162,10 +162,10 @@ function AddPicture({ children, targetImageRatio, targetFrame, onImageAdded, onI
         finalY = imageTransformData.y;
         finalScale = imageTransformData.scale;
         
-        console.log("✅ 기존 이미지 변환 데이터 사용:", {
-          position: { x: finalX, y: finalY },
-          scale: finalScale
-        });
+        // console.log("✅ 기존 이미지 변환 데이터 사용:", {
+        //   position: { x: finalX, y: finalY },
+        //   scale: finalScale
+        // });
       } else {
         // 기본 계산: 캔버스 크기에 맞게 이미지 스케일 계산
         const scaleX = canvasSize.width / imgWidth;

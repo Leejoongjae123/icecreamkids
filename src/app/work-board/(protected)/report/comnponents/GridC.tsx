@@ -3,8 +3,6 @@ import * as React from "react";
 import {
   DndContext,
   closestCenter,
-  rectIntersection,
-  pointerWithin,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -12,18 +10,9 @@ import {
   DragEndEvent,
   DragStartEvent,
   DragOverlay,
-  CollisionDetection,
-  useDroppable,
-  useDraggable,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  rectSortingStrategy,
-  arrayMove,
-} from "@dnd-kit/sortable";
 import GridCElement from "./GridCElement";
-import SortableGridCItem from "./SortableGridCItem";
+import DragDropGridCItem from "./DragDropGridCItem";
 import { clipPathItems } from "../dummy/svgData";
 import { ClipPathItem } from "../dummy/types";
 
@@ -97,11 +86,13 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
 
   // 현재 드래그 중인 아이템
   const [activeId, setActiveId] = React.useState<string | null>(null);
+  // 애니메이션 진행 상태
+  const [isAnimating, setIsAnimating] = React.useState<boolean>(false);
 
   // photoCount가 3일 때 큰 아이템의 위치 추적 (0: 위쪽, 2: 아래쪽)
   const [largeItemPosition, setLargeItemPosition] = React.useState<number>(0);
-  // photoCount가 8일 때 가로 2x1 넓은 영역의 행 위치 추적 (2행 또는 3행)
-  const [wideRowForPhoto8, setWideRowForPhoto8] = React.useState<2 | 3>(3);
+  // photoCount가 8일 때 가로 2x1 넓은 영역의 행 위치 추적 (1행, 2행 또는 3행)
+  const [wideRowForPhoto8, setWideRowForPhoto8] = React.useState<1 | 2 | 3>(3);
 
   // 센서 설정
   const sensors = useSensors(
@@ -110,28 +101,11 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
         distance: 8,
       },
     }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(KeyboardSensor)
   );
 
-  // 커스텀 collision detection - 다양한 크기의 그리드를 고려
-  const customCollisionDetection: CollisionDetection = (args) => {
-    // 1) 포인터가 위치한 droppable 우선
-    const pointerCollisions = pointerWithin(args);
-    if (pointerCollisions.length > 0) {
-      return pointerCollisions;
-    }
-
-    // 2) 사각형 교차 영역 확인
-    const rectCollisions = rectIntersection(args);
-    if (rectCollisions.length > 0) {
-      return rectCollisions;
-    }
-
-    // 3) 마지막으로 center 기준
-    return closestCenter(args);
-  };
+  // 간단한 collision detection
+  const customCollisionDetection = closestCenter;
 
   // photoCount가 3일 때 레이아웃 재계산 함수
   const recalculateLayoutForPhoto3 = (items: GridCItem[], targetLargeIndex: number): GridCItem[] => {
@@ -195,6 +169,20 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     }
   };
   
+  // photoCount 8 전용: 현재 wideRowForPhoto8에 따라 겹치지 않는 1x1 셀 좌표 목록을 생성
+  const generatePositionsForPhoto8 = (wideRow: 1 | 2 | 3): Array<{ row: number; col: number }> => {
+    const freeCells: Array<{ row: number; col: number }> = [];
+    for (let row = 1; row <= 3; row++) {
+      for (let col = 1; col <= 3; col++) {
+        // wideRow의 (2, wideRow), (3, wideRow)는 2x1이 차지하므로 제외
+        if (row === wideRow && (col === 2 || col === 3)) continue;
+        freeCells.push({ row, col });
+      }
+    }
+    // row-major 순서 유지
+    return freeCells;
+  };
+  
   // 드래그된 아이템이 새 위치에 배치될 때의 실제 그리드 위치 계산
   const calculateNewPosition = (draggedItem: GridCItem, targetRow: number, targetCol: number): GridPosition => {
     const draggedPos = getGridPositionForIndex(photoCount, draggedItem.index, largeItemPosition);
@@ -205,99 +193,6 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
       width: draggedPos.width,
       height: draggedPos.height
     };
-  };
-  
-  // 범용 겹침 감지 및 재배치 로직
-  const performUniversalSwap = (draggedIndex: number, newPosition: GridPosition, currentItems: GridCItem[]): GridCItem[] => {
-    // 1. 드래그된 아이템의 원래 위치 저장
-    const draggedOriginalPos = getGridPositionForIndex(photoCount, draggedIndex, largeItemPosition);
-    
-    // 2. 새로운 위치에서 겹치는 아이템들 찾기
-    const affectedItems: Array<{ item: GridCItem; index: number }> = [];
-    
-    currentItems.forEach((item, index) => {
-      if (index === draggedIndex) return; // 드래그된 아이템 제외
-      
-      const itemPos = getGridPositionForIndex(photoCount, index, largeItemPosition);
-      if (isOverlapping(newPosition, itemPos)) {
-        affectedItems.push({ item, index });
-      }
-    });
-    
-    // 3. 겹치는 아이템들이 없으면 단순 이동
-    if (affectedItems.length === 0) {
-      // 인덱스 재매핑 필요
-      return redistributeItems(currentItems, draggedIndex, newPosition);
-    }
-    
-    // 4. 겹치는 아이템들을 드래그된 아이템의 원래 위치 영역으로 재배치
-    const resultItems = [...currentItems];
-    
-    // 4-1. 드래그된 아이템을 새 위치에 해당하는 인덱스로 이동
-    const newIndex = findIndexForPosition(newPosition, photoCount, largeItemPosition);
-    
-    // 4-2. 겹치는 아이템들을 원래 위치로 이동
-    const availablePositions = getAvailablePositionsInArea(draggedOriginalPos, photoCount, largeItemPosition);
-    
-    affectedItems.forEach((affected, i) => {
-      if (i < availablePositions.length) {
-        const targetIndex = findIndexForPosition(availablePositions[i], photoCount, largeItemPosition);
-        if (targetIndex !== -1) {
-          resultItems[targetIndex] = affected.item;
-        }
-      }
-    });
-    
-    // 4-3. 드래그된 아이템을 새 위치에 설정
-    if (newIndex !== -1) {
-      resultItems[newIndex] = currentItems[draggedIndex];
-    }
-    
-    return resultItems.map((item, index) => ({
-      ...item,
-      index
-    }));
-  };
-  
-  // 특정 그리드 위치에 해당하는 아이템 인덱스 찾기
-  const findIndexForPosition = (position: GridPosition, currentPhotoCount: number, currentLargeItemPosition: number): number => {
-    for (let i = 0; i < currentPhotoCount; i++) {
-      const pos = getGridPositionForIndex(currentPhotoCount, i, currentLargeItemPosition);
-      if (pos.row === position.row && pos.col === position.col) {
-        return i;
-      }
-    }
-    return -1;
-  };
-  
-  // 특정 영역 내에서 사용 가능한 위치들 계산
-  const getAvailablePositionsInArea = (area: GridPosition, currentPhotoCount: number, currentLargeItemPosition: number): GridPosition[] => {
-    const positions: GridPosition[] = [];
-    
-    for (let row = area.row; row < area.row + area.height; row++) {
-      for (let col = area.col; col < area.col + area.width; col++) {
-        positions.push({ row, col, width: 1, height: 1 });
-      }
-    }
-    
-    return positions;
-  };
-  
-  // 아이템들을 새로운 배치로 재분배
-  const redistributeItems = (currentItems: GridCItem[], movedItemIndex: number, newPosition: GridPosition): GridCItem[] => {
-    const result = [...currentItems];
-    const newIndex = findIndexForPosition(newPosition, photoCount, largeItemPosition);
-    
-    if (newIndex !== -1 && newIndex !== movedItemIndex) {
-      // arrayMove와 유사한 재배치
-      const [moved] = result.splice(movedItemIndex, 1);
-      result.splice(newIndex, 0, moved);
-    }
-    
-    return result.map((item, index) => ({
-      ...item,
-      index
-    }));
   };
   
   // 그리드 위치 유효성 검사
@@ -384,21 +279,15 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
         if (index === 6) return { row: 3, col: 2, width: 2, height: 1 };
         break;
       
-      case 8:
-        if (index === 7) {
-          // wideRowForPhoto8에 따라 다른 위치
-          if (wideRowForPhoto8 === 2) {
-            return { row: 2, col: 2, width: 2, height: 1 };
-          } else {
-            return { row: 3, col: 2, width: 2, height: 1 };
-          }
-        }
-        return {
-          row: Math.floor(index / 3) + 1,
-          col: (index % 3) + 1,
-          width: 1,
-          height: 1
-        };
+      case 8: {
+        // 주의: 여기서는 wideRowForPhoto8로 레이아웃을 계산한다.
+        // 2x1 블록은 항상 (wideRowForPhoto8, 2)에서 시작하여 width=2
+        if (index === 7) return { row: wideRowForPhoto8, col: 2, width: 2, height: 1 };
+        // 나머지 인덱스는 현재 wideRowForPhoto8 기준 freeCells로 계산
+        const freeCells = generatePositionsForPhoto8(wideRowForPhoto8);
+        const pos = freeCells[index];
+        return { row: pos.row, col: pos.col, width: 1, height: 1 };
+      }
       
       case 9:
         return {
@@ -412,227 +301,177 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     return { row: 1, col: 1, width: 1, height: 1 };
   };
 
-  // 그리드 경계 검사
-  const isValidMove = (fromIndex: number, toIndex: number): boolean => {
-    const fromPos = getGridPositionForIndex(photoCount, fromIndex, largeItemPosition);
-    const toPos = getGridPositionForIndex(photoCount, toIndex, largeItemPosition);
-    
-    // 드래그된 아이템을 타겟 위치에 배치했을 때의 새로운 위치
-    const newPosition: GridPosition = {
-      row: toPos.row,
-      col: toPos.col,
-      width: fromPos.width,
-      height: fromPos.height
-    };
-    
-    // 그리드 경계 검사
-    let maxCols = 3, maxRows = 3;
-    switch (photoCount) {
-      case 1: maxCols = 1; maxRows = 1; break;
-      case 2: maxCols = 2; maxRows = 1; break;
-      case 3:
-      case 4: maxCols = 2; maxRows = 2; break;
-      default: maxCols = 3; maxRows = 3; break;
-    }
-    
-    return newPosition.col >= 1 && 
-           newPosition.row >= 1 && 
-           newPosition.col + newPosition.width - 1 <= maxCols && 
-           newPosition.row + newPosition.height - 1 <= maxRows;
-  };
-
-  // 두 그리드 위치가 겹치는지 확인하는 범용 함수
-  const isOverlapping = (pos1: GridPosition, pos2: GridPosition): boolean => {
-    return !(pos1.col + pos1.width <= pos2.col || 
-             pos2.col + pos2.width <= pos1.col || 
-             pos1.row + pos1.height <= pos2.row || 
-             pos2.row + pos2.height <= pos1.row);
-  };
-
-  // 특정 위치에 아이템을 배치했을 때 겹치는 아이템들을 찾는 범용 함수
-  const findAffectedItems = (
-    draggedIndex: number, 
-    newPosition: GridPosition, 
-    items: GridCItem[]
-  ): number[] => {
-    const affected: number[] = [];
-    
-    for (let i = 0; i < items.length; i++) {
-      if (i === draggedIndex) continue;
-      
-      const itemPosition = getGridPositionForIndex(photoCount, i, largeItemPosition);
-      if (isOverlapping(newPosition, itemPosition)) {
-        affected.push(i);
-      }
-    }
-    
-    return affected;
-  };
-
-  // 범용 스마트 스와핑 계산기
-  const performSmartSwap = (draggedIndex: number, targetIndex: number, items: GridCItem[]): GridCItem[] => {
-    // photoCount 8 특수 처리 (기존 로직 유지)
-    if (photoCount === 8 && draggedIndex === 7) {
-      if (targetIndex === 4 || targetIndex === 5) {
-        setWideRowForPhoto8(2);
-        return items;
-      }
-      if (targetIndex === 6 || targetIndex === 7) {
-        setWideRowForPhoto8(3);
-        return items;
-      }
-    }
-    
-    const draggedPos = getGridPositionForIndex(photoCount, draggedIndex, largeItemPosition);
-    const targetPos = getGridPositionForIndex(photoCount, targetIndex, largeItemPosition);
-    
-    // 드래그된 아이템을 타겟 위치에 배치했을 때의 새로운 위치
-    const newDraggedPosition: GridPosition = {
-      row: targetPos.row,
-      col: targetPos.col,
-      width: draggedPos.width,
-      height: draggedPos.height
-    };
-    
-    // 경계 검사
-    if (!isValidMove(draggedIndex, targetIndex)) {
-      return items; // 이동 취소
-    }
-    
-    // 새로운 위치에서 겹치는 아이템들 찾기
-    const affectedItems = findAffectedItems(draggedIndex, newDraggedPosition, items);
-    
-    if (affectedItems.length === 0) {
-      // 겹치는 아이템이 없으면 단순 이동
-      return arrayMove(items, draggedIndex, targetIndex);
-    }
-    
-    // 범용 재배치 로직
-    const result = [...items];
-    
-    // 1. 드래그된 아이템을 새 위치로 이동
-    const draggedItem = result[draggedIndex];
-    result.splice(draggedIndex, 1);
-    result.splice(targetIndex, 0, draggedItem);
-    
-    // 2. 영향받은 아이템들을 드래그된 아이템의 원래 위치 근처로 재배치
-    const draggedOriginalPos = getGridPositionForIndex(photoCount, draggedIndex, largeItemPosition);
-    
-    // 드래그된 아이템의 원래 셀들 계산
-    const originalCells: Array<{row: number, col: number}> = [];
-    for (let r = draggedOriginalPos.row; r < draggedOriginalPos.row + draggedOriginalPos.height; r++) {
-      for (let c = draggedOriginalPos.col; c < draggedOriginalPos.col + draggedOriginalPos.width; c++) {
-        originalCells.push({row: r, col: c});
-      }
-    }
-    
-    // 영향받은 아이템들을 순차적으로 재배치
-    affectedItems.forEach((affectedIndex, i) => {
-      const currentItemIndex = result.findIndex(item => item.id === items[affectedIndex].id);
-      if (currentItemIndex !== -1) {
-        const item = result[currentItemIndex];
-        result.splice(currentItemIndex, 1);
-        
-        // 드래그된 아이템의 원래 위치 근처에 배치
-        // 가능한 한 원래 공간의 셀에 맞춰 배치
-        let insertIndex = draggedIndex;
-        
-        // 원래 셀에 해당하는 인덱스 찾기
-        if (i < originalCells.length) {
-          const targetCell = originalCells[i];
-          for (let idx = 0; idx < photoCount; idx++) {
-            const pos = getGridPositionForIndex(photoCount, idx, largeItemPosition);
-            if (pos.row <= targetCell.row && targetCell.row < pos.row + pos.height &&
-                pos.col <= targetCell.col && targetCell.col < pos.col + pos.width) {
-              insertIndex = idx;
-              break;
-            }
-          }
-        }
-        
-        // 안전한 삽입 위치 보장
-        insertIndex = Math.min(insertIndex, result.length);
-        result.splice(insertIndex, 0, item);
-      }
-    });
-    
-    return result;
-  };
-
   // 드래그 시작 핸들러
   const handleDragStart = (event: DragStartEvent) => {
+    // 애니메이션 진행 중이면 드래그 시작 방지
+    if (isAnimating) {
+      return;
+    }
     setActiveId(event.active.id as string);
   };
 
   // 그리드 컨테이너 ref
   const [gridContainer, setGridContainer] = React.useState<HTMLDivElement | null>(null);
+  // 2x1 드래그 시 다중 드롭 하이라이트 대상 인덱스
+  const [multiOverSet, setMultiOverSet] = React.useState<Set<number>>(new Set());
   
-  // 그리드 컨테이너를 droppable로 설정
-  const { setNodeRef } = useDroppable({
-    id: 'grid-container',
-  });
-  
-  // 드래그 종료 핸들러 (범용 계산기)
+  // photoCount 8 전용: 특정 행/열의 1x1 셀을 담당하는 인덱스 찾기
+  // 임의의 (row,col)을 덮는 인덱스를 일반적으로 탐색
+  const findIndexForCellGeneric = (row: number, col: number): number => {
+    for (let i = 0; i < photoCount; i++) {
+      const pos = getGridPositionForIndex(photoCount, i, largeItemPosition);
+      const withinRow = row >= pos.row && row < pos.row + pos.height;
+      const withinCol = col >= pos.col && col < pos.col + pos.width;
+      if (withinRow && withinCol) return i;
+    }
+    return -1;
+  };
+
+  // photoCount 8용: 임의 wideRow에 대한 (row,col) 담당 인덱스 찾기
+  const findIndexForCellPhoto8 = (row: 1 | 2 | 3, col: 1 | 2 | 3, wideRow: 1 | 2 | 3): number => {
+    if (row === wideRow && (col === 2 || col === 3)) return 7;
+    const cells = generatePositionsForPhoto8(wideRow);
+    for (let i = 0; i < cells.length; i++) {
+      if (cells[i].row === row && cells[i].col === col) return i;
+    }
+    return -1;
+  };
+
+  // 드래그 이동 중 하이라이트 계산
+  const handleDragMove = (event: any) => {
+    const { active, over } = event;
+    if (!over) {
+      if (multiOverSet.size) setMultiOverSet(new Set());
+      return;
+    }
+    const activeIdStr = String(active?.id ?? "");
+    const overIdStr = String(over?.id ?? "");
+    const overId = overIdStr.startsWith("drop-") ? overIdStr.replace("drop-", "") : overIdStr;
+    setMultiOverSet(prev => {
+      const next = new Set<number>();
+      const idx = items.findIndex(it => it.id === activeIdStr);
+      if (idx < 0) return next;
+      const draggedPos = getGridPositionForIndex(photoCount, idx, largeItemPosition);
+      const isMultiCell = draggedPos.width > 1 || draggedPos.height > 1;
+      if (!isMultiCell) return next;
+
+      const targetIndex = items.findIndex(it => it.id === overId);
+      if (targetIndex < 0) return next;
+      const targetPos = getGridPositionForIndex(photoCount, targetIndex, largeItemPosition);
+      // 겹치는 모든 셀을 하이라이트 (경계 내로 정규화)
+      const { cols, rows } = getGridDimensions(photoCount);
+      const normCol = Math.min(targetPos.col, cols - draggedPos.width + 1);
+      const normRow = Math.min(targetPos.row, rows - draggedPos.height + 1);
+      for (let r = normRow; r < normRow + draggedPos.height; r++) {
+        for (let c = normCol; c < normCol + draggedPos.width; c++) {
+          const hitIdx = findIndexForCellGeneric(r, c);
+          if (hitIdx >= 0) next.add(hitIdx);
+        }
+      }
+      return next;
+    });
+  };
+
+  // 드래그 종료 핸들러 (단순화)
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over, activatorEvent } = event;
+    const { active, over } = event;
+    
+    // activeId 초기화
+    setActiveId(null);
+    
+    // 유효한 드롭 타겟이 없으면 종료
+    if (!over) return;
+    
+    // 같은 아이템에 드롭하면 종료
+    if (active.id === over.id) return;
+    
+    // drop-로 시작하는 ID에서 실제 아이템 ID 추출
+    const overId = over.id.toString().startsWith('drop-') 
+      ? over.id.toString().replace('drop-', '') 
+      : over.id.toString();
     
     setItems((currentItems) => {
       const draggedIndex = currentItems.findIndex(item => item.id === active.id);
+      const targetIndex = currentItems.findIndex(item => item.id === overId);
       
-      if (draggedIndex === -1) {
+      // 유효하지 않은 인덱스면 변경 없음
+      if (draggedIndex === -1 || targetIndex === -1) {
         return currentItems;
       }
       
-      const draggedItem = currentItems[draggedIndex];
+      // 애니메이션 시작
+      setIsAnimating(true);
       
-      // 1. 드래그된 아이템과 over된 아이템이 있는 경우 (기존 아이템 간 스와핑)
-      if (over?.id && over.id !== 'grid-container') {
-        const overIndex = currentItems.findIndex(item => item.id === over.id);
-        if (overIndex !== -1) {
-          // 기존 스마트 스와핑 로직 사용
-          return performSmartSwap(draggedIndex, overIndex, currentItems);
+      // 애니메이션 완료 후 상태 초기화
+      setTimeout(() => {
+        setIsAnimating(false);
+      }, 350);
+      // 멀티셀(예: 2x1, 2x2 등) 일반 처리
+      const draggedPos = getGridPositionForIndex(photoCount, draggedIndex, largeItemPosition);
+      const targetPos = getGridPositionForIndex(photoCount, targetIndex, largeItemPosition);
+
+      // 디버그 로그: 현재/이동 위치
+      console.log('[GridC][dragEnd] draggedIndex:', draggedIndex, 'targetIndex:', targetIndex);
+      console.log('[GridC][dragEnd] draggedPos:', draggedPos, 'wideRowForPhoto8:', wideRowForPhoto8, 'targetPos:', targetPos);
+
+      if (draggedPos.width > 1 || draggedPos.height > 1) {
+        // 드래그 대상이 차지하는 모든 셀과, 타겟의 기준 셀(top-left)을 맞춰 1:1 교환 수행
+        const { cols, rows } = getGridDimensions(photoCount);
+        const baseCol = Math.min(targetPos.col, cols - draggedPos.width + 1);
+        const baseRow = Math.min(targetPos.row, rows - draggedPos.height + 1);
+
+        // photoCount=8의 2x1 레이아웃형 블록은 상태(wideRowForPhoto8)만 변경하면 의도한 스와핑이 이루어짐
+        if (photoCount === 8 && draggedPos.width === 2 && draggedPos.height === 1) {
+          console.log('[GridC][dragEnd][2x1] layout-only move baseRow/baseCol:', baseRow, baseCol);
+          if (baseRow !== wideRowForPhoto8) {
+            setWideRowForPhoto8(baseRow as 1 | 2 | 3);
+          }
+          setMultiOverSet(new Set());
+          return currentItems.map((it, idx) => ({ ...it, index: idx }));
         }
-      }
-      
-      // 2. 그리드 컨테이너에 드롭된 경우 (자유로운 위치 드래그)
-      if (over?.id === 'grid-container' && activatorEvent && gridContainer) {
-        // 마우스 이벤트에서 좌표 추출
-        let clientX: number, clientY: number;
-        
-        if ('clientX' in activatorEvent && typeof activatorEvent.clientX === 'number') {
-          clientX = activatorEvent.clientX;
-          clientY = ('clientY' in activatorEvent && typeof activatorEvent.clientY === 'number') ? activatorEvent.clientY : clientX;
-        } else {
-          // 터치 이벤트의 경우
-          const touches = 'touches' in activatorEvent && Array.isArray(activatorEvent.touches) ? activatorEvent.touches : [];
-          if (touches.length > 0 && touches[0] && typeof touches[0].clientX === 'number') {
-            clientX = touches[0].clientX;
-            clientY = touches[0].clientY;
-          } else {
-            return currentItems; // 좌표를 얻을 수 없으면 변경하지 않음
+
+        const result = [...currentItems];
+        for (let r = 0; r < draggedPos.height; r++) {
+          for (let c = 0; c < draggedPos.width; c++) {
+            const srcIdx = findIndexForCellGeneric(draggedPos.row + r, draggedPos.col + c);
+            const dstIdx = findIndexForCellGeneric(baseRow + r, baseCol + c);
+            if (srcIdx >= 0 && dstIdx >= 0 && srcIdx !== dstIdx) {
+              const tmp = result[srcIdx];
+              result[srcIdx] = { ...result[dstIdx], index: srcIdx };
+              result[dstIdx] = { ...tmp, index: dstIdx };
+            }
           }
         }
-        
-        // 좌표를 그리드 좌표로 변환
-        const { row, col } = getGridCoordinatesFromPoint(clientX, clientY, gridContainer);
-        
-        // 새로운 위치 계산
-        const newPosition = calculateNewPosition(draggedItem, row, col);
-        
-        // 경계 검사
-        if (!isValidGridPosition(newPosition, photoCount)) {
-          return currentItems; // 유효하지 않으면 변경하지 않음
-        }
-        
-        // 범용 스와핑 로직 적용
-        return performUniversalSwap(draggedIndex, newPosition, currentItems);
+        setMultiOverSet(new Set());
+        return result.map((it, idx) => ({ ...it, index: idx }));
       }
-      
-      // 3. 기타 경우 변경하지 않음
-      return currentItems;
-    });
 
-    setActiveId(null);
+      // 단순한 위치 교환만 수행
+      console.log('[GridC][dragEnd] simple swap');
+      const swapped = performSimpleSwap(currentItems, draggedIndex, targetIndex);
+      // 하이라이트 초기화
+      setMultiOverSet(new Set());
+      return swapped.map((it, idx) => ({ ...it, index: idx }));
+    });
+  };
+
+  // 단순 드래그 앤 드롭 처리 (그룹핑 방지)
+  const performSimpleSwap = (
+    currentItems: GridCItem[], 
+    draggedIndex: number, 
+    targetIndex: number
+  ): GridCItem[] => {
+    // 단순한 위치 교환만 수행
+    const result = [...currentItems];
+    
+    // 두 아이템의 콘텐츠를 교환
+    const draggedItem = result[draggedIndex];
+    const targetItem = result[targetIndex];
+    
+    result[draggedIndex] = { ...targetItem, index: draggedIndex };
+    result[targetIndex] = { ...draggedItem, index: targetIndex };
+    
+    return result;
   };
 
   // 이미지 업로드 핸들러
@@ -780,8 +619,23 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
         };
       
       case 8:
-        // 8개: 3x3격자에서 3,2와 3,3을 합치고 나머지는 개별격자로 구성
-        if (wideRowForPhoto8 === 3) {
+        // 8개: 3x3격자에서 2x1 블록 위치에 따라 다른 레이아웃
+        if (wideRowForPhoto8 === 1) {
+          // 첫 번째 행의 (1,2)와 (1,3)을 합치는 경우
+          return {
+            className: "grid grid-cols-3 grid-rows-3 gap-4 w-full h-full max-w-4xl mx-auto",
+            itemStyles: {
+              0: { gridColumn: "1", gridRow: "1" },          // (1,1)
+              1: { gridColumn: "1", gridRow: "2" },          // (2,1) 
+              2: { gridColumn: "1", gridRow: "3" },          // (3,1)
+              3: { gridColumn: "2", gridRow: "2" },          // (2,2) ← 기존 (1,2)에서 밀려남  
+              4: { gridColumn: "3", gridRow: "2" },          // (2,3) ← 기존 (2,2)에서 밀려남
+              5: { gridColumn: "2", gridRow: "3" },          // (3,2)
+              6: { gridColumn: "3", gridRow: "3" },          // (3,3) ← 기존 (1,3)에서 밀려남
+              7: { gridColumn: "2 / 4", gridRow: "1" }       // (1,2)~(1,3)
+            } as Record<number, React.CSSProperties>
+          };
+        } else if (wideRowForPhoto8 === 3) {
           return {
             className: "grid grid-cols-3 grid-rows-3 gap-4 w-full h-full max-w-4xl mx-auto",
             itemStyles: {
@@ -847,24 +701,20 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <SortableContext 
-        items={items.map(item => item.id)} 
-        strategy={rectSortingStrategy}
-      >
         <div className="w-full h-full relative flex flex-col">
           <div 
-            ref={(node) => {
-              setNodeRef(node);
-              setGridContainer(node);
-            }}
+            ref={setGridContainer}
             className={getGridLayoutConfig().className}
           >
             {items.map((item, index) => {
-              const layoutConfig = getGridLayoutConfig();
-              const itemStyle = layoutConfig.itemStyles[index] || {};
+              // 위치 스타일을 단일 소스(getGridPositionForIndex)에서 계산하여 레이아웃/좌표 불일치 방지
+              const pos = getGridPositionForIndex(photoCount, index, largeItemPosition);
+              const gridColumn = pos.width === 1 ? `${pos.col}` : `${pos.col} / ${pos.col + pos.width}`;
+              const gridRow = pos.height === 1 ? `${pos.row}` : `${pos.row} / ${pos.row + pos.height}`;
+              const computedStyle: React.CSSProperties = { gridColumn, gridRow };
               
               return (
-                <SortableGridCItem
+                <DragDropGridCItem
                   key={item.id}
                   id={item.id}
                   index={item.index}
@@ -876,13 +726,13 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
                   onDelete={() => handleDelete(item.id)}
                   onImageUpload={handleImageUpload}
                   onClipPathChange={handleClipPathChange}
-                  style={itemStyle}
+                  style={computedStyle}
+                  isAnimating={isAnimating}
                 />
               );
             })}
           </div>
         </div>
-      </SortableContext>
       
       <DragOverlay>
         {activeId && activeItem ? (
