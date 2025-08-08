@@ -392,14 +392,14 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
       {((type === "C" && !visibleGrids.playActivity && !visibleGrids.teacherSupport && !visibleGrids.homeConnection) ||
         (type !== "C" && !visibleGrids.teacherSupport && !visibleGrids.homeConnection)) && (
         <div 
-          className="flex flex-col items-center justify-center w-full opacity-0 hover:opacity-100 transition-opacity duration-200"
+          className="flex flex-col items-center justify-center w-full transition-opacity duration-200"
           style={{ height: getBottomSectionHeight() }}
         >
           <div 
             className="group cursor-pointer flex flex-col items-center justify-center"
             onClick={handleAddImageFrame}
           >
-            <div className="w-[38px] h-[38px] bg-black group-hover:bg-primary transition-colors duration-200 rounded-full flex items-center justify-center">
+            <div className="w-[38px] h-[38px] bg-primary group-hover:bg-primary/80 transition-colors duration-200 rounded-full flex items-center justify-center">
               <Image
                 src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix6.svg"
                 width={18}
@@ -408,7 +408,7 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
                 alt="no image"
               />
             </div>
-            <div className="text-sm text-white bg-black group-hover:text-white group-hover:bg-primary transition-colors duration-200 text-center mt-2 rounded-lg px-2 py-1">
+            <div className="text-sm text-white bg-primary group-hover:text-white group-hover:bg-primary/80 transition-colors duration-200 text-center mt-2 rounded-lg px-2 py-1">
               틀 추가
             </div>
           </div>
