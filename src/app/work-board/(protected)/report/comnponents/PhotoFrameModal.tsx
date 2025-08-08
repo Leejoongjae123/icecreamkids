@@ -21,8 +21,15 @@ const PhotoFrameModal: React.FC<PhotoFrameModalProps> = ({
   const [selectedFrame, setSelectedFrame] = useState<number>(3); // Default to frame 3
 
   const handleApply = () => {
-    onApply(selectedFrame);
-    onClose();
+    // 선택된 프레임이 유효한 clipPath 데이터를 가지고 있는지 확인
+    if (selectedFrame < clipPathItems.length) {
+      onApply(selectedFrame);
+      onClose();
+    } else {
+      // 빈 프레임이 선택된 경우 - 클리핑 해제를 의미
+      onApply(-1); // -1을 클리핑 해제의 신호로 사용
+      onClose();
+    }
   };
 
   const handleFrameSelect = (frameIndex: number) => {
@@ -166,7 +173,15 @@ const PhotoFrameModal: React.FC<PhotoFrameModalProps> = ({
                       </div>
                     </div>
                   )}
-                  {/* 빈 프레임은 그냥 빈 상태로 유지 */}
+                  {/* 빈 프레임에는 클리핑 해제 표시 */}
+                  {!clipPathData && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2">
+                      <div className="w-8 h-8 border-2 border-dashed border-gray-400 rounded mb-1"></div>
+                      <div className="text-xs text-gray-600 bg-white/80 px-1 py-0.5 rounded text-[10px]">
+                        클리핑 해제
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

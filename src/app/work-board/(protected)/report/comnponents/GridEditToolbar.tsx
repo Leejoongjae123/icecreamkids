@@ -137,6 +137,17 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
   const handlePhotoFrameApply = (selectedFrame: number) => {
     console.log("Selected photo frame:", selectedFrame);
     
+    // -1은 클리핑 해제를 의미
+    if (selectedFrame === -1 && targetGridId) {
+      console.log("클리핑 해제 요청");
+      onIconClick(0, { 
+        action: 'changePhotoFrame', 
+        gridId: targetGridId, 
+        clipPathData: null // null로 클리핑 해제
+      });
+      return;
+    }
+    
     // 선택된 프레임 인덱스에 따라 clipPath 데이터 가져오기
     let clipPathData = null;
     
@@ -217,7 +228,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
             <Tooltip key={index}>
               <TooltipTrigger asChild>
                 <div
-                  className="w-[38px] h-[38px] bg-black hover:bg-primary rounded-full absolute flex items-center justify-center cursor-pointer hover:-translate-y-1"
+                  className="w-[38px] h-[38px] bg-primary hover:opacity-80 rounded-full absolute flex items-center justify-center cursor-pointer hover:-translate-y-1"
                   style={{
                     left: `${index * (38 + 12)}px`,
                     opacity: internalExpanded ? 1 : 0,

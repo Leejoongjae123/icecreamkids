@@ -171,7 +171,9 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
     }
   };
 
-  if (!show) return null;
+  if (!show) {
+    return null;
+  }
 
   return (
     <>
@@ -190,7 +192,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
             <Tooltip key={index}>
               <TooltipTrigger asChild>
                 <div
-                  className="w-[38px] h-[38px] bg-black hover:bg-primary rounded-full absolute flex items-center justify-center cursor-pointer hover:-translate-y-1"
+                  className="w-[38px] h-[38px] bg-primary hover:opacity-80 rounded-full absolute flex items-center justify-center cursor-pointer hover:-translate-y-1"
                   style={{
                     left: `${index * (38 + 12)}px`,
                     opacity: internalExpanded ? 1 : 0,
