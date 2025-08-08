@@ -93,6 +93,8 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
   const [largeItemPosition, setLargeItemPosition] = React.useState<number>(0);
   // photoCount가 8일 때 가로 2x1 넓은 영역의 행 위치 추적 (1행, 2행 또는 3행)
   const [wideRowForPhoto8, setWideRowForPhoto8] = React.useState<1 | 2 | 3>(3);
+  // photoCount가 8일 때 2x1 블록의 시작 열(1 또는 2)
+  const [wideColForPhoto8, setWideColForPhoto8] = React.useState<1 | 2>(2);
 
   // 센서 설정
   const sensors = useSensors(
@@ -170,12 +172,12 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
   };
   
   // photoCount 8 전용: 현재 wideRowForPhoto8에 따라 겹치지 않는 1x1 셀 좌표 목록을 생성
-  const generatePositionsForPhoto8 = (wideRow: 1 | 2 | 3): Array<{ row: number; col: number }> => {
+  const generatePositionsForPhoto8 = (wideRow: 1 | 2 | 3, wideCol: 1 | 2): Array<{ row: number; col: number }> => {
     const freeCells: Array<{ row: number; col: number }> = [];
     for (let row = 1; row <= 3; row++) {
       for (let col = 1; col <= 3; col++) {
-        // wideRow의 (2, wideRow), (3, wideRow)는 2x1이 차지하므로 제외
-        if (row === wideRow && (col === 2 || col === 3)) continue;
+        // wideRow의 (wideCol, wideRow)부터 2칸은 2x1이 차지
+        if (row === wideRow && (col === wideCol || col === wideCol + 1)) continue;
         freeCells.push({ row, col });
       }
     }
@@ -282,9 +284,9 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
       case 8: {
         // 주의: 여기서는 wideRowForPhoto8로 레이아웃을 계산한다.
         // 2x1 블록은 항상 (wideRowForPhoto8, 2)에서 시작하여 width=2
-        if (index === 7) return { row: wideRowForPhoto8, col: 2, width: 2, height: 1 };
+        if (index === 7) return { row: wideRowForPhoto8, col: wideColForPhoto8, width: 2, height: 1 };
         // 나머지 인덱스는 현재 wideRowForPhoto8 기준 freeCells로 계산
-        const freeCells = generatePositionsForPhoto8(wideRowForPhoto8);
+        const freeCells = generatePositionsForPhoto8(wideRowForPhoto8, wideColForPhoto8);
         const pos = freeCells[index];
         return { row: pos.row, col: pos.col, width: 1, height: 1 };
       }
@@ -329,8 +331,8 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
 
   // photoCount 8용: 임의 wideRow에 대한 (row,col) 담당 인덱스 찾기
   const findIndexForCellPhoto8 = (row: 1 | 2 | 3, col: 1 | 2 | 3, wideRow: 1 | 2 | 3): number => {
-    if (row === wideRow && (col === 2 || col === 3)) return 7;
-    const cells = generatePositionsForPhoto8(wideRow);
+    if (row === wideRow && (col === wideColForPhoto8 || col === (wideColForPhoto8 + 1) as 2 | 3)) return 7;
+    const cells = generatePositionsForPhoto8(wideRow, wideColForPhoto8);
     for (let i = 0; i < cells.length; i++) {
       if (cells[i].row === row && cells[i].col === col) return i;
     }
@@ -420,12 +422,32 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
         const baseCol = Math.min(targetPos.col, cols - draggedPos.width + 1);
         const baseRow = Math.min(targetPos.row, rows - draggedPos.height + 1);
 
+        // 같은 행 내부에서 2x1이 col2→col1로 이동하는 요청 처리 (photo=8)
+        if (
+          photoCount === 8 && draggedPos.width === 2 && draggedPos.height === 1 &&
+          baseRow === draggedPos.row && baseCol === 1 && draggedPos.col === 2
+        ) {
+          // 2x1을 같은 행의 col1에 배치하고, 기존 col1의 1x1은 col3로 이동
+          console.log('[GridC][dragEnd][2x1 same-row shift] row:', baseRow, ' col:2->1');
+          setWideColForPhoto8(1);
+          const result = [...currentItems];
+          // col1 담당 인덱스, col3 담당 인덱스 계산 (현재 wideCol 기준)
+          const idxCol1 = findIndexForCellPhoto8(baseRow as 1|2|3, 1, wideRowForPhoto8);
+          const idxCol3 = findIndexForCellPhoto8(baseRow as 1|2|3, 3, wideRowForPhoto8);
+          if (idxCol1 >= 0 && idxCol3 >= 0) {
+            const tmp = result[idxCol1];
+            result[idxCol1] = { ...result[idxCol3], index: idxCol1 };
+            result[idxCol3] = { ...tmp, index: idxCol3 };
+          }
+          setMultiOverSet(new Set());
+          return result.map((it, idx) => ({ ...it, index: idx }));
+        }
+
         // photoCount=8의 2x1 레이아웃형 블록은 상태(wideRowForPhoto8)만 변경하면 의도한 스와핑이 이루어짐
         if (photoCount === 8 && draggedPos.width === 2 && draggedPos.height === 1) {
           console.log('[GridC][dragEnd][2x1] layout-only move baseRow/baseCol:', baseRow, baseCol);
-          if (baseRow !== wideRowForPhoto8) {
-            setWideRowForPhoto8(baseRow as 1 | 2 | 3);
-          }
+          if (baseRow !== wideRowForPhoto8) setWideRowForPhoto8(baseRow as 1 | 2 | 3);
+          if (baseCol !== wideColForPhoto8) setWideColForPhoto8(baseCol as 1 | 2);
           setMultiOverSet(new Set());
           return currentItems.map((it, idx) => ({ ...it, index: idx }));
         }
