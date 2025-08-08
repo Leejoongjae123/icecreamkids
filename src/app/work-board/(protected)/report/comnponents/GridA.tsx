@@ -42,8 +42,9 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
         category: "촉감놀이",
         images: [],
         inputValue: "",
-        cardType: subject === 3 ? (i === 0 ? 'large' : 'small') : undefined,
-        colSpan: subject === 3 ? (i === 0 ? 2 : 1) : 1
+        cardType: subject === 3 ? (i === 0 ? 'large' : 'small') : 'small',
+        colSpan: subject === 3 ? (i === 0 ? 2 : 1) : 1,
+        imageCount: 1
       });
     }
     return initialItems;
@@ -68,8 +69,9 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
           newItems.push({
             ...existingItem,
             index: i,
-            cardType: subject === 3 ? (i === 0 ? 'large' : 'small') : undefined,
-            colSpan: subject === 3 ? (i === 0 ? 2 : 1) : 1
+            cardType: subject === 3 ? (i === 0 ? 'large' : 'small') : 'small',
+            colSpan: subject === 3 ? (i === 0 ? 2 : 1) : 1,
+            imageCount: existingItem.imageCount || 1
           });
         } else {
           // 새 아이템 생성
@@ -79,8 +81,9 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
             category: "촉감놀이",
             images: [],
             inputValue: "",
-            cardType: subject === 3 ? (i === 0 ? 'large' : 'small') : undefined,
-            colSpan: subject === 3 ? (i === 0 ? 2 : 1) : 1
+            cardType: subject === 3 ? (i === 0 ? 'large' : 'small') : 'small',
+            colSpan: subject === 3 ? (i === 0 ? 2 : 1) : 1,
+            imageCount: 1
           });
         }
       }
@@ -271,6 +274,8 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
         onDecreaseSubject={onDecreaseSubject}
         imagePositions={imagePositionsMap[item.id] || []}
         onImagePositionsUpdate={(positions) => handleImagePositionsUpdate(item.id, positions)}
+        imageCount={item.imageCount || 1}
+        gridCount={subject}
       />
     ));
   };
@@ -316,6 +321,8 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
               cardType={activeItem.cardType}
               imagePositions={imagePositionsMap[activeItem.id] || []}
               onImagePositionsUpdate={() => {}} // 드래그 중에는 위치 업데이트하지 않음
+              imageCount={activeItem.imageCount || 1}
+              gridCount={subject}
             />
           </div>
         ) : null}

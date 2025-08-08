@@ -96,6 +96,7 @@ export interface GridItem {
   inputValue: string;
   cardType?: 'large' | 'small'; // 3개 레이아웃에서 카드 타입
   colSpan?: number; // 컬럼 스팬 설정
+  imageCount?: number; // 이미지 개수
 }
 
 export interface GridAElementProps {

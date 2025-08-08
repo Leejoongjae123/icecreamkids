@@ -40,6 +40,7 @@ interface GridAElementProps {
   };
   imagePositions?: any[]; // 외부에서 전달받은 이미지 위치 정보
   onImagePositionsUpdate?: (positions: any[]) => void; // 이미지 위치 업데이트 핸들러
+  gridCount?: number; // 그리드 갯수 추가
 }
 
 function GridAElement({
@@ -63,14 +64,15 @@ function GridAElement({
   cardType, // 카드 타입 추가
   isExpanded = false, // 확장 상태 추가
   isWideCard = false, // col-span-2인 경우를 위한 prop 추가
-  imageCount: initialImageCount = 1, // 초기 이미지 개수
+  imageCount: propsImageCount = 1, // 초기 이미지 개수
   mode = 'single', // 이미지 편집 모드
   onDecreaseSubject, // subject 감소 함수 추가
   imagePositions: externalImagePositions = [], // 외부에서 전달받은 이미지 위치 정보
   onImagePositionsUpdate, // 이미지 위치 업데이트 핸들러
+  gridCount, // 그리드 갯수
 }: GridAElementProps) {
   // 이미지 개수 상태 관리
-  const [imageCount, setImageCount] = React.useState(initialImageCount);
+  const [imageCount, setImageCount] = React.useState(propsImageCount);
   
   // 카테고리 편집 상태 관리
   const [isEditingCategory, setIsEditingCategory] = React.useState(false);
@@ -817,8 +819,85 @@ function GridAElement({
         </div>
 
         {/* 이미지 그리드 - 60% 고정 높이를 차지하는 영역 */}
-        {/* 작은 그리드이고 이미지가 3개일 때는 flex 레이아웃 사용 */}
-        {cardType === 'small' && imageCount === 3 ? (
+        {/* 그리드가 2개이고 이미지가 3개일 때: 가로로 3개 일렬 배치 */}
+        {gridCount === 2 && imageCount === 3 ? (
+          <div ref={imageContainerRef} className="flex gap-1 w-full" style={{ height: '60%' }}>
+            {[0, 1, 2].map((imageIndex) => (
+              <div key={imageIndex} className="flex-1 h-full">
+                <AddPicture 
+                  targetImageRatio={getImageAreaRatio(imageIndex)}
+                  targetFrame={measureImageCellSize(imageIndex)}
+                  onImagesAdded={handleImagesAdded}
+                  onImageAdded={(hasImage) => handleSingleImageAdded(hasImage, imageIndex)}
+                  imageIndex={imageIndex}
+                  mode="multiple"
+                  hasImage={Boolean(currentImages[imageIndex] && currentImages[imageIndex] !== "" && currentImages[imageIndex] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg")}
+                  maxImageCount={getRemainingImageCount()}
+                >
+                  <div 
+                    className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
+                    onClick={(e) => {
+                      measureImageCellSize(imageIndex);
+                      handleImageClick(e);
+                    }}
+                  >
+                    {currentImages[imageIndex] && currentImages[imageIndex] !== "" && currentImages[imageIndex] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
+                      <div
+                        className="absolute inset-0 overflow-hidden rounded-md cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleImageAdjustClick(imageIndex, currentImages[imageIndex]);
+                        }}
+                      >
+                        <Image
+                          src={currentImages[imageIndex]}
+                          alt={`Image ${imageIndex + 1}`}
+                          fill
+                          className="object-cover rounded-md"
+                          style={{
+                            transform: `translate(${imagePositions[imageIndex]?.x || 0}px, ${imagePositions[imageIndex]?.y || 0}px) scale(${imagePositions[imageIndex]?.scale || 1})`,
+                            transformOrigin: 'center'
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <Image
+                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+                          alt="No image"
+                          fill
+                          className="object-cover rounded-md"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                          <Image
+                            src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
+                            width={20}
+                            height={20}
+                            className="object-cover mb-2"
+                            alt="Upload icon"
+                          />
+                          <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                            이미지를 드래그하거나<br />클릭하여 업로드
+                          </div>
+                          <button 
+                            className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                          >
+                            파일선택
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </AddPicture>
+              </div>
+            ))}
+          </div>
+        ) : 
+        /* 작은 그리드이고 이미지가 3개일 때는 flex 레이아웃 사용 (기존 로직) */
+        cardType === 'small' && imageCount === 3 ? (
           <div ref={imageContainerRef} className="flex gap-1 w-full" style={{ height: '60%' }}>
             {(() => {
               console.log("🎨 3개 이미지 특별 레이아웃 렌더링:", {

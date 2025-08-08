@@ -19,6 +19,8 @@ interface SortableGridItemProps {
   onDecreaseSubject?: () => void; // subject 감소 함수 추가
   imagePositions?: any[]; // 이미지 위치 정보
   onImagePositionsUpdate?: (positions: any[]) => void; // 이미지 위치 업데이트 핸들러
+  imageCount?: number; // 이미지 개수 추가
+  gridCount?: number; // 그리드 갯수 추가
 }
 
 function SortableGridItem({
@@ -36,6 +38,8 @@ function SortableGridItem({
   onDecreaseSubject,
   imagePositions = [],
   onImagePositionsUpdate,
+  imageCount = 1,
+  gridCount,
 }: SortableGridItemProps) {
   const {
     attributes,
@@ -76,6 +80,8 @@ function SortableGridItem({
         onDecreaseSubject={onDecreaseSubject}
         imagePositions={imagePositions}
         onImagePositionsUpdate={onImagePositionsUpdate}
+        imageCount={imageCount}
+        gridCount={gridCount}
       />
     </div>
   );

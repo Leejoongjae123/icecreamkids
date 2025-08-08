@@ -9,7 +9,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 interface ImageCountModalProps {
   isOpen: boolean;
@@ -32,7 +31,7 @@ export default function ImageCountModal({
   description = "사용할 이미지 개수를 선택해주세요.",
   isExpanded = false,
 }: ImageCountModalProps) {
-  const [inputValue, setInputValue] = useState<string>("1");
+  const [selectedCount, setSelectedCount] = useState<number>(1);
   const [error, setError] = useState<string>("");
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -50,45 +49,32 @@ export default function ImageCountModal({
     return { min: 1, max: 4, text: "1~4" };
   };
 
-  // 유효성 검사 함수
-  const validateInput = (value: string): boolean => {
-    const { min, max, text } = getValidRange();
-    const num = Number(value);
-    if (isNaN(num) || !Number.isInteger(num) || num < min || num > max) {
-      setError(`${text}까지의 숫자를 입력해주세요`);
-      return false;
+  // 동그라미 버튼 생성 함수
+  const generateCountOptions = () => {
+    const { min, max } = getValidRange();
+    const options = [];
+    for (let i = min; i <= max; i++) {
+      options.push(i);
     }
-    setError("");
-    return true;
+    return options;
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-    setInputValue(value);
-    
-    // 실시간 유효성 검사
-    if (value.trim() !== "") {
-      validateInput(value);
-    } else {
-      setError("");
-    }
+  // 숫자 선택 핸들러
+  const handleCountSelect = (count: number) => {
+    setSelectedCount(count);
+    setError("");
   };
 
   const handleApply = () => {
-    if (!validateInput(inputValue)) {
-      return;
-    }
-    
-    const count = Number(inputValue);
-    console.log(`그리드 ${targetGridId}에 ${count}개 이미지 적용`);
-    onApply(count);
-    setInputValue("1"); // 적용 후 초기화
+    console.log(`그리드 ${targetGridId}에 ${selectedCount}개 이미지 적용`);
+    onApply(selectedCount);
+    setSelectedCount(1); // 적용 후 초기화
     setError("");
     onClose();
   };
 
   const handleCancel = () => {
-    setInputValue("1");
+    setSelectedCount(1);
     setError("");
     onClose();
   };
@@ -122,25 +108,30 @@ export default function ImageCountModal({
         </DialogHeader>
         
         <div className="flex flex-col gap-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
-              이미지 개수 ({getValidRange().text})
-            </label>
-            <Input
-              type="number"
-              value={inputValue}
-              onChange={handleInputChange}
-              placeholder={`${getValidRange().text} 사이의 숫자를 입력하세요`}
-              min={getValidRange().min.toString()}
-              max={getValidRange().max.toString()}
-              className={`w-full ${
-                error 
-                  ? "border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500" 
-                  : ""
-              }`}
-            />
+          <div className="space-y-4">
+
+            
+            {/* 동그라미 숫자 선택 버튼들 */}
+            <div className="flex justify-center gap-3">
+              {generateCountOptions().map((count) => (
+                <button
+                  key={count}
+                  onClick={() => handleCountSelect(count)}
+                  className={`
+                    w-12 h-12  rounded-full border-2 transition-all duration-200 flex items-center justify-center font-semibold text-lg
+                    ${selectedCount === count
+                      ? 'bg-primary border-primary text-white'
+                      : 'bg-white border-gray-300 text-gray-600 hover:bg-primary hover:border-primary hover:text-white'
+                    }
+                  `}
+                >
+                  {count}
+                </button>
+              ))}
+            </div>
+            
             {error && (
-              <p className="text-sm text-red-500 mt-1">
+              <p className="text-sm text-red-500 mt-1 text-center">
                 {error}
               </p>
             )}
@@ -157,7 +148,7 @@ export default function ImageCountModal({
             <Button
               className="px-6 py-2 bg-primary hover:bg-primary/80 text-white"
               onClick={handleApply}
-              disabled={!!error || inputValue.trim() === ""}
+              disabled={!!error}
             >
               확인
             </Button>
