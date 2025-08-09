@@ -95,6 +95,16 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
   const [wideRowForPhoto8, setWideRowForPhoto8] = React.useState<1 | 2 | 3>(3);
   // photoCount가 8일 때 2x1 블록의 시작 열(1 또는 2)
   const [wideColForPhoto8, setWideColForPhoto8] = React.useState<1 | 2>(2);
+  // photoCount가 5일 때 3행 2x1 블록의 시작 열(1 또는 2)
+  const [wideColForPhoto5Row3, setWideColForPhoto5Row3] = React.useState<1 | 2>(2);
+  // photoCount가 7일 때 첫 번째 2x1 블록(인덱스 0)의 행 위치 (1, 2, 3)
+  const [firstWideRowForPhoto7, setFirstWideRowForPhoto7] = React.useState<1 | 2 | 3>(1);
+  // photoCount가 7일 때 첫 번째 2x1 블록(인덱스 0)의 시작 열 (1 또는 2)
+  const [firstWideColForPhoto7, setFirstWideColForPhoto7] = React.useState<1 | 2>(1);
+  // photoCount가 7일 때 두 번째 2x1 블록(인덱스 6)의 행 위치 (1, 2, 3)
+  const [secondWideRowForPhoto7, setSecondWideRowForPhoto7] = React.useState<1 | 2 | 3>(3);
+  // photoCount가 7일 때 두 번째 2x1 블록(인덱스 6)의 시작 열 (1 또는 2)
+  const [secondWideColForPhoto7, setSecondWideColForPhoto7] = React.useState<1 | 2>(2);
 
   // 센서 설정
   const sensors = useSensors(
@@ -178,6 +188,25 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
       for (let col = 1; col <= 3; col++) {
         // wideRow의 (wideCol, wideRow)부터 2칸은 2x1이 차지
         if (row === wideRow && (col === wideCol || col === wideCol + 1)) continue;
+        freeCells.push({ row, col });
+      }
+    }
+    // row-major 순서 유지
+    return freeCells;
+  };
+
+  // photoCount 7 전용: 두 개의 2x1 블록 위치에 따라 겹치지 않는 1x1 셀 좌표 목록을 생성
+  const generatePositionsForPhoto7 = (
+    firstWideRow: 1 | 2 | 3, firstWideCol: 1 | 2,
+    secondWideRow: 1 | 2 | 3, secondWideCol: 1 | 2
+  ): Array<{ row: number; col: number }> => {
+    const freeCells: Array<{ row: number; col: number }> = [];
+    for (let row = 1; row <= 3; row++) {
+      for (let col = 1; col <= 3; col++) {
+        // 첫 번째 2x1이 차지하는 영역 제외
+        if (row === firstWideRow && (col === firstWideCol || col === firstWideCol + 1)) continue;
+        // 두 번째 2x1이 차지하는 영역 제외
+        if (row === secondWideRow && (col === secondWideCol || col === secondWideCol + 1)) continue;
         freeCells.push({ row, col });
       }
     }
@@ -271,15 +300,20 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
         if (index === 5) return { row: 3, col: 3, width: 1, height: 1 };
         break;
       
-      case 7:
-        if (index === 0) return { row: 1, col: 1, width: 2, height: 1 };
-        if (index === 1) return { row: 1, col: 3, width: 1, height: 1 };
-        if (index === 2) return { row: 2, col: 1, width: 1, height: 1 };
-        if (index === 3) return { row: 2, col: 2, width: 1, height: 1 };
-        if (index === 4) return { row: 2, col: 3, width: 1, height: 1 };
-        if (index === 5) return { row: 3, col: 1, width: 1, height: 1 };
-        if (index === 6) return { row: 3, col: 2, width: 2, height: 1 };
+      case 7: {
+        // 첫 번째 2x1 블록 (인덱스 0)
+        if (index === 0) return { row: firstWideRowForPhoto7, col: firstWideColForPhoto7, width: 2, height: 1 };
+        // 두 번째 2x1 블록 (인덱스 6)
+        if (index === 6) return { row: secondWideRowForPhoto7, col: secondWideColForPhoto7, width: 2, height: 1 };
+        // 나머지 1x1 블록들 (인덱스 1~5)은 freeCells 순서로 배치
+        const freeCells = generatePositionsForPhoto7(firstWideRowForPhoto7, firstWideColForPhoto7, secondWideRowForPhoto7, secondWideColForPhoto7);
+        const cellIndex = index - 1; // 인덱스 1~5를 0~4로 변환
+        if (cellIndex >= 0 && cellIndex < freeCells.length) {
+          const pos = freeCells[cellIndex];
+          return { row: pos.row, col: pos.col, width: 1, height: 1 };
+        }
         break;
+      }
       
       case 8: {
         // 주의: 여기서는 wideRowForPhoto8로 레이아웃을 계산한다.
@@ -335,6 +369,26 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     const cells = generatePositionsForPhoto8(wideRow, wideColForPhoto8);
     for (let i = 0; i < cells.length; i++) {
       if (cells[i].row === row && cells[i].col === col) return i;
+    }
+    return -1;
+  };
+
+  // photoCount 7용: 특정 (row,col)을 담당하는 인덱스 찾기
+  const findIndexForCellPhoto7 = (row: 1 | 2 | 3, col: 1 | 2 | 3): number => {
+    // 첫 번째 2x1 블록(인덱스 0) 체크
+    if (row === firstWideRowForPhoto7 && (col === firstWideColForPhoto7 || col === (firstWideColForPhoto7 + 1) as 2 | 3)) {
+      return 0;
+    }
+    // 두 번째 2x1 블록(인덱스 6) 체크
+    if (row === secondWideRowForPhoto7 && (col === secondWideColForPhoto7 || col === (secondWideColForPhoto7 + 1) as 2 | 3)) {
+      return 6;
+    }
+    // 나머지 1x1 셀들은 freeCells 순서로 인덱스 1~5에 매핑
+    const cells = generatePositionsForPhoto7(firstWideRowForPhoto7, firstWideColForPhoto7, secondWideRowForPhoto7, secondWideColForPhoto7);
+    for (let i = 0; i < cells.length; i++) {
+      if (cells[i].row === row && cells[i].col === col) {
+        return i + 1; // 인덱스 1~5에 매핑
+      }
     }
     return -1;
   };
@@ -422,6 +476,16 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
         const baseCol = Math.min(targetPos.col, cols - draggedPos.width + 1);
         const baseRow = Math.min(targetPos.row, rows - draggedPos.height + 1);
 
+        // photo=5: 하단 2x1의 시작 열 변경 같은 행 이동 지원 (col2→col1 or col1→col2)
+        if (photoCount === 5 && draggedPos.width === 2 && draggedPos.height === 1 && baseRow === 3) {
+          if (baseCol !== wideColForPhoto5Row3) {
+            console.log('[GridC][dragEnd][5] row3 2x1 move col', wideColForPhoto5Row3, '->', baseCol);
+            setWideColForPhoto5Row3(baseCol as 1 | 2);
+            setMultiOverSet(new Set());
+            return currentItems.map((it, idx) => ({ ...it, index: idx }));
+          }
+        }
+
         // photoCount=3: 2x1 상/하 로우 이동을 레이아웃 + 인덱스 스왑으로 처리
         if (photoCount === 3 && draggedPos.width === 2 && draggedPos.height === 1) {
           const desiredLargeIndex = baseRow === 1 ? 0 : 2;
@@ -463,6 +527,61 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
           console.log('[GridC][dragEnd][2x1] layout-only move baseRow/baseCol:', baseRow, baseCol);
           if (baseRow !== wideRowForPhoto8) setWideRowForPhoto8(baseRow as 1 | 2 | 3);
           if (baseCol !== wideColForPhoto8) setWideColForPhoto8(baseCol as 1 | 2);
+          setMultiOverSet(new Set());
+          return currentItems.map((it, idx) => ({ ...it, index: idx }));
+        }
+
+        // photoCount=7의 2x1 블록들도 상태 변경으로 레이아웃 스와핑 처리
+        if (photoCount === 7 && draggedPos.width === 2 && draggedPos.height === 1) {
+          console.log('[GridC][dragEnd][7] 2x1 move draggedIndex:', draggedIndex, 'targetIndex:', targetIndex, 'baseRow/baseCol:', baseRow, baseCol);
+          
+          // 드롭 위치에서 다른 2x1 블록과 겹치는지 확인하여 2x1 ↔ 2x1 스왑 결정
+          const otherWideIndex = draggedIndex === 0 ? 6 : 0;
+          const otherWidePos = getGridPositionForIndex(photoCount, otherWideIndex, largeItemPosition);
+          
+          // baseRow, baseCol에서 2x1이 배치될 때 다른 2x1과 겹치는지 확인
+          const isOverlapping = (
+            baseRow === otherWidePos.row && 
+            ((baseCol === otherWidePos.col) || 
+             (baseCol === otherWidePos.col - 1 && baseCol + 1 === otherWidePos.col) ||
+             (baseCol === otherWidePos.col + 1 && baseCol === otherWidePos.col + 1))
+          ) || (
+            // 같은 영역에 완전히 겹치는 경우
+            baseRow === otherWidePos.row && 
+            Math.abs(baseCol - otherWidePos.col) <= 1
+          );
+          
+          if (isOverlapping) {
+            console.log('[GridC][dragEnd][7] 2x1 ↔ 2x1 swap detected - overlapping areas');
+            // 아이템 배열 스왑은 하지 않고, 위치 상태만 서로 교환해야 시각적으로 교차 이동됨
+            const currentFirstRow = firstWideRowForPhoto7;
+            const currentFirstCol = firstWideColForPhoto7;
+            const currentSecondRow = secondWideRowForPhoto7;
+            const currentSecondCol = secondWideColForPhoto7;
+
+            // 첫 번째 블록(인덱스 0)은 두 번째 블록의 현재 위치로
+            setFirstWideRowForPhoto7(currentSecondRow);
+            setFirstWideColForPhoto7(currentSecondCol);
+            // 두 번째 블록(인덱스 6)은 첫 번째 블록의 현재 위치로
+            setSecondWideRowForPhoto7(currentFirstRow);
+            setSecondWideColForPhoto7(currentFirstCol);
+
+            console.log('[GridC][dragEnd][7] State swapped - first:', currentSecondRow, currentSecondCol, 'second:', currentFirstRow, currentFirstCol);
+            setMultiOverSet(new Set());
+            return currentItems.map((it, idx) => ({ ...it, index: idx }));
+          }
+          
+          // 일반적인 2x1 블록 위치 이동 (겹치지 않는 경우)
+          if (draggedIndex === 0) {
+            // 첫 번째 2x1 블록 이동
+            if (baseRow !== firstWideRowForPhoto7) setFirstWideRowForPhoto7(baseRow as 1 | 2 | 3);
+            if (baseCol !== firstWideColForPhoto7) setFirstWideColForPhoto7(baseCol as 1 | 2);
+          } else if (draggedIndex === 6) {
+            // 두 번째 2x1 블록 이동
+            if (baseRow !== secondWideRowForPhoto7) setSecondWideRowForPhoto7(baseRow as 1 | 2 | 3);
+            if (baseCol !== secondWideColForPhoto7) setSecondWideColForPhoto7(baseCol as 1 | 2);
+          }
+          
           setMultiOverSet(new Set());
           return currentItems.map((it, idx) => ({ ...it, index: idx }));
         }
@@ -614,15 +733,19 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
         };
       
       case 5:
-        // 5개: 3x3격자에서 1,1과 1,2와 2,1과 2,2를 합치고, 3,2와 3,3을 합치고, 나머지는 개별격자로 구성
+        // 5개: 3x3격자에서 2x2(1,1~2,2), 1x1(1,3), 1x1(2,3), 1x1(3,1/3), 2x1(3, wideCol~wideCol+1)
         return {
           className: "grid grid-cols-3 grid-rows-3 gap-4 w-full h-full max-w-4xl mx-auto",
           itemStyles: {
-            0: { gridColumn: "1 / 3", gridRow: "1 / 3" }, // 큰 영역 (1,1부터 2,2까지)
-            1: { gridColumn: "3", gridRow: "1" },          // 오른쪽 위 (3,1)
-            2: { gridColumn: "3", gridRow: "2" },          // 오른쪽 중간 (3,2)
-            3: { gridColumn: "1", gridRow: "3" },          // 아래쪽 왼쪽 (1,3)
-            4: { gridColumn: "2 / 4", gridRow: "3" }       // 아래쪽 오른쪽 합친 영역 (2,3부터 3,3까지)
+            0: { gridColumn: "1 / 3", gridRow: "1 / 3" }, // 2x2 큰 영역
+            1: { gridColumn: "3", gridRow: "1" },          // (3,1)
+            2: { gridColumn: "3", gridRow: "2" },          // (3,2)
+            3: wideColForPhoto5Row3 === 2
+              ? { gridColumn: "1", gridRow: "3" }          // (1,3)
+              : { gridColumn: "3", gridRow: "3" },         // (3,3)
+            4: wideColForPhoto5Row3 === 2
+              ? { gridColumn: "2 / 4", gridRow: "3" }      // (2,3)~(3,3)
+              : { gridColumn: "1 / 3", gridRow: "3" }      // (1,3)~(2,3)
           } as Record<number, React.CSSProperties>
         };
       
