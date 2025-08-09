@@ -422,6 +422,21 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
         const baseCol = Math.min(targetPos.col, cols - draggedPos.width + 1);
         const baseRow = Math.min(targetPos.row, rows - draggedPos.height + 1);
 
+        // photoCount=3: 2x1 상/하 로우 이동을 레이아웃 + 인덱스 스왑으로 처리
+        if (photoCount === 3 && draggedPos.width === 2 && draggedPos.height === 1) {
+          const desiredLargeIndex = baseRow === 1 ? 0 : 2;
+          const result = [...currentItems];
+          if (draggedIndex !== desiredLargeIndex) {
+            console.log('[GridC][dragEnd][3] move large to index', desiredLargeIndex);
+            const tmp = result[desiredLargeIndex];
+            result[desiredLargeIndex] = { ...result[draggedIndex], index: desiredLargeIndex };
+            result[draggedIndex] = { ...tmp, index: draggedIndex };
+          }
+          setLargeItemPosition(desiredLargeIndex);
+          setMultiOverSet(new Set());
+          return result.map((it, idx) => ({ ...it, index: idx }));
+        }
+
         // 같은 행 내부에서 2x1이 col2→col1로 이동하는 요청 처리 (photo=8)
         if (
           photoCount === 8 && draggedPos.width === 2 && draggedPos.height === 1 &&
