@@ -7,6 +7,7 @@ import GridEditToolbar from "./GridEditToolbar";
 import { Loader2 } from "lucide-react";
 import ImageEditModal from "./ImageEditModal";
 import { ImagePosition } from "../types";
+import {IoClose} from "react-icons/io5"
 
 interface GridBElementProps {
   index: number;
@@ -573,6 +574,30 @@ function GridBElement({
     }
   };
 
+  // 개별 이미지 삭제 핸들러
+  const handleImageDelete = (imageIndex: number, event: React.MouseEvent) => {
+    event.stopPropagation(); // 이벤트 전파 방지
+    
+    setCurrentImages(prev => {
+      const newImages = [...prev];
+      newImages[imageIndex] = ""; // 해당 인덱스의 이미지를 빈 문자열로 설정
+      console.log(`🗑️ GridB 이미지 ${imageIndex} 삭제:`, {
+        이전이미지: prev,
+        새이미지: newImages
+      });
+      return newImages;
+    });
+    
+    // 해당 인덱스의 이미지 위치 정보도 초기화
+    setImagePositions(prev => {
+      const newPositions = [...prev];
+      if (newPositions[imageIndex]) {
+        newPositions[imageIndex] = { x: 0, y: 0, scale: 1 };
+      }
+      return newPositions;
+    });
+  };
+
   // 이미지가 아닌 영역 클릭 핸들러 - 툴바 표시 및 기존 선택 로직
   const handleNonImageClick = (event: React.MouseEvent) => {
     event.stopPropagation(); // 이벤트 전파 방지
@@ -750,6 +775,14 @@ function GridBElement({
                         transformOrigin: 'center'
                       }}
                     />
+                    {/* X 삭제 버튼 */}
+                    <button
+                      className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
+                      onClick={(e) => handleImageDelete(index, e)}
+                      title="이미지 삭제"
+                    >
+                      <IoClose className="w-4 h-4 text-black" />
+                    </button>
                   </div>
                 ) : (
                   <>

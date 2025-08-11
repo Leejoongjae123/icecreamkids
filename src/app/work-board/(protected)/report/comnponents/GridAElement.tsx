@@ -7,6 +7,7 @@ import GridEditToolbar from "./GridEditToolbar";
 import { Loader2 } from "lucide-react";
 import ImageEditModal from "./ImageEditModal";
 import { ImagePosition } from "../types";
+import {IoClose} from "react-icons/io5"
 
 interface GridAElementProps {
   index: number;
@@ -280,6 +281,30 @@ function GridAElement({
       let cellX = containerRect.left;
       let cellY = containerRect.top;
       
+      // gridCount가 2이고 imageCount가 4인 경우 특별 처리
+      if (gridCount === 2 && imageCount === 4) {
+        // 4개 이미지는 가로로 분할 (flex layout)
+        cellWidth = (containerRect.width - gap * 3) / 4;
+        cellX = containerRect.left + (imageIndex * (cellWidth + gap));
+        
+        const targetFrame = {
+          width: Math.round(cellWidth),
+          height: Math.round(cellHeight),
+          x: Math.round(cellX),
+          y: Math.round(cellY)
+        };
+        
+        console.log(`📏 gridCount=2, imageCount=4 이미지 ${imageIndex} 실제 측정된 셀 크기:`, {
+          imageCount,
+          gridCount,
+          imageIndex,
+          containerSize: { width: containerRect.width, height: containerRect.height },
+          cellSize: targetFrame
+        });
+        
+        return targetFrame;
+      }
+
       switch (imageCount) {
         case 1:
           // 단일 이미지는 전체 영역 사용
@@ -413,6 +438,17 @@ function GridAElement({
     // imageCount에 따른 개별 이미지 크기 계산
     let imageWidth = baseWidth;
     let imageHeight = baseHeight;
+    
+    // gridCount가 2이고 imageCount가 4인 경우 특별 처리
+    if (gridCount === 2 && imageCount === 4) {
+      // 4개 이미지는 가로로 분할
+      imageWidth = baseWidth / 4 - 4; // gap 고려
+      return {
+        width: imageWidth,
+        height: imageHeight,
+        aspectRatio: imageWidth / imageHeight
+      };
+    }
     
     switch (imageCount) {
       case 1:
@@ -653,6 +689,36 @@ function GridAElement({
     }
   };
 
+  // 개별 이미지 삭제 핸들러
+  const handleImageDelete = (imageIndex: number, event: React.MouseEvent) => {
+    event.stopPropagation(); // 이벤트 전파 방지
+    
+    setCurrentImages(prev => {
+      const newImages = [...prev];
+      newImages[imageIndex] = ""; // 해당 인덱스의 이미지를 빈 문자열로 설정
+      console.log(`🗑️ 이미지 ${imageIndex} 삭제:`, {
+        이전이미지: prev,
+        새이미지: newImages
+      });
+      return newImages;
+    });
+    
+    // 해당 인덱스의 이미지 위치 정보도 초기화
+    setImagePositions(prev => {
+      const newPositions = [...prev];
+      if (newPositions[imageIndex]) {
+        newPositions[imageIndex] = { x: 0, y: 0, scale: 1 };
+      }
+      
+      // 상위 컴포넌트로 위치 정보 전달
+      if (onImagePositionsUpdate) {
+        onImagePositionsUpdate(newPositions);
+      }
+      
+      return newPositions;
+    });
+  };
+
   // 이미지가 아닌 영역 클릭 핸들러 - 툴바 표시
   const handleNonImageClick = (event: React.MouseEvent) => {
     event.stopPropagation(); // 이벤트 전파 방지
@@ -819,8 +885,93 @@ function GridAElement({
         </div>
 
         {/* 이미지 그리드 - 60% 고정 높이를 차지하는 영역 */}
-        {/* 그리드가 2개이고 이미지가 3개일 때: 가로로 3개 일렬 배치 */}
-        {gridCount === 2 && imageCount === 3 ? (
+        {/* 그리드가 2개이고 이미지가 4개일 때: 가로로 4개 일렬 배치 */}
+        {gridCount === 2 && imageCount === 4 ? (
+          <div ref={imageContainerRef} className="flex gap-1 w-full" style={{ height: '60%' }}>
+            {[0, 1, 2, 3].map((imageIndex) => (
+              <div key={imageIndex} className="flex-1 h-full">
+                <AddPicture 
+                  targetImageRatio={getImageAreaRatio(imageIndex)}
+                  targetFrame={measureImageCellSize(imageIndex)}
+                  onImagesAdded={handleImagesAdded}
+                  onImageAdded={(hasImage) => handleSingleImageAdded(hasImage, imageIndex)}
+                  imageIndex={imageIndex}
+                  mode="multiple"
+                  hasImage={Boolean(currentImages[imageIndex] && currentImages[imageIndex] !== "" && currentImages[imageIndex] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg")}
+                  maxImageCount={getRemainingImageCount()}
+                >
+                  <div 
+                    className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
+                    onClick={(e) => {
+                      measureImageCellSize(imageIndex);
+                      handleImageClick(e);
+                    }}
+                  >
+                    {currentImages[imageIndex] && currentImages[imageIndex] !== "" && currentImages[imageIndex] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
+                      <div
+                        className="absolute inset-0 overflow-hidden rounded-md cursor-pointer group"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleImageAdjustClick(imageIndex, currentImages[imageIndex]);
+                        }}
+                      >
+                        <Image
+                          src={currentImages[imageIndex]}
+                          alt={`Image ${imageIndex + 1}`}
+                          fill
+                          className="object-cover rounded-md"
+                          style={{
+                            transform: `translate(${imagePositions[imageIndex]?.x || 0}px, ${imagePositions[imageIndex]?.y || 0}px) scale(${imagePositions[imageIndex]?.scale || 1})`,
+                            transformOrigin: 'center'
+                          }}
+                        />
+                        {/* X 삭제 버튼 */}
+                        <button
+                          className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
+                          onClick={(e) => handleImageDelete(imageIndex, e)}
+                          title="이미지 삭제"
+                        >
+                          <IoClose className="w-4 h-4 text-black" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <Image
+                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+                          alt="No image"
+                          fill
+                          className="object-cover rounded-md"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                          <Image
+                            src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
+                            width={20}
+                            height={20}
+                            className="object-cover mb-2"
+                            alt="Upload icon"
+                          />
+                          <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                            이미지를 드래그하거나<br />클릭하여 업로드
+                          </div>
+                          <button 
+                            className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                          >
+                            파일선택
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </AddPicture>
+              </div>
+            ))}
+          </div>
+        ) : 
+        /* 그리드가 2개이고 이미지가 3개일 때: 가로로 3개 일렬 배치 */
+        gridCount === 2 && imageCount === 3 ? (
           <div ref={imageContainerRef} className="flex gap-1 w-full" style={{ height: '60%' }}>
             {[0, 1, 2].map((imageIndex) => (
               <div key={imageIndex} className="flex-1 h-full">
@@ -843,7 +994,7 @@ function GridAElement({
                   >
                     {currentImages[imageIndex] && currentImages[imageIndex] !== "" && currentImages[imageIndex] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                       <div
-                        className="absolute inset-0 overflow-hidden rounded-md cursor-pointer"
+                        className="absolute inset-0 overflow-hidden rounded-md cursor-pointer group"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleImageAdjustClick(imageIndex, currentImages[imageIndex]);
@@ -859,6 +1010,14 @@ function GridAElement({
                             transformOrigin: 'center'
                           }}
                         />
+                        {/* X 삭제 버튼 */}
+                        <button
+                          className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
+                          onClick={(e) => handleImageDelete(imageIndex, e)}
+                          title="이미지 삭제"
+                        >
+                          <IoClose className="w-4 h-4 text-black" />
+                        </button>
                       </div>
                     ) : (
                       <>
@@ -949,6 +1108,14 @@ function GridAElement({
                           transformOrigin: 'center'
                         }}
                       />
+                      {/* X 삭제 버튼 */}
+                      <button
+                        className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
+                        onClick={(e) => handleImageDelete(0, e)}
+                        title="이미지 삭제"
+                      >
+                        <IoClose className="w-4 h-4 text-black" />
+                      </button>
                     </div>
                   ) : (
                     <>
@@ -1009,7 +1176,7 @@ function GridAElement({
                   >
                     {currentImages[1] && currentImages[1] !== "" && currentImages[1] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                       <div
-                        className="absolute inset-0 overflow-hidden rounded-md cursor-pointer"
+                        className="absolute inset-0 overflow-hidden rounded-md cursor-pointer group"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleImageAdjustClick(1, currentImages[1]);
@@ -1025,6 +1192,14 @@ function GridAElement({
                             transformOrigin: 'center'
                           }}
                         />
+                        {/* X 삭제 버튼 */}
+                        <button
+                          className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
+                          onClick={(e) => handleImageDelete(1, e)}
+                          title="이미지 삭제"
+                        >
+                        <IoClose className="w-4 h-4 text-black" />
+                        </button>
                       </div>
                     ) : (
                       <>
@@ -1179,7 +1354,7 @@ function GridAElement({
                 >
                   {imageSrc && imageSrc !== "" && imageSrc !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                     <div
-                      className="absolute inset-0 overflow-hidden rounded-md cursor-pointer"
+                      className="absolute inset-0 overflow-hidden rounded-md cursor-pointer group"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleImageAdjustClick(index, imageSrc);
@@ -1195,6 +1370,14 @@ function GridAElement({
                           transformOrigin: 'center'
                         }}
                       />
+                      {/* X 삭제 버튼 */}
+                      <button
+                        className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
+                        onClick={(e) => handleImageDelete(index, e)}
+                        title="이미지 삭제"
+                      >
+                        <IoClose className="w-4 h-4 text-black" />
+                      </button>
                     </div>
                   ) : (
                     <>
@@ -1302,16 +1485,10 @@ function GridAElement({
             {onDelete && (
               <button
                 onClick={handleDelete}
-                className="absolute top-2 right-2 w-7 h-7 bg-white border border-[#F0F0F0] rounded-md flex items-center justify-center z-20 hover:bg-red-50 transition-colors"
+                className="absolute top-2 right-2 w-5 h-5  bg-white border border-[#F0F0F0] rounded-full flex items-center justify-center z-20 hover:bg-red-50 transition-colors"
                 title="카드 삭제"
               >
-                <Image
-                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/trash.svg"
-                  width={14}
-                  height={14}
-                  alt="Delete"
-                  className="object-contain hover:opacity-80"
-                />
+                <IoClose className="w-[7.5px] h-[7.5px] text-black" />
               </button>
             )}
             

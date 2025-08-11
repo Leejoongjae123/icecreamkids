@@ -12,6 +12,7 @@ import AddPictureClipping from "./AddPictureClipping";
 import KonvaImageCanvas, { KonvaImageCanvasRef } from "./KonvaImageCanvas";
 import GridEditToolbar from "./GridEditToolbar";
 import { ClipPathItem } from "../dummy/types";
+import {IoClose} from "react-icons/io5"
 
 interface GridCElementProps {
   index: number;
@@ -118,6 +119,27 @@ function GridCElement({
   const handleDelete = () => {
     if (onDelete) {
       onDelete();
+    }
+  };
+
+  // 개별 이미지 삭제 핸들러
+  const handleImageDelete = (event: React.MouseEvent) => {
+    event.stopPropagation(); // 이벤트 전파 방지
+    
+    console.log("🗑️ GridC 이미지 삭제:", {
+      gridId,
+      이전이미지: currentImageUrl
+    });
+    
+    // 현재 이미지 URL 초기화
+    setCurrentImageUrl("");
+    
+    // 이미지 변환 데이터 초기화
+    setImageTransformData(null);
+    
+    // 부모 컴포넌트에 이미지 제거 알림
+    if (onImageUpload) {
+      onImageUpload(gridId, "");
     }
   };
 
@@ -421,6 +443,17 @@ function GridCElement({
             gridId={gridId}
             imageTransformData={imageTransformData}
           />
+
+          {/* 이미지가 있을 때 X 삭제 버튼 표시 */}
+          {hasImage && (
+            <button
+              className="absolute top-2 right-2 bg-white w-6 h-6 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0] z-20 hover:bg-red-50 transition-colors"
+              onClick={handleImageDelete}
+              title="이미지 삭제"
+            >
+              <IoClose className="w-4 h-4 text-black" />
+            </button>
+          )}
 
           {/* 이미지가 없을 때 hover시 업로드 UI 표시 */}
           {!hasImage && isHovered && (
