@@ -5,8 +5,6 @@ import { Suspense } from "react";
 import {
   DndContext,
   closestCenter,
-  closestCorners,
-  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -15,15 +13,9 @@ import {
   DragStartEvent,
   DragOverlay,
   CollisionDetection,
-  getFirstCollision,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  rectSortingStrategy,
-} from "@dnd-kit/sortable";
 import GridBElement from "./GridBElement";
-import SortableGridBItem from "./SortableGridBItem";
+import DragDropGridBItem from "./DragDropGridBItem";
 import AddButton from "./AddButton";
 import GridEditToolbar from "./GridEditToolbar";
 import { GridBItem } from "./types";
@@ -79,26 +71,11 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
         distance: 8,
       },
     }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(KeyboardSensor)
   );
 
-  // 커스텀 collision detection - 확장된 아이템을 고려
-  const customCollisionDetection: CollisionDetection = (args) => {
-    const { active, collisionRect, droppableRects, droppableContainers } = args;
-    
-    // 먼저 rect intersection으로 충돌 감지
-    const rectCollisions = rectIntersection(args);
-    
-    // rect collision이 있으면 우선 사용
-    if (rectCollisions.length > 0) {
-      return rectCollisions;
-    }
-    
-    // 없으면 closest center로 fallback
-    return closestCenter(args);
-  };
+  // 간단한 collision detection
+  const customCollisionDetection: CollisionDetection = closestCenter;
 
   // + 버튼 클릭 핸들러 (확장 기능)
   const handleExpand = (firstIndex: number, secondIndex: number) => {
@@ -243,123 +220,108 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
 
   // 드래그 시작 핸들러
   const handleDragStart = (event: DragStartEvent) => {
-    const draggedItem = items.find(item => item.id === event.active.id);
+    const activeIdStr = String(event.active.id ?? "").replace(/^drop-/, "");
+    const draggedItem = items.find(item => item.id === activeIdStr);
     if (draggedItem) {
-      // 숨겨진 아이템이나 제거된 아이템은 드래그 시작 방지
       if (hiddenItems.has(draggedItem.index) || removedItems.has(draggedItem.index)) {
         return;
       }
     }
-    setActiveId(event.active.id as string);
+    setActiveId(activeIdStr);
   };
 
-  // 드래그 종료 핸들러 (1:1 swap 방식)
+  // 드래그 종료 핸들러: GridC 규칙 차용 (작은→큰 금지, 큰→작은 허용)
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveId(null);
+    if (!over) return;
 
-    if (active.id !== over?.id && over?.id) {
-      const activeItemId = active.id as string;
-      const overItemId = over.id as string;
-      
-      setItems((currentItems) => {
-        const activeIndex = currentItems.findIndex(item => item.id === activeItemId);
-        const overIndex = currentItems.findIndex(item => item.id === overItemId);
+    const activeItemId = String(active.id).replace(/^drop-/, "");
+    const overRaw = String(over.id);
+    const overItemId = overRaw.startsWith("drop-") ? overRaw.replace(/^drop-/, "") : overRaw;
+    if (activeItemId === overItemId) return;
 
-        if (activeIndex === -1 || overIndex === -1) return currentItems;
+    const activeItem = items.find(it => it.id === activeItemId);
+    const overItem = items.find(it => it.id === overItemId);
+    if (!activeItem || !overItem) return;
 
-        const activeItem = currentItems[activeIndex];
-        const overItem = currentItems[overIndex];
-        
-        // 숨겨진 아이템이나 제거된 아이템은 드래그 불가
-        if (hiddenItems.has(activeItem.index) || removedItems.has(activeItem.index) ||
-            hiddenItems.has(overItem.index) || removedItems.has(overItem.index)) {
-          return currentItems;
-        }
+    const activeGridIndex = activeItem.index;
+    const overGridIndex = overItem.index;
 
-        // 새로운 배열 생성
-        const newItems = [...currentItems];
-        
-        // 확장된 아이템 처리를 고려한 swap
-        const activeGridIndex = activeItem.index;
-        const overGridIndex = overItem.index;
-        
-        // 두 아이템의 모든 데이터를 교환 (인덱스 제외)
-        const tempActiveItem = {
-          ...activeItem,
-          index: overGridIndex
-        };
-        const tempOverItem = {
-          ...overItem,  
-          index: activeGridIndex
-        };
-        
-        // 배열에서 위치 교환
-        newItems[activeIndex] = tempOverItem;
-        newItems[overIndex] = tempActiveItem;
-
-        return newItems;
-      });
-
-      // 확장/숨김 상태도 함께 교환
-      const activeItem = items.find(item => item.id === activeItemId);
-      const overItem = items.find(item => item.id === overItemId);
-      
-      if (activeItem && overItem) {
-        const activeGridIndex = activeItem.index;
-        const overGridIndex = overItem.index;
-        
-        // 확장 상태 교환
-        setExpandedItems(prev => {
-          const newSet = new Set(prev);
-          const activeExpanded = prev.has(activeGridIndex);
-          const overExpanded = prev.has(overGridIndex);
-          
-          // 기존 상태 제거
-          newSet.delete(activeGridIndex);
-          newSet.delete(overGridIndex);
-          
-          // 교환된 상태 적용
-          if (activeExpanded) {
-            newSet.add(overGridIndex);
-          }
-          if (overExpanded) {
-            newSet.add(activeGridIndex);
-          }
-          
-          return newSet;
-        });
-
-        // 숨김 상태 교환
-        setHiddenItems(prev => {
-          const newSet = new Set(prev);
-          const activeHidden = prev.has(activeGridIndex);
-          const overHidden = prev.has(overGridIndex);
-          
-          // 기존 상태 제거
-          newSet.delete(activeGridIndex);
-          newSet.delete(overGridIndex);
-          
-          // 교환된 상태 적용
-          if (activeHidden) {
-            newSet.add(overGridIndex);
-          }
-          if (overHidden) {
-            newSet.add(activeGridIndex);
-          }
-          
-          return newSet;
-        });
-
-        // 선택 상태 업데이트
-        if (selectedItem === activeGridIndex) {
-          setSelectedItem(overGridIndex);
-        } else if (selectedItem === overGridIndex) {
-          setSelectedItem(activeGridIndex);
-        }
-      }
+    if (
+      hiddenItems.has(activeGridIndex) ||
+      removedItems.has(activeGridIndex) ||
+      hiddenItems.has(overGridIndex) ||
+      removedItems.has(overGridIndex)
+    ) {
+      return;
     }
 
-    setActiveId(null);
+    const isExpandedAt = (gridIndex: number) => expandedItems.has(gridIndex);
+    const getPairFirst = (gridIndex: number) => (gridIndex % 2 === 0 ? gridIndex - 1 : gridIndex);
+    const getPairSecond = (pairFirst: number) => pairFirst + 1;
+
+    const activeIsBig = isExpandedAt(activeGridIndex);
+    const overIsBig = isExpandedAt(overGridIndex);
+
+    // 작은 → 큰 금지
+    if (!activeIsBig && overIsBig) return;
+
+    setItems(currentItems => {
+      const result = [...currentItems];
+      const aIdx = result.findIndex(it => it.id === activeItemId);
+      const oIdx = result.findIndex(it => it.id === overItemId);
+      if (aIdx < 0 || oIdx < 0) return currentItems;
+
+      const findByGridIndex = (gridIndex: number) => result.findIndex(it => it.index === gridIndex);
+
+      if (activeIsBig && !overIsBig) {
+        // 큰 → 작은: 대상 페어의 첫 칸으로 이동 + 상태 동기화
+        const targetFirst = getPairFirst(overGridIndex);
+        const targetSecond = getPairSecond(targetFirst);
+        const leftIdx = findByGridIndex(targetFirst);
+        if (leftIdx < 0) return currentItems;
+
+        const aItem = result[aIdx];
+        const leftItem = result[leftIdx];
+
+        result[aIdx] = { ...leftItem, index: aItem.index };
+        result[leftIdx] = { ...aItem, index: targetFirst };
+
+        // 상태 이동: source 페어 해제, target 페어 설정
+        const sourceFirst = activeGridIndex;
+        const sourceSecond = getPairSecond(sourceFirst);
+
+        setExpandedItems(prev => {
+          const s = new Set(prev);
+          s.delete(sourceFirst);
+          s.add(targetFirst);
+          return s;
+        });
+        setRemovedItems(prev => {
+          const s = new Set(prev);
+          s.delete(sourceSecond);
+          s.add(targetSecond);
+          return s;
+        });
+
+        if (selectedItem === sourceFirst) setSelectedItem(targetFirst);
+        else if (selectedItem === targetFirst) setSelectedItem(sourceFirst);
+
+        return result;
+      }
+
+      // 같은 유형 간 스왑 (작은↔작은, 큰↔큰)
+      const a = result[aIdx];
+      const b = result[oIdx];
+      result[aIdx] = { ...b, index: a.index };
+      result[oIdx] = { ...a, index: b.index };
+
+      if (selectedItem === a.index) setSelectedItem(b.index);
+      else if (selectedItem === b.index) setSelectedItem(a.index);
+
+      return result;
+    });
   };
 
   // 툴바 핸들러들
@@ -405,7 +367,7 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
       }
       
       return (
-        <SortableGridBItem
+        <DragDropGridBItem
           key={item.id}
           id={item.id}
           index={item.index}
@@ -542,13 +504,6 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <SortableContext 
-        items={items.filter(item => 
-          item.index <= subjectCount && 
-          !removedItems.has(item.index)
-        ).map(item => item.id)} 
-        strategy={rectSortingStrategy}
-      >
         <div className="w-full h-full relative">
           {/* 기본 그리드 레이아웃 (4x3) */}
           <div className={`w-full h-full grid grid-cols-4 gap-3 transition-colors duration-200 ${
@@ -563,7 +518,6 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
           {/* Floating 마이너스 버튼들 (그리드 쪼개기) */}
           {renderSplitButtons()}
         </div>
-      </SortableContext>
       
       <DragOverlay>
         {activeId && activeItem ? (
