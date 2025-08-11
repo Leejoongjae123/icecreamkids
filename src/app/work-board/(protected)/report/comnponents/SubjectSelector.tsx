@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 interface SubjectSelectorProps {
   selectedSubject?: string;
@@ -13,7 +13,6 @@ export default function SubjectSelector({
   onSubjectSelect,
   type = "A",
 }: SubjectSelectorProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   
   // 타입에 따라 다른 subjects 배열 사용
@@ -35,16 +34,9 @@ export default function SubjectSelector({
   const currentSubject = subjectParam ? `${subjectParam}개` : selectedSubject;
 
   const handleSubjectSelect = (subject: string) => {
-    // 기존 onSubjectSelect 호출
+    // 확인 모달에서 최종 확정되기 전까지는 URL을 변경하지 않는다.
+    // 상위 컴포넌트(RightSideBar)로 선택만 전달하고, URL 변경은 상위가 ApplyModal 확인 시 처리.
     onSubjectSelect(subject);
-
-    // URL searchParams에 숫자만 추가 ("개" 제거)
-    const subjectNumber = subject.replace('개', '');
-    const currentParams = new URLSearchParams(searchParams.toString());
-    currentParams.set('subject', subjectNumber);
-    
-    // URL 업데이트 (페이지 리로드 없이)
-    router.push(`?${currentParams.toString()}`);
   };
   
   return (

@@ -7,3 +7,4 @@ export { UploadModal } from "./upload";
 export { DownloadModal } from "./download";
 export { ShareLinkModal } from "./share-link";
 export { TypeSelectionModal } from "./type-selection";
+export { ApplyModal } from "./apply-modal";

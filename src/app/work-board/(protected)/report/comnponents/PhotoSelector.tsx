@@ -1,6 +1,6 @@
 "use client";
 import React, { Suspense } from "react";
-import { useSearchParams, usePathname, useRouter } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 
 interface PhotoSelectorProps {
   selectedPhoto?: string;
@@ -13,22 +13,11 @@ function PhotoSelectorContent({
 }: PhotoSelectorProps) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const router = useRouter();
 
   const photos = ["9개", "8개", "7개", "6개", "5개", "4개", "3개", "2개", "1개"];
 
   const handlePhotoSelect = (photo: string) => {
-    // "9개" -> "9"로 변환
-    const photoNumber = photo.replace("개", "");
-    
-    // 새로운 searchParams 생성
-    const params = new URLSearchParams(searchParams);
-    params.set("photo", photoNumber);
-    
-    // URL 업데이트
-    router.push(`${pathname}?${params.toString()}`);
-    
-    // 부모 컴포넌트에 콜백 호출 (있는 경우)
+    // 확인 모달에서 최종 확정되기 전까지는 URL을 변경하지 않는다.
     if (onPhotoSelect) {
       onPhotoSelect(photo);
     }

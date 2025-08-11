@@ -8,6 +8,7 @@ import ImageEditModal from "./ImageEditModal";
 import { ImagePosition } from "../types";
 import {IoClose} from "react-icons/io5";
 import useUserStore from "@/hooks/store/useUserStore";
+import useGridContentStore from "@/hooks/store/useGridContentStore";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { UploadModal } from "@/components/modal";
 
@@ -78,6 +79,9 @@ function GridAElement({
   const { userInfo } = useUserStore();
   const profileId = React.useMemo(() => userInfo?.id || null, [userInfo?.id]);
   const accountId = React.useMemo(() => userInfo?.accountId || null, [userInfo?.accountId]);
+  
+  // Grid content store 사용
+  const { updatePlaySubject, updateImages, updateCategoryValue, gridContents } = useGridContentStore();
   
   console.log('GridAElement profileId:', profileId);
   console.log('GridAElement accountId:', accountId);
@@ -598,8 +602,50 @@ function GridAElement({
 
   const displayImages = images.length > 0 ? images : defaultImages;
 
+  // currentImages가 변경될 때 store 업데이트
+  React.useEffect(() => {
+    if (gridId && currentImages.length > 0) {
+      // 기본 이미지가 아닌 실제 업로드된 이미지들만 필터링
+      const validImages = currentImages.filter(img => 
+        img && img !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+      );
+      updateImages(gridId, validImages);
+    }
+  }, [currentImages, gridId, updateImages]);
+
+  // categoryValue가 변경될 때 store 업데이트
+  React.useEffect(() => {
+    if (gridId) {
+      updateCategoryValue(gridId, categoryValue);
+    }
+  }, [categoryValue, gridId, updateCategoryValue]);
+
+  // store에서 해당 gridId가 삭제되었을 때 로컬 상태 초기화
+  React.useEffect(() => {
+    if (gridId && !gridContents[gridId]) {
+      // store에서 해당 gridId가 삭제되었으면 로컬 상태 초기화
+      setCategoryValue("");
+      setInputValue("");
+      setCurrentImages(Array(imageCount).fill(""));
+      setImagePositions(Array(imageCount).fill({ x: 0, y: 0, scale: 1 }));
+      setImageMetadata([]);
+      setIsDescriptionExpanded(false);
+      setHasClickedAIGenerate(false);
+      setIsEditingCategory(false);
+      setIsTextareaFocused(false);
+      setIsFirstVerse(true);
+      console.log(`GridAElement ${gridId} 상태 초기화됨`);
+    }
+  }, [gridContents, gridId, imageCount]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-    setInputValue(e.target.value);
+    const newValue = e.target.value;
+    setInputValue(newValue);
+    
+    // Grid content store 업데이트 (gridId가 있을 때만)
+    if (gridId) {
+      updatePlaySubject(gridId, newValue);
+    }
   };
 
   const handleAIGenerate = () => {
@@ -1634,13 +1680,13 @@ function GridAElement({
               <button
                 onClick={(e) => {
                   e.stopPropagation(); // 이벤트 전파 방지
-                  if (!isLoading && getCurrentImageCount() > 0) {
+                  if (!isLoading && getCurrentImageCount() > 0 && categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요") {
                     handleAIGenerate();
                   }
                 }}
-                disabled={isLoading || getCurrentImageCount() === 0}
+                disabled={isLoading || getCurrentImageCount() === 0 || !categoryValue || categoryValue.trim() === "" || categoryValue === "타이틀을 입력해주세요"}
                 className={`flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight rounded-md flex justify-center items-center w-[54px] h-[26px] self-start transition-all ${
-                  isLoading || getCurrentImageCount() === 0 
+                  isLoading || getCurrentImageCount() === 0 || !categoryValue || categoryValue.trim() === "" || categoryValue === "타이틀을 입력해주세요"
                     ? 'cursor-not-allowed bg-gray-400 text-gray-300' 
                     : 'text-white bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90'
                 }`}
@@ -1651,7 +1697,7 @@ function GridAElement({
                   <>
                     <Image
                       src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/leaf.svg"
-                      className={`object-contain ${getCurrentImageCount() === 0 ? 'opacity-50' : ''}`}
+                      className={`object-contain ${(getCurrentImageCount() === 0 || !categoryValue || categoryValue.trim() === "" || categoryValue === "타이틀을 입력해주세요") ? 'opacity-50' : ''}`}
                       width={11}
                       height={11}
                       alt="AI icon"

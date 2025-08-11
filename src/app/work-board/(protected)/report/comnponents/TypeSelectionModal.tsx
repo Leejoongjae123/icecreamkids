@@ -60,12 +60,8 @@ export function TypeSelectionModal({
   };
 
   const handleConfirm = () => {
-    // 모든 기존 searchParams를 제거하고 type만 설정
-    const newParams = new URLSearchParams();
-    newParams.set('type', selectedType);
-    
-    router.push(`${pathname}?${newParams.toString()}`);
-    
+    // 여기서는 URL을 변경하지 않는다.
+    // 실제 적용(검색파라미터 변경)은 상위에서 확인 모달(ApplyModal) 확인 시 처리한다.
     onSelect(selectedType);
   };
 

@@ -9,6 +9,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { TypeSelectionModal } from "@/components/modal/type-selection";
+import ApplyModal from "./ApplyModal";
+import useGridContentStore from "@/hooks/store/useGridContentStore";
 import AgeSelector from "./AgeSelector";
 import SubjectSelector from "./SubjectSelector";
 import PhotoSelector from "./PhotoSelector";
@@ -18,6 +20,7 @@ function RightSideBarContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const currentType = searchParams.get("type") || "A";
+  const { hasAnyContent, clearGridsByType, clearAllGridContents } = useGridContentStore();
 
   const [selectedAge, setSelectedAge] = useState("6세");
   const [isAgePopoverOpen, setIsAgePopoverOpen] = useState(false);
@@ -37,6 +40,13 @@ function RightSideBarContent() {
   const [photoCount, setPhotoCount] = useState(4);
 
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
+
+  // ApplyModal 관련 상태
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{
+    type: 'TYPE_CHANGE' | 'SUBJECT_CHANGE';
+    data: any;
+  } | null>(null);
 
   // 초기 렌더링 시 searchParams에서 age 값 읽어오기
   useEffect(() => {
@@ -136,11 +146,33 @@ function RightSideBarContent() {
   };
 
   const handleSubjectSelect = (subject: string) => {
+    const count = parseInt(subject.replace("개", ""));
+    
+    // 기존에 작업한 내용이 있는지 확인
+    if (hasAnyContent()) {
+      // 확인 모달 띄우기
+      setPendingAction({
+        type: 'SUBJECT_CHANGE',
+        data: { subject, count }
+      });
+      setIsApplyModalOpen(true);
+      setIsSubjectPopoverOpen(false);
+    } else {
+      // 내용이 없으면 바로 적용
+      applySubjectChange(subject, count);
+    }
+  };
+
+  const applySubjectChange = (subject: string, count: number) => {
     setSelectedSubject(subject);
     setIsSubjectPopoverOpen(false);
-    // Update the count logic as needed
-    const count = parseInt(subject.replace("개", ""));
     setSubjectCount(count);
+    
+    // URL 파라미터 업데이트
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set("subject", count.toString());
+    router.push(`?${newSearchParams.toString()}`);
+    
     console.log(`놀이 주제 선택: ${subject}`);
   };
 
@@ -154,6 +186,22 @@ function RightSideBarContent() {
   };
 
   const handleTypeSelect = (type: "A" | "B" | "C") => {
+    // 기존에 작업한 내용이 있는지 확인
+    if (hasAnyContent()) {
+      // 확인 모달 띄우기
+      setPendingAction({
+        type: 'TYPE_CHANGE',
+        data: { type }
+      });
+      setIsApplyModalOpen(true);
+      setIsTypeModalOpen(false);
+    } else {
+      // 내용이 없으면 바로 적용
+      applyTypeChange(type);
+    }
+  };
+
+  const applyTypeChange = (type: "A" | "B" | "C") => {
     const newSearchParams = new URLSearchParams(searchParams);
     newSearchParams.set("type", type);
 
@@ -169,6 +217,46 @@ function RightSideBarContent() {
 
   const handleTypeModalCancel = () => {
     setIsTypeModalOpen(false);
+  };
+
+  // ApplyModal 핸들러들
+  const handleApplyModalConfirm = () => {
+    if (!pendingAction) {
+      return;
+    }
+
+    if (pendingAction.type === 'TYPE_CHANGE') {
+      // 모든 Grid 내용 초기화
+      clearAllGridContents();
+      applyTypeChange(pendingAction.data.type);
+    } else if (pendingAction.type === 'SUBJECT_CHANGE') {
+      // 현재 타입의 Grid들만 초기화
+      clearGridsByType(currentType, subjectCount);
+      applySubjectChange(pendingAction.data.subject, pendingAction.data.count);
+    }
+
+    setIsApplyModalOpen(false);
+    setPendingAction(null);
+  };
+
+  const handleApplyModalCancel = () => {
+    setIsApplyModalOpen(false);
+    setPendingAction(null);
+  };
+
+  // ApplyModal 메시지 생성
+  const getApplyModalMessage = () => {
+    if (!pendingAction) {
+      return "";
+    }
+
+    if (pendingAction.type === 'TYPE_CHANGE') {
+      return "기존에 작업한 내용이 모두 초기화 됩니다.\n타입을 변경하시겠습니까?";
+    } else if (pendingAction.type === 'SUBJECT_CHANGE') {
+      return `기존에 작업한 내용이 모두 초기화 됩니다.\n놀이 주제 개수를 ${pendingAction.data.count}개로 변경하시겠습니까?`;
+    }
+
+    return "";
   };
 
   // selectedAge를 안전하게 처리하는 함수
@@ -319,6 +407,18 @@ function RightSideBarContent() {
         onSelect={handleTypeSelect}
         onCancel={handleTypeModalCancel}
       />
+
+      <ApplyModal
+        open={isApplyModalOpen}
+        onOpenChange={setIsApplyModalOpen}
+        description={getApplyModalMessage()}
+        onConfirm={handleApplyModalConfirm}
+        onCancel={handleApplyModalCancel}
+        confirmText="확인"
+        cancelText="취소"
+      >
+        <div />
+      </ApplyModal>
 
       {/* InputDesign styling panel at the bottom */}
       {/* <div className="mt-4 overflow-visible">

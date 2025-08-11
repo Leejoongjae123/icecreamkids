@@ -7,7 +7,8 @@ import GridEditToolbar from "./GridEditToolbar";
 import { Loader2 } from "lucide-react";
 import ImageEditModal from "./ImageEditModal";
 import { ImagePosition } from "../types";
-import {IoClose} from "react-icons/io5"
+import {IoClose} from "react-icons/io5";
+import useGridContentStore from "@/hooks/store/useGridContentStore";
 
 interface GridBElementProps {
   index: number;
@@ -48,6 +49,8 @@ function GridBElement({
   imageCount: propsImageCount = 1, // 초기 이미지 개수
   onImageCountChange, // 이미지 개수 변경 콜백
 }: GridBElementProps) {
+  // Grid content store 사용
+  const { updatePlaySubject, updateImages } = useGridContentStore();
   // 이미지 개수 상태 관리
   const [imageCount, setImageCount] = React.useState(propsImageCount);
   
@@ -444,8 +447,25 @@ function GridBElement({
 
   const displayImages = images.length > 0 ? images : defaultImages;
 
+  // currentImages가 변경될 때 store 업데이트
+  React.useEffect(() => {
+    if (gridId && currentImages.length > 0) {
+      // 기본 이미지가 아닌 실제 업로드된 이미지들만 필터링
+      const validImages = currentImages.filter(img => 
+        img && img !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+      );
+      updateImages(gridId, validImages);
+    }
+  }, [currentImages, gridId, updateImages]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setInputValue(e.target.value);
+    const newValue = e.target.value;
+    setInputValue(newValue);
+    
+    // Grid content store 업데이트 (gridId가 있을 때만)
+    if (gridId) {
+      updatePlaySubject(gridId, newValue);
+    }
   };
 
   const handleAIGenerate = () => {
