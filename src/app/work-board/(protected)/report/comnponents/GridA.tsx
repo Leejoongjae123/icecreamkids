@@ -11,14 +11,8 @@ import {
   DragStartEvent,
   DragOverlay,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  rectSortingStrategy,
-  arrayMove,
-} from "@dnd-kit/sortable";
 import GridAElement from "./GridAElement";
-import SortableGridItem from "./SortableGridItem";
+import DragDropGridAItem from "./DragDropGridAItem";
 import { GridItem } from "./types";
 import { useImageEditModalStore } from "@/hooks/store/useImageEditModalStore";
 
@@ -39,7 +33,7 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
       initialItems.push({
         id: `grid-${i}`,
         index: i,
-        category: "촉감놀이",
+        category: "",
         images: [],
         inputValue: "",
         cardType: subject === 3 ? (i === 0 ? 'large' : 'small') : 'small',
@@ -55,6 +49,8 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
 
   // 현재 드래그 중인 아이템
   const [activeId, setActiveId] = React.useState<string | null>(null);
+  // 애니메이션 진행 상태
+  const [isAnimating, setIsAnimating] = React.useState<boolean>(false);
   
 
 
@@ -78,7 +74,7 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
           newItems.push({
             id: `grid-${i}`,
             index: i,
-            category: "촉감놀이",
+            category: "",
             images: [],
             inputValue: "",
             cardType: subject === 3 ? (i === 0 ? 'large' : 'small') : 'small',
@@ -98,9 +94,7 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
         distance: 8,
       },
     }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(KeyboardSensor)
   );
 
   // 체크 상태 변경 핸들러
@@ -144,16 +138,42 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
     }));
   };
 
+  // 단순 1:1 스와핑 처리 함수 (GridC의 performSimpleSwap 참고)
+  const performSimpleSwap = (
+    currentItems: GridItem[], 
+    draggedIndex: number, 
+    targetIndex: number
+  ): GridItem[] => {
+    console.log('[GridA][performSimpleSwap] draggedIndex:', draggedIndex, 'targetIndex:', targetIndex);
+    
+    // 단순한 위치 교환만 수행
+    const result = [...currentItems];
+    
+    // 두 아이템의 콘텐츠를 교환
+    const draggedItem = result[draggedIndex];
+    const targetItem = result[targetIndex];
+    
+    result[draggedIndex] = { ...targetItem, index: draggedIndex };
+    result[targetIndex] = { ...draggedItem, index: targetIndex };
+    
+    console.log('[GridA][performSimpleSwap] swapped items:', {
+      draggedToTarget: { ...targetItem, index: draggedIndex },
+      targetToDragged: { ...draggedItem, index: targetIndex }
+    });
+    
+    return result;
+  };
+
   // 드래그 시작 핸들러
   const handleDragStart = (event: DragStartEvent) => {
-    // 모달이 열려있으면 드래그 시작하지 않음
-    if (isImageEditModalOpen) {
+    // 모달이 열려있거나 애니메이션 진행 중이면 드래그 시작하지 않음
+    if (isImageEditModalOpen || isAnimating) {
       return;
     }
     setActiveId(event.active.id as string);
   };
 
-  // 드래그 종료 핸들러 (2행 레이아웃 유지)
+  // 드래그 종료 핸들러 (GridC 방식 참고)
   const handleDragEnd = (event: DragEndEvent) => {
     // 모달이 열려있으면 드래그 종료 처리하지 않음
     if (isImageEditModalOpen) {
@@ -162,75 +182,168 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
     }
     
     const { active, over } = event;
-
-    if (active.id !== over?.id && over?.id) {
-      setItems((currentItems) => {
-        const activeIndex = currentItems.findIndex(item => item.id === active.id);
-        const overIndex = currentItems.findIndex(item => item.id === over.id);
-
-        if (activeIndex === -1 || overIndex === -1) {
-          return currentItems;
-        }
-
-        // 배열 위치 이동 (arrayMove 사용)
-        const reorderedItems = arrayMove(currentItems, activeIndex, overIndex);
-        
-        // subject가 3이 아닌 경우 단순 위치 이동만 처리
-        if (subject !== 3) {
-          return reorderedItems.map((item, index) => ({
-            ...item,
-            index
-          }));
-        }
-        
-        // subject가 3인 경우만 span 2 아이템 로직 처리
-        // span 2 아이템이 있는지 확인
-        const spanTwoItem = currentItems.find(item => item.colSpan === 2);
-        
-        if (spanTwoItem) {
-          const activeWasSpanTwo = currentItems[activeIndex].colSpan === 2;
-          
-          if (activeWasSpanTwo) {
-            // span 2 아이템을 드래그한 경우, 목표 위치에 따라 첫 번째나 마지막으로 배치
-            return recalculateLayout(reorderedItems, overIndex);
-          } else {
-            // span 1 아이템을 드래그한 경우, span 2 아이템의 새 위치 계산
-            const originalSpanTwoIndex = currentItems.findIndex(item => item.colSpan === 2);
-            const spanTwoItemInReordered = reorderedItems.findIndex(item => item.id === spanTwoItem.id);
-            
-            return recalculateLayout(reorderedItems, spanTwoItemInReordered);
-          }
-        } else {
-          // span 2 아이템이 없으면 단순 위치 이동
-          return reorderedItems.map((item, index) => ({
-            ...item,
-            index
-          }));
-        }
-      });
-
-      // 체크 상태도 위치에 따라 이동
-      setCheckedItems(prev => {
-        const activeIndex = items.findIndex(item => item.id === active.id);
-        const overIndex = items.findIndex(item => item.id === over.id);
-        
-        if (activeIndex === -1 || overIndex === -1) {
-          return prev;
-        }
-        
-        const reorderedItems = arrayMove(items, activeIndex, overIndex);
-        const newCheckedItems: Record<string, boolean> = {};
-        
-        reorderedItems.forEach((item, index) => {
-          const originalIndex = items.findIndex(originalItem => originalItem.id === item.id);
-          newCheckedItems[item.id] = prev[items[originalIndex].id] || false;
-        });
-        
-        return newCheckedItems;
-      });
-    }
-
+    
+    // activeId 초기화
     setActiveId(null);
+    
+    // 유효한 드롭 타겟이 없으면 종료
+    if (!over) {
+      return;
+    }
+    
+    // 같은 아이템에 드롭하면 종료
+    if (active.id === over.id) {
+      return;
+    }
+    
+    // drop-로 시작하는 ID에서 실제 아이템 ID 추출 (GridC와 동일)
+    const overId = over.id.toString().startsWith('drop-') 
+      ? over.id.toString().replace('drop-', '') 
+      : over.id.toString();
+    
+    console.log('[GridA][dragEnd] active.id:', active.id, 'over.id:', over.id, 'overId:', overId);
+    
+    setItems((currentItems) => {
+      const draggedIndex = currentItems.findIndex(item => item.id === active.id);
+      const targetIndex = currentItems.findIndex(item => item.id === overId);
+      
+      // 유효하지 않은 인덱스면 변경 없음
+      if (draggedIndex === -1 || targetIndex === -1) {
+        return currentItems;
+      }
+      
+      // 애니메이션 시작
+      setIsAnimating(true);
+      
+      // 애니메이션 완료 후 상태 초기화
+      setTimeout(() => {
+        setIsAnimating(false);
+      }, 350);
+      
+      console.log('[GridA][dragEnd] draggedIndex:', draggedIndex, 'targetIndex:', targetIndex);
+      console.log('[GridA][dragEnd] subject:', subject, 'draggedItem:', currentItems[draggedIndex], 'targetItem:', currentItems[targetIndex]);
+      
+      // subject가 3이고 2x1 span 아이템이 관련된 경우 특별 처리 (GridC photoCount=3 로직 참고)
+      if (subject === 3) {
+        const draggedItem = currentItems[draggedIndex];
+        
+        // 2x1 아이템(colSpan === 2)을 드래그하는 경우
+        if (draggedItem.colSpan === 2) {
+          console.log('[GridA][dragEnd] 2x1 item dragged - special handling');
+          
+          // 현재 2x1 아이템의 위치 확인
+          const currentSpanTwoIndex = currentItems.findIndex(item => item.colSpan === 2);
+          
+          // 타겟이 어느 행에 속하는지 결정
+          // targetIndex 0 = 첫 번째 행, targetIndex 1,2 = 두 번째 행
+          const targetRow = targetIndex === 0 ? 1 : 2;
+          const desiredLargeIndex = targetRow === 1 ? 0 : 2;
+          
+          console.log('[GridA][dragEnd] current 2x1 at index:', currentSpanTwoIndex, 'targetIndex:', targetIndex, 'targetRow:', targetRow, 'desiredLargeIndex:', desiredLargeIndex);
+          
+          // 2x1이 위치를 바꾸는 경우에만 특별 처리
+          if (currentSpanTwoIndex !== desiredLargeIndex) {
+            console.log('[GridA][dragEnd] moving 2x1 from index', currentSpanTwoIndex, 'to index', desiredLargeIndex);
+            
+            const result = [...currentItems];
+            
+            // GridC와 동일한 로직: 2x1을 새 위치로 이동하고, 기존 위치의 아이템들을 재배치
+            if (currentSpanTwoIndex === 0 && desiredLargeIndex === 2) {
+              // 2x1이 첫 번째 행에서 두 번째 행으로 이동
+              // index 0 (2x1) → index 2로
+              // index 1 → index 0으로  
+              // index 2 → index 1로
+              const item0 = result[0]; // 2x1 아이템
+              const item1 = result[1]; // 2,1 위치 아이템
+              const item2 = result[2]; // 2,2 위치 아이템
+              
+              result[0] = { ...item1, index: 0 }; // 2,1에 있던 아이템이 1,1로
+              result[1] = { ...item2, index: 1 }; // 2,2에 있던 아이템이 1,2로
+              result[2] = { ...item0, index: 2 }; // 2x1 아이템이 두 번째 행으로
+              
+            } else if (currentSpanTwoIndex === 2 && desiredLargeIndex === 0) {
+              // 2x1이 두 번째 행에서 첫 번째 행으로 이동
+              // index 2 (2x1) → index 0으로
+              // index 0 → index 1로
+              // index 1 → index 2로
+              const item0 = result[0]; // 1,1 위치 아이템
+              const item1 = result[1]; // 1,2 위치 아이템  
+              const item2 = result[2]; // 2x1 아이템
+              
+              result[0] = { ...item2, index: 0 }; // 2x1 아이템이 첫 번째 행으로
+              result[1] = { ...item0, index: 1 }; // 1,1에 있던 아이템이 2,1로
+              result[2] = { ...item1, index: 2 }; // 1,2에 있던 아이템이 2,2로
+            }
+            
+            // 레이아웃 재계산 (2x1 아이템의 새 위치 기준)
+            return recalculateLayout(result, desiredLargeIndex);
+          }
+        }
+        
+        // 1x1 아이템을 2x1 아이템과 교환하는 경우
+        const targetItem = currentItems[targetIndex];
+        if (targetItem.colSpan === 2) {
+          console.log('[GridA][dragEnd] 1x1 item swapped with 2x1 item');
+          
+          // 위와 동일한 로직 적용
+          const currentSpanTwoIndex = currentItems.findIndex(item => item.colSpan === 2);
+          const targetRow = draggedIndex === 0 ? 1 : 2;
+          const desiredLargeIndex = targetRow === 1 ? 0 : 2;
+          
+          if (currentSpanTwoIndex !== desiredLargeIndex) {
+            const result = [...currentItems];
+            
+            if (currentSpanTwoIndex === 0 && desiredLargeIndex === 2) {
+              const item0 = result[0];
+              const item1 = result[1];
+              const item2 = result[2];
+              
+              result[0] = { ...item1, index: 0 };
+              result[1] = { ...item2, index: 1 };
+              result[2] = { ...item0, index: 2 };
+              
+            } else if (currentSpanTwoIndex === 2 && desiredLargeIndex === 0) {
+              const item0 = result[0];
+              const item1 = result[1];
+              const item2 = result[2];
+              
+              result[0] = { ...item2, index: 0 };
+              result[1] = { ...item0, index: 1 };
+              result[2] = { ...item1, index: 2 };
+            }
+            
+            return recalculateLayout(result, desiredLargeIndex);
+          }
+        }
+      }
+      
+      // 일반적인 경우: 단순한 1:1 스와핑
+      console.log('[GridA][dragEnd] simple swap');
+      return performSimpleSwap(currentItems, draggedIndex, targetIndex);
+    });
+
+    // 체크 상태도 1:1 스와핑 (overId 사용)
+    setCheckedItems(prev => {
+      const draggedIndex = items.findIndex(item => item.id === active.id);
+      const targetIndex = items.findIndex(item => item.id === overId);
+      
+      if (draggedIndex === -1 || targetIndex === -1) {
+        return prev;
+      }
+      
+      const newCheckedItems = { ...prev };
+      const draggedId = items[draggedIndex].id;
+      const targetId = items[targetIndex].id;
+      
+      // 체크 상태 스와핑
+      const draggedChecked = newCheckedItems[draggedId] || false;
+      const targetChecked = newCheckedItems[targetId] || false;
+      
+      newCheckedItems[draggedId] = targetChecked;
+      newCheckedItems[targetId] = draggedChecked;
+      
+      return newCheckedItems;
+    });
   };
 
   // subject 개수에 따라 그리드 레이아웃 설정
@@ -259,7 +372,7 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
   // 그리드 아이템들을 렌더링하는 함수
   const renderGridItems = () => {
     return items.map((item) => (
-      <SortableGridItem
+      <DragDropGridAItem
         key={item.id}
         id={item.id}
         index={item.index}
@@ -273,9 +386,10 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
         isExpanded={item.colSpan === 2}
         onDecreaseSubject={onDecreaseSubject}
         imagePositions={imagePositionsMap[item.id] || []}
-        onImagePositionsUpdate={(positions) => handleImagePositionsUpdate(item.id, positions)}
+        onImagePositionsUpdate={(positions: any[]) => handleImagePositionsUpdate(item.id, positions)}
         imageCount={item.imageCount || 1}
         gridCount={subject}
+        isAnimating={isAnimating}
       />
     ));
   };
@@ -285,26 +399,21 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
 
   return (
     <DndContext
-      sensors={!isImageEditModalOpen ? sensors : []}
+      sensors={isImageEditModalOpen || isAnimating ? [] : sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <SortableContext 
-        items={items.map(item => item.id)} 
-        strategy={rectSortingStrategy}
-      >
-        <div className="w-full h-full relative">
-          <div 
-            className={`${layout.className} grid-container relative transition-colors duration-200 ${
-              activeId ? 'bg-primary/5' : ''
-            }`}
-            style={layout.style}
-          >
-            {renderGridItems()}
-          </div>
+      <div className="w-full h-full relative">
+        <div 
+          className={`${layout.className} grid-container relative transition-colors duration-200 ${
+            activeId ? 'bg-primary/5' : ''
+          }`}
+          style={layout.style}
+        >
+          {renderGridItems()}
         </div>
-      </SortableContext>
+      </div>
       
       <DragOverlay>
         {activeId && activeItem ? (

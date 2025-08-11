@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, Suspense } from "react";
+import { useEffect, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 // import { RegisterThumbnail } from './_components/RegisterThumbnail';
 import LeftSideBar from "./comnponents/LeftSideBar";
@@ -11,11 +11,13 @@ import { useReportStore, type ReportType } from "@/hooks/store/useReportStore";
 import ReportA from "./comnponents/ReportA";
 import ReportB from "./comnponents/ReportB";
 import ReportC from "./comnponents/ReportC";
+import useUserStore from '@/hooks/store/useUserStore';
 
 //새로 작업될 리포트 페이지
 function ReportPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { userInfo } = useUserStore();
   const {
     isFirstVisit,
     showTypeSelectionModal,
@@ -25,6 +27,12 @@ function ReportPageContent() {
     setSelectedReportType,
     getDefaultSubject,
   } = useReportStore();
+
+  // store에서 profileId와 accountId 직접 추출
+  const profileId = useMemo(() => userInfo?.id || null, [userInfo?.id]);
+  const accountId = useMemo(() => userInfo?.accountId || null, [userInfo?.accountId]);
+  console.log('profileId', profileId);
+  console.log('accountId', accountId);
 
   // searchParams에 type이 없을 때만 모달 표시
   useEffect(() => {

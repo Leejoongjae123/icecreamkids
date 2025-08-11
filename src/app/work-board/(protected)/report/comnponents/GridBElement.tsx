@@ -912,12 +912,16 @@ function GridBElement({
               <button
                 onClick={(e) => {
                   e.stopPropagation(); // 이벤트 전파 방지
-                  if (!isLoading) {
+                  if (!isLoading && getCurrentImageCount() > 0) {
                     handleAIGenerate();
                   }
                 }}
-                disabled={isLoading}
-                className={`flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight text-white rounded-md bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90 flex justify-center items-center w-[54px] h-[26px] self-start transition-opacity ${isLoading ? 'cursor-not-allowed opacity-75' : ''}`}
+                disabled={isLoading || getCurrentImageCount() === 0}
+                className={`flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight rounded-md flex justify-center items-center w-[54px] h-[26px] self-start transition-all ${
+                  isLoading || getCurrentImageCount() === 0 
+                    ? 'cursor-not-allowed bg-gray-400 text-gray-300' 
+                    : 'text-white bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90'
+                }`}
               >
                 {isLoading ? (
                   <Loader2 className="w-3 h-3 animate-spin text-white" />
@@ -925,7 +929,7 @@ function GridBElement({
                   <>
                     <Image
                       src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/leaf.svg"
-                      className="object-contain"
+                      className={`object-contain ${getCurrentImageCount() === 0 ? 'opacity-50' : ''}`}
                       width={11}
                       height={11}
                       alt="AI icon"

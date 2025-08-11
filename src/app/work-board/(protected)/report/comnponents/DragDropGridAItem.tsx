@@ -1,10 +1,9 @@
 "use client";
 import React from "react";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import GridAElement from "./GridAElement";
 
-interface SortableGridItemProps {
+interface DragDropGridAItemProps {
   id: string;
   index: number;
   style?: React.CSSProperties;
@@ -21,9 +20,10 @@ interface SortableGridItemProps {
   onImagePositionsUpdate?: (positions: any[]) => void; // 이미지 위치 업데이트 핸들러
   imageCount?: number; // 이미지 개수 추가
   gridCount?: number; // 그리드 갯수 추가
+  isAnimating?: boolean; // 애니메이션 상태
 }
 
-function SortableGridItem({
+function DragDropGridAItem({
   id,
   index,
   style,
@@ -40,28 +40,53 @@ function SortableGridItem({
   onImagePositionsUpdate,
   imageCount = 1,
   gridCount,
-}: SortableGridItemProps) {
+  isAnimating = false,
+}: DragDropGridAItemProps) {
   const {
     attributes,
     listeners,
-    setNodeRef,
+    setNodeRef: setDragRef,
     transform,
-    transition,
     isDragging,
-  } = useSortable({ id });
+  } = useDraggable({
+    id,
+    data: {
+      type: 'grid-item',
+      index,
+    }
+  });
 
-  const sortableStyle = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+  const {
+    setNodeRef: setDropRef,
+    isOver,
+  } = useDroppable({
+    id: `drop-${id}`,
+    data: {
+      type: 'grid-item',
+      index,
+    }
+  });
+
+  const dragDropStyle = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     opacity: isDragging ? 0.5 : 1,
-    ...style,
+    backgroundColor: isOver ? 'rgba(0, 123, 255, 0.1)' : undefined,
+    transition: isDragging ? 'none' : isAnimating ? 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'all 0.2s ease-out',
+    willChange: isDragging || isAnimating ? 'transform, opacity' : 'auto',
+    zIndex: isDragging ? 1000 : isAnimating ? 10 : 1,
+    ...style, // 그리드 레이아웃 스타일 적용
+  };
+
+  const setNodeRef = (node: HTMLDivElement | null) => {
+    setDragRef(node);
+    setDropRef(node);
   };
 
   return (
     <div
       ref={setNodeRef}
-      style={sortableStyle}
-      className={`touch-none ${isDragging ? 'z-50' : ''} ${isOverlay ? 'ring-2 ring-primary ring-opacity-50' : ''}`}
+      style={dragDropStyle}
+      className={`touch-none ${isDragging ? 'z-50' : ''} ${isOverlay ? 'ring-2 ring-primary ring-opacity-50' : ''} ${isOver ? 'ring-2 ring-blue-400 ring-opacity-50' : ''}`}
     >
       <GridAElement
         index={index}
@@ -87,4 +112,4 @@ function SortableGridItem({
   );
 }
 
-export default SortableGridItem; 
+export default DragDropGridAItem;

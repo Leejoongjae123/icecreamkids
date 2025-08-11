@@ -515,8 +515,8 @@ function GridCElement({
         </div>
       )}
 
-      {/* Keyword Input Component at the bottom - 클리핑 활성화 시에만 표시 */}
-      {isClippingEnabled && (
+      {/* Keyword Input Component at the bottom - 체크박스 선택 시에만 표시 */}
+      {isSelected && (
         <div className="absolute bottom-0 left-0 right-0 z-50 p-2 photo-description-input">
           <div className="flex overflow-hidden flex-col px-3 py-2 text-xs tracking-tight leading-none text-gray-700 bg-white rounded-lg w-full shadow-[1px_1px_10px_rgba(0,0,0,0.1)]">
             {/* 검색 입력 */}
