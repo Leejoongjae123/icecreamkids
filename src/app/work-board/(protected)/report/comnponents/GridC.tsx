@@ -9,7 +9,6 @@ import {
   useSensors,
   DragEndEvent,
   DragStartEvent,
-  DragOverlay,
 } from "@dnd-kit/core";
 import GridCElement from "./GridCElement";
 import DragDropGridCItem from "./DragDropGridCItem";
@@ -893,24 +892,7 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
             })}
           </div>
         </div>
-      
-      <DragOverlay>
-        {activeId && activeItem ? (
-          <div className="rotate-6 scale-110 shadow-2xl border-2 border-primary rounded-2xl">
-            <GridCElement
-              index={activeItem.index}
-              gridId={activeItem.id}
-              clipPathData={activeItem.clipPathData}
-              imageUrl={activeItem.imageUrl}
-              isClippingEnabled={isClippingEnabled}
-              isDragging={true}
-              isSelected={selectedItems.has(activeItem.id)}
-              onImageUpload={() => {}}
-              onClipPathChange={() => {}}
-            />
-          </div>
-        ) : null}
-      </DragOverlay>
+      {/* DragOverlay 제거됨: 중복 기울기 프리뷰 방지 */}
     </DndContext>
   );
 }

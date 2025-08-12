@@ -9,7 +9,6 @@ import {
   useSensors,
   DragEndEvent,
   DragStartEvent,
-  DragOverlay,
 } from "@dnd-kit/core";
 import GridAElement from "./GridAElement";
 import DragDropGridAItem from "./DragDropGridAItem";
@@ -414,28 +413,7 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
           {renderGridItems()}
         </div>
       </div>
-      
-      <DragOverlay>
-        {activeId && activeItem ? (
-          <div className="rotate-6 scale-110 shadow-2xl border-2 border-primary rounded-2xl">
-            <GridAElement
-              index={activeItem.index}
-              gridId={activeItem.id}
-              checked={checkedItems[activeItem.id] || false}
-              onCheckedChange={() => {}}
-              category={activeItem.category}
-              images={activeItem.images}
-              placeholderText={`ex) 아이들과 ${activeItem.category}를 했어요`}
-              isDragging={true}
-              cardType={activeItem.cardType}
-              imagePositions={imagePositionsMap[activeItem.id] || []}
-              onImagePositionsUpdate={() => {}} // 드래그 중에는 위치 업데이트하지 않음
-              imageCount={activeItem.imageCount || 1}
-              gridCount={subject}
-            />
-          </div>
-        ) : null}
-      </DragOverlay>
+      {/* DragOverlay 제거됨: 중복 기울기 프리뷰 방지 */}
     </DndContext>
   );
 }

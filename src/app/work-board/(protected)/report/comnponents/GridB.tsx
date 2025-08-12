@@ -11,7 +11,6 @@ import {
   useSensors,
   DragEndEvent,
   DragStartEvent,
-  DragOverlay,
   CollisionDetection,
 } from "@dnd-kit/core";
 import GridBElement from "./GridBElement";
@@ -518,25 +517,7 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
           {/* Floating 마이너스 버튼들 (그리드 쪼개기) */}
           {renderSplitButtons()}
         </div>
-      
-      <DragOverlay>
-        {activeId && activeItem ? (
-          <div className="rotate-6 scale-110 shadow-2xl border-2 border-primary rounded-2xl">
-            <GridBElement
-              index={activeItem.index}
-              gridId={activeItem.id}
-              isSelected={activeItem.isSelected}
-              onSelectChange={() => {}}
-              onDelete={() => {}}
-              isExpanded={activeItem.isExpanded}
-              isHidden={activeItem.isHidden}
-              images={activeItem.images}
-              imageCount={activeItem.imageCount}
-              placeholderText="ex) 아이들과 촉감놀이를 했어요"
-            />
-          </div>
-        ) : null}
-      </DragOverlay>
+      {/* DragOverlay 제거됨: 중복 기울기 프리뷰 방지 */}
     </DndContext>
   );
 }
