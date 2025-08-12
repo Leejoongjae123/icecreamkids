@@ -363,3 +363,43 @@ export interface ImageCanvasTransform {
   translateX: number;
   translateY: number;
 }
+
+// MemoIndicator 관련 타입들
+export interface MemoIndicatorProps {
+  show: boolean;
+  driveItemKey?: string;
+  onMemoClick?: () => void;
+}
+
+export interface MemoData {
+  title?: string | null;
+  memo: string;
+}
+
+// LLM API 응답 타입 정의
+export interface LLMApiResult {
+  title: string;
+  contents: string;
+}
+
+export interface LLMApiData {
+  status: number;
+  result: LLMApiResult;
+  timestamp: string;
+}
+
+export interface LLMApiResponse {
+  success: boolean;
+  data: LLMApiData;
+}
+
+// AI 생성 요청/응답 관련 타입
+export interface AIGenerateRequest {
+  profileId: number;
+  subject: string;
+  age: number;
+  startsAt?: string;
+  endsAt?: string;
+  photoDriveItemKeys: string[];
+  keywords?: string;
+}

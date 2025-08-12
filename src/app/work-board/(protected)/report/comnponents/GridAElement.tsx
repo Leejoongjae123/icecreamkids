@@ -10,7 +10,17 @@ import {IoClose} from "react-icons/io5";
 import useUserStore from "@/hooks/store/useUserStore";
 import useGridContentStore from "@/hooks/store/useGridContentStore";
 import { useImageUpload } from "@/hooks/useImageUpload";
+import { useMemoCheck } from "@/hooks/useMemoCheck";
+import MemoIndicator from "../components/MemoIndicator";
+import { MemoEditModal } from "@/components/modal/memo-edit";
 import { UploadModal } from "@/components/modal";
+import { useGetDriveItemMemos, useUpdateDriveItemMemo } from "@/service/file/fileStore";
+import { useToast } from "@/hooks/store/useToastStore";
+import { useAlertStore } from "@/hooks/store/useAlertStore";
+import { DriveItemMemoUpdateRequest } from "@/service/file/schemas";
+import { IEditMemoData } from "@/components/modal/memo-edit/types";
+import { useSearchParams } from "next/navigation";
+
 
 interface GridAElementProps {
   index: number;
@@ -80,8 +90,142 @@ function GridAElement({
   const profileId = React.useMemo(() => userInfo?.id || null, [userInfo?.id]);
   const accountId = React.useMemo(() => userInfo?.accountId || null, [userInfo?.accountId]);
   
+  // URL 파라미터 가져오기
+  const searchParams = useSearchParams();
+
+  // 각 이미지의 메모 존재 여부를 체크하는 상태
+  const [memoStatuses, setMemoStatuses] = React.useState<{[key: string]: boolean}>({});
+  
+  // 현재 메모를 편집하고자 하는 driveItemKey 상태 관리
+  const [currentDriveItemKey, setCurrentDriveItemKey] = React.useState<string>('');
+  const [isMemoOpen, setIsMemoOpen] = React.useState<boolean>(false);
+  const [memoData, setMemoData] = React.useState<IEditMemoData>({
+    title: '',
+    memo: ''
+  });
+  
   // Grid content store 사용
   const { updatePlaySubject, updateImages, updateCategoryValue, gridContents } = useGridContentStore();
+  
+  // Toast 및 Alert hook
+  const addToast = useToast((state) => state.add);
+  const { showAlert } = useAlertStore();
+
+  // 메모 조회 및 업데이트 hooks
+  const { data: driveItemMemo, refetch: refetchMemo } = useGetDriveItemMemos(
+    currentDriveItemKey,
+    {
+      owner_account_id: accountId?.toString() || '0',
+    },
+    {
+      query: { enabled: !!currentDriveItemKey && !!accountId },
+    }
+  );
+
+  const { mutateAsync: updateMemo } = useUpdateDriveItemMemo();
+
+  // 메모 데이터가 조회되면 상태 업데이트
+  React.useEffect(() => {
+    if (driveItemMemo?.result?.[0]) {
+      const existingMemo = driveItemMemo.result[0];
+      setMemoData({
+        title: existingMemo.title || '',
+        memo: existingMemo.memo || ''
+      });
+    } else {
+      // 메모가 없으면 초기화
+      setMemoData({ title: '', memo: '' });
+    }
+  }, [driveItemMemo]);
+
+  // 메모 모달 열기 함수
+  const openMemoModal = (driveItemKey: string) => {
+    setCurrentDriveItemKey(driveItemKey);
+    setIsMemoOpen(true);
+  };
+
+  // 메모 모달 닫기 함수
+  const closeMemoModal = () => {
+    setIsMemoOpen(false);
+    setCurrentDriveItemKey('');
+    setMemoData({ title: '', memo: '' });
+  };
+
+  // 메모 데이터 업데이트 함수
+  const updateMemoData = (data: Partial<IEditMemoData>) => {
+    setMemoData(prev => ({ ...prev, ...data }));
+  };
+
+  // 메모 저장 함수
+  const saveMemo = async () => {
+    if (!currentDriveItemKey || !accountId || !profileId) {
+      return;
+    }
+
+    const existingMemo = driveItemMemo?.result?.[0];
+
+    try {
+      if (existingMemo?.id) {
+        // 기존 메모 업데이트
+        const updateMemoDataPayload: DriveItemMemoUpdateRequest = {
+          title: memoData.title,
+          memo: memoData.memo,
+          ownerAccountId: accountId,
+          ownerProfileId: profileId,
+        };
+
+        const { status } = await updateMemo({
+          idOrKey: currentDriveItemKey,
+          memoId: existingMemo.id.toString(),
+          data: updateMemoDataPayload,
+        });
+
+        if (status === 200) {
+          addToast({ message: '메모가 수정되었습니다.' });
+          await refetchMemo();
+          // 메모 상태 업데이트
+          setMemoStatuses(prev => ({
+            ...prev,
+            [currentDriveItemKey]: true
+          }));
+        } else {
+          showAlert({ message: '메모 수정에 실패하였습니다.' });
+        }
+      } else {
+        // 새 메모 생성 - API 호출
+        const response = await fetch(
+          `/api/file/v1/drive-items/${currentDriveItemKey}/memos?owner_account_id=${accountId}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'accept': '*/*',
+            },
+            body: JSON.stringify({
+              title: memoData.title,
+              memo: memoData.memo,
+            }),
+          }
+        );
+
+        if (response.ok) {
+          addToast({ message: '메모가 저장되었습니다.' });
+          await refetchMemo();
+          // 메모 상태 업데이트
+          setMemoStatuses(prev => ({
+            ...prev,
+            [currentDriveItemKey]: true
+          }));
+        } else {
+          showAlert({ message: '메모 저장에 실패하였습니다.' });
+        }
+      }
+    } catch {
+      showAlert({ message: '메모 저장 중 오류가 발생했습니다.' });
+    } finally {
+      closeMemoModal();
+    }
+  };
   
   console.log('GridAElement profileId:', profileId);
   console.log('GridAElement accountId:', accountId);
@@ -105,8 +249,7 @@ function GridAElement({
   // textarea focus 상태 관리 추가
   const [isTextareaFocused, setIsTextareaFocused] = React.useState(false);
   
-  // 텍스트 토글 상태 관리 (true: 애국가 1절, false: 애국가 2절)
-  const [isFirstVerse, setIsFirstVerse] = React.useState(true);
+
   
   // 이미지 배열을 imageCount에 맞게 조정
   const [currentImages, setCurrentImages] = React.useState<string[]>(() => {
@@ -222,6 +365,58 @@ function GridAElement({
     const metadata = imageMetadata.find(item => item.url === imageUrl);
     return metadata?.driveItemKey;
   }, [imageMetadata]);
+
+  // 이미지 메타데이터가 변경될 때마다 메모 상태 체크
+  React.useEffect(() => {
+    const checkMemosForImages = async () => {
+      if (!userInfo?.accountId) {
+        return;
+      }
+
+      const memoCheckPromises = imageMetadata.map(async (metadata) => {
+        if (metadata.driveItemKey && metadata.driveItemKey.startsWith('local_')) {
+          // 로컬 이미지(직접 업로드)는 메모 체크하지 않음
+          return null;
+        }
+
+        if (metadata.driveItemKey) {
+          try {
+            const response = await fetch(
+              `/api/file/v1/drive-items/${metadata.driveItemKey}/memos?owner_account_id=${userInfo.accountId}`,
+              {
+                method: 'GET',
+                headers: {
+                  'accept': '*/*',
+                },
+              }
+            );
+
+            if (response.ok) {
+              const data = await response.json();
+              const memoExists = Array.isArray(data.result) ? data.result.length > 0 : false;
+              return { driveItemKey: metadata.driveItemKey, hasMemo: memoExists };
+            }
+          } catch (error) {
+            console.log('메모 체크 실패:', error);
+          }
+        }
+        return null;
+      });
+
+      const results = await Promise.all(memoCheckPromises);
+      const newMemoStatuses: {[key: string]: boolean} = {};
+      
+      results.forEach((result) => {
+        if (result) {
+          newMemoStatuses[result.driveItemKey] = result.hasMemo;
+        }
+      });
+
+      setMemoStatuses(newMemoStatuses);
+    };
+
+    checkMemosForImages();
+  }, [imageMetadata, userInfo?.accountId]);
 
   // 여러 이미지 추가 핸들러
   const handleImagesAdded = React.useCallback((imageUrls: string[]) => {
@@ -633,7 +828,6 @@ function GridAElement({
       setHasClickedAIGenerate(false);
       setIsEditingCategory(false);
       setIsTextareaFocused(false);
-      setIsFirstVerse(true);
       console.log(`GridAElement ${gridId} 상태 초기화됨`);
     }
   }, [gridContents, gridId, imageCount]);
@@ -648,6 +842,113 @@ function GridAElement({
     }
   };
 
+  // LLM API 호출 함수
+  const callLLMAPI = React.useCallback(async () => {
+    if (!profileId || !categoryValue || categoryValue.trim() === "" || categoryValue === "타이틀을 입력해주세요") {
+
+      return;
+    }
+
+    // 그리드에서 이미지의 data-id 값들 수집
+    const photoDriveItemKeys: string[] = [];
+    currentImages.forEach((imageUrl) => {
+      if (imageUrl && imageUrl !== "" && imageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
+        const driveItemKey = getDriveItemKeyByImageUrl(imageUrl);
+        if (driveItemKey && !driveItemKey.startsWith('local_')) {
+          photoDriveItemKeys.push(driveItemKey);
+        }
+      }
+    });
+
+    if (photoDriveItemKeys.length === 0) {
+
+      return;
+    }
+
+    // searchParams에서 age 값 가져오기
+    const ageParam = searchParams?.get('age');
+    const age = ageParam ? parseInt(ageParam, 10) : 3; // 기본값: 3 (6세)
+
+    const requestData = {
+      profileId,
+      subject: categoryValue,
+      age,
+      startsAt: new Date().toISOString().split('T')[0], // 오늘 날짜
+      endsAt: new Date().toISOString().split('T')[0], // 오늘 날짜
+      photoDriveItemKeys,
+      keywords: inputValue.trim() || "" // 현재 입력된 키워드 사용
+    };
+
+    console.log("LLM API 호출 데이터:", requestData);
+
+    try {
+      const response = await fetch('/api/ai/analyze-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+
+        showAlert({ message: 'AI 생성에 실패했습니다. 다시 시도해주세요.' });
+        return;
+      }
+
+      const result = await response.json() as any;
+      console.log("LLM API 응답:", result);
+
+      // API 응답 구조에서 텍스트 추출
+      let generatedText = "";
+      
+      console.log("응답 구조 분석:", {
+        hasStatus: !!result.status,
+        status: result.status,
+        hasResult: !!result.result,
+        hasContents: !!result.result?.contents,
+        fullResponse: result
+      });
+      
+      if (result.status === 200 && result.result?.contents) {
+        // 실제 API 응답 구조: { status: 200, result: { contents: "..." } }
+        generatedText = result.result.contents;
+      } else if (result.success && result.data?.result?.contents) {
+        // 기존 구조 지원
+        generatedText = result.data.result.contents;
+      } else if (result.data && typeof result.data === 'string') {
+        generatedText = result.data;
+      } else if (result.data && result.data.content) {
+        generatedText = result.data.content;
+      } else if (result.data && result.data.text) {
+        generatedText = result.data.text;
+      } else if (result.contents) {
+        // 직접 contents 필드가 있는 경우
+        generatedText = result.contents;
+      } else if (typeof result === 'string') {
+        generatedText = result;
+      } else {
+        console.warn("예상하지 못한 응답 구조:", result);
+        generatedText = "AI 텍스트 생성에 성공했지만 내용을 추출할 수 없습니다."; // 기본값
+      }
+
+      // 생성된 텍스트로 input 값 업데이트
+      setInputValue(generatedText);
+      
+      // Grid content store에도 업데이트 (gridId가 있을 때만)
+      if (gridId) {
+        updatePlaySubject(gridId, generatedText);
+      }
+
+      addToast({ message: 'AI 텍스트가 생성되었습니다.' });
+
+    } catch (error) {
+
+      showAlert({ message: 'AI 생성 중 오류가 발생했습니다.' });
+    }
+  }, [profileId, categoryValue, currentImages, getDriveItemKeyByImageUrl, searchParams, inputValue, gridId, updatePlaySubject, showAlert, addToast]);
+
   const handleAIGenerate = () => {
     console.log("AI 생성 버튼 클릭됨");
     console.log("현재 isDescriptionExpanded:", isDescriptionExpanded);
@@ -658,26 +959,19 @@ function GridAElement({
     // 로딩 상태 시작
     setIsLoading(true);
     
-    // 2초 후에 로딩 완료 및 내용 변경
-    setTimeout(() => {
-      // 제목을 "아이스크림키즈"로 변경
-      setCategoryValue("독도는 우리땅");
-      
-      // 설명 내용 변경 (애국가 1절로 초기화)
-      setInputValue("동해물과 백두산이\n마르고 닳도록\n하느님이 보우하사\n우리나라 만세");
-      setIsFirstVerse(true); // 1절 상태로 설정
-      
-      // description-area를 확장된 textarea로 변경
-      setIsDescriptionExpanded(true);
-      console.log("setIsDescriptionExpanded(true) 호출됨");
-      
-      // 로딩 상태 종료
+    // description-area를 확장된 textarea로 변경
+    setIsDescriptionExpanded(true);
+    console.log("setIsDescriptionExpanded(true) 호출됨");
+    
+    // LLM API 호출
+    callLLMAPI().finally(() => {
+      // 로딩 상태 종료 (성공/실패 관계없이)
       setIsLoading(false);
-      
-      if (onAIGenerate) {
-        onAIGenerate();
-      }
-    }, 2000);
+    });
+    
+    if (onAIGenerate) {
+      onAIGenerate();
+    }
   };
 
   const handleImageUpload = () => {
@@ -689,6 +983,49 @@ function GridAElement({
     if (onImageUpload) {
       onImageUpload();
     }
+  };
+
+  // 텍스트 파일 업로드 핸들러
+  const handleTextFileUpload = () => {
+    // 숨겨진 파일 input 요소 생성
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.txt';
+    fileInput.style.display = 'none';
+    
+    // 파일 선택 시 이벤트 핸들러
+    fileInput.onchange = (event) => {
+      const target = event.target as HTMLInputElement;
+      const file = target.files?.[0];
+      
+      if (file && file.type === 'text/plain') {
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+          const content = e.target?.result as string;
+          if (content) {
+            // 읽은 텍스트 내용을 input에 설정
+            setInputValue(content);
+            
+            // Grid content store에도 업데이트 (gridId가 있을 때만)
+            if (gridId) {
+              updatePlaySubject(gridId, content);
+            }
+          }
+        };
+        
+        reader.readAsText(file, 'UTF-8');
+      } else {
+        alert('텍스트 파일(.txt)만 업로드 가능합니다.');
+      }
+      
+      // input 요소 제거
+      document.body.removeChild(fileInput);
+    };
+    
+    // body에 추가하고 클릭
+    document.body.appendChild(fileInput);
+    fileInput.click();
   };
 
   // 이미지 편집 모달 열기 핸들러
@@ -786,28 +1123,29 @@ function GridAElement({
     });
   };
 
-  // 텍스트 새로고침(토글) 핸들러
+  // 텍스트 새로고침 핸들러 - LLM API 호출
   const handleTextRefresh = (event: React.MouseEvent) => {
     event.stopPropagation(); // 이벤트 전파 방지
+    
+    // LLM 호출 조건 확인
+    if (!profileId || !categoryValue || categoryValue.trim() === "" || categoryValue === "타이틀을 입력해주세요") {
+      addToast({ message: '먼저 타이틀을 입력해주세요.' });
+      return;
+    }
+
+    if (getCurrentImageCount() === 0) {
+      addToast({ message: '먼저 이미지를 업로드해주세요.' });
+      return;
+    }
     
     // 로딩 상태 시작
     setIsLoading(true);
     
-    // 2초 후에 로딩 완료 및 내용 변경
-    setTimeout(() => {
-      if (isFirstVerse) {
-        // 애국가 2절로 변경
-        setInputValue("남산 위의 저 소나무\n철갑을 두른 듯\n바람서리 불변함은\n우리 기상일세");
-        setIsFirstVerse(false);
-      } else {
-        // 애국가 1절로 변경
-        setInputValue("동해물과 백두산이\n마르고 닳도록\n하느님이 보우하사\n우리나라 만세");
-        setIsFirstVerse(true);
-      }
-      
-      // 로딩 상태 종료
+    // LLM API 호출
+    callLLMAPI().finally(() => {
+      // 로딩 상태 종료 (성공/실패 관계없이)
       setIsLoading(false);
-    }, 2000);
+    });
   };
 
   // 삭제 핸들러
@@ -1276,6 +1614,17 @@ function GridAElement({
                     >
                       <IoClose className="w-4 h-4 text-black" />
                     </button>
+                    {/* 메모 인디케이터 */}
+                    <MemoIndicator 
+                      show={Boolean(getDriveItemKeyByImageUrl(currentImages[0]) && memoStatuses[getDriveItemKeyByImageUrl(currentImages[0]) || ''])}
+                      driveItemKey={getDriveItemKeyByImageUrl(currentImages[0])}
+                      onMemoClick={() => {
+                        const driveItemKey = getDriveItemKeyByImageUrl(currentImages[0]);
+                        if (driveItemKey) {
+                          openMemoModal(driveItemKey);
+                        }
+                      }}
+                    />
                   </div>
                 ) : (
                   <>
@@ -1351,8 +1700,19 @@ function GridAElement({
                         onClick={(e) => handleImageDelete(1, e)}
                         title="이미지 삭제"
                       >
-                      <IoClose className="w-4 h-4 text-black" />
+                        <IoClose className="w-4 h-4 text-black" />
                       </button>
+                      {/* 메모 인디케이터 */}
+                      <MemoIndicator 
+                        show={Boolean(getDriveItemKeyByImageUrl(currentImages[1]) && memoStatuses[getDriveItemKeyByImageUrl(currentImages[1]) || ''])}
+                        driveItemKey={getDriveItemKeyByImageUrl(currentImages[1])}
+                        onMemoClick={() => {
+                          const driveItemKey = getDriveItemKeyByImageUrl(currentImages[1]);
+                          if (driveItemKey) {
+                            openMemoModal(driveItemKey);
+                          }
+                        }}
+                      />
                     </div>
                   ) : (
                     <>
@@ -1428,6 +1788,17 @@ function GridAElement({
                       >
                         <IoClose className="w-4 h-4 text-black" />
                       </button>
+                      {/* 메모 인디케이터 */}
+                      <MemoIndicator 
+                        show={Boolean(getDriveItemKeyByImageUrl(currentImages[2]) && memoStatuses[getDriveItemKeyByImageUrl(currentImages[2]) || ''])}
+                        driveItemKey={getDriveItemKeyByImageUrl(currentImages[2])}
+                        onMemoClick={() => {
+                          const driveItemKey = getDriveItemKeyByImageUrl(currentImages[2]);
+                          if (driveItemKey) {
+                            openMemoModal(driveItemKey);
+                          }
+                        }}
+                      />
                     </div>
                   ) : (
                     <>
@@ -1534,6 +1905,17 @@ function GridAElement({
                       >
                         <IoClose className="w-4 h-4 text-black" />
                       </button>
+                      {/* 메모 인디케이터 */}
+                      <MemoIndicator 
+                        show={Boolean(getDriveItemKeyByImageUrl(imageSrc) && memoStatuses[getDriveItemKeyByImageUrl(imageSrc) || ''])}
+                        driveItemKey={getDriveItemKeyByImageUrl(imageSrc)}
+                        onMemoClick={() => {
+                          const driveItemKey = getDriveItemKeyByImageUrl(imageSrc);
+                          if (driveItemKey) {
+                            openMemoModal(driveItemKey);
+                          }
+                        }}
+                      />
                     </div>
                   ) : (
                     <>
@@ -1660,10 +2042,10 @@ function GridAElement({
               <button
                 onClick={(e) => {
                   e.stopPropagation(); // 이벤트 전파 방지
-                  handleImageUpload();
+                  handleTextFileUpload();
                 }}
                 className="flex overflow-hidden justify-center items-center w-[26px] h-[26px] bg-[#979797] border border-dashed border-zinc-400 rounded-md hover:bg-[#979797]/80 transition-colors"
-                title="파일 업로드"
+                title="텍스트 파일 업로드"
               >
                 <Image
                   src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload.svg"
@@ -1766,6 +2148,15 @@ function GridAElement({
           allowsFileTypes={['IMAGE']}
         />
       )}
+
+      {/* 메모 편집 모달 */}
+      <MemoEditModal
+        isOpen={isMemoOpen}
+        memo={memoData}
+        onChangeMemo={updateMemoData}
+        onSave={saveMemo}
+        onCancel={closeMemoModal}
+      />
     </div>
   );
 }

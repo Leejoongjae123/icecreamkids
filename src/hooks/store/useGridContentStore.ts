@@ -47,70 +47,89 @@ const useGridContentStore = create<GridContentStore>((set, get) => ({
   gridContents: {},
 
   updateGridContent: (gridId: string, data: Partial<Omit<GridContentData, 'gridId'>>) => {
-    set((state) => ({
-      gridContents: {
-        ...state.gridContents,
-        [gridId]: {
-          gridId,
-          hasPlaySubject: false,
-          hasImages: false,
-          hasCategoryValue: false,
-          ...state.gridContents[gridId],
-          ...data,
+    set((state) => {
+      const existingContent = state.gridContents[gridId] || {};
+      
+      return {
+        gridContents: {
+          ...state.gridContents,
+          [gridId]: {
+            gridId,
+            hasPlaySubject: data.hasPlaySubject ?? existingContent.hasPlaySubject ?? false,
+            hasImages: data.hasImages ?? existingContent.hasImages ?? false,
+            hasCategoryValue: data.hasCategoryValue ?? existingContent.hasCategoryValue ?? false,
+            playSubjectText: data.playSubjectText ?? existingContent.playSubjectText,
+            imageUrls: data.imageUrls ?? existingContent.imageUrls,
+            categoryValue: data.categoryValue ?? existingContent.categoryValue,
+          },
         },
-      },
-    }));
+      };
+    });
   },
 
   updatePlaySubject: (gridId: string, text: string) => {
-    set((state) => ({
-      gridContents: {
-        ...state.gridContents,
-        [gridId]: {
-          gridId,
-          hasPlaySubject: false,
-          hasImages: false,
-          hasCategoryValue: false,
-          ...state.gridContents[gridId],
-          hasPlaySubject: text.trim().length > 0,
-          playSubjectText: text,
+    set((state) => {
+      const existingContent = state.gridContents[gridId] || {} as Partial<GridContentData>;
+      const { gridId: _ignored, ...existingData } = existingContent;
+
+      return {
+        gridContents: {
+          ...state.gridContents,
+          [gridId]: {
+            ...existingData,
+            gridId,
+            hasImages: (existingData.hasImages ?? false),
+            hasCategoryValue: (existingData.hasCategoryValue ?? false),
+            hasPlaySubject: text.trim().length > 0,
+            playSubjectText: text,
+          },
         },
-      },
-    }));
+      };
+    });
   },
 
   updateImages: (gridId: string, imageUrls: string[]) => {
-    set((state) => ({
-      gridContents: {
-        ...state.gridContents,
-        [gridId]: {
-          gridId,
-          hasPlaySubject: false,
-          hasImages: false,
-          hasCategoryValue: false,
-          ...state.gridContents[gridId],
-          hasImages: imageUrls.length > 0,
-          imageUrls,
+    set((state) => {
+      const existingContent = state.gridContents[gridId] || {} as Partial<GridContentData>;
+      const { gridId: _ignored, ...existingData } = existingContent;
+
+      return {
+        gridContents: {
+          ...state.gridContents,
+          [gridId]: {
+            ...existingData,
+            gridId,
+            hasPlaySubject: (existingData.hasPlaySubject ?? false),
+            hasCategoryValue: (existingData.hasCategoryValue ?? false),
+            hasImages: imageUrls.length > 0,
+            imageUrls,
+          },
         },
-      },
-    }));
+      };
+    });
   },
 
   updateCategoryValue: (gridId: string, value: string) => {
-    set((state) => ({
-      gridContents: {
-        ...state.gridContents,
-        [gridId]: {
-          gridId,
-          hasPlaySubject: false,
-          hasImages: false,
-          hasCategoryValue: false,
-          ...state.gridContents[gridId],
-          hasCategoryValue: value.trim().length > 0 && value !== "타이틀을 입력해주세요",
-          categoryValue: value,
+    set((state) => {
+      const existingContent = state.gridContents[gridId] || {} as Partial<GridContentData>;
+      const { gridId: _ignored, ...existingData } = existingContent;
+
+      const hasCategoryValue = value.trim().length > 0 && value !== "타이틀을 입력해주세요";
+
+      return {
+        gridContents: {
+          ...state.gridContents,
+          [gridId]: {
+            ...existingData,
+            gridId,
+            hasPlaySubject: (existingData.hasPlaySubject ?? false),
+            hasImages: (existingData.hasImages ?? false),
+            hasCategoryValue,
+            categoryValue: value,
+          },
         },
-      },
-    }));
+      };
+    });
   },
 
   removeGridContent: (gridId: string) => {
