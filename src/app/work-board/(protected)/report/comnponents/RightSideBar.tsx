@@ -11,16 +11,25 @@ import {
 import { TypeSelectionModal } from "@/components/modal/type-selection";
 import ApplyModal from "./ApplyModal";
 import useGridContentStore from "@/hooks/store/useGridContentStore";
+import useUserStore from "@/hooks/store/useUserStore";
+import { useToast } from "@/hooks/store/useToastStore";
+import { useAlertStore } from "@/hooks/store/useAlertStore";
 import AgeSelector from "./AgeSelector";
 import SubjectSelector from "./SubjectSelector";
 import PhotoSelector from "./PhotoSelector";
 import InputDesign from "./InputDesign";
+import usePlayRecordStore from "@/hooks/store/usePlayRecordStore";
+import { Loader } from "@/components/ui/loader";
 
 function RightSideBarContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const currentType = searchParams.get("type") || "A";
-  const { hasAnyContent, clearGridsByType, clearAllGridContents } = useGridContentStore();
+  const { hasAnyContent, clearGridsByType, clearAllGridContents, hasAnyAiGeneratedContent, getAllReportCaptions } = useGridContentStore();
+  const { userInfo } = useUserStore();
+  const addToast = useToast((state) => state.add);
+  const { showAlert } = useAlertStore();
+  const { setPlayRecordResult, hasPlayRecordResult, clearPlayRecordResult } = usePlayRecordStore();
 
   const [selectedAge, setSelectedAge] = useState("6세");
   const [isAgePopoverOpen, setIsAgePopoverOpen] = useState(false);
@@ -47,6 +56,9 @@ function RightSideBarContent() {
     type: 'TYPE_CHANGE' | 'SUBJECT_CHANGE';
     data: any;
   } | null>(null);
+
+  // 놀이기록 생성 로딩 상태
+  const [isCreatingPlayRecord, setIsCreatingPlayRecord] = useState(false);
 
   // 초기 렌더링 시 searchParams에서 age 값 읽어오기
   useEffect(() => {
@@ -277,14 +289,117 @@ function RightSideBarContent() {
     return "6";
   };
 
+  // 놀이기록 생성/재생성 함수
+  const handleCreatePlayRecord = async () => {
+    // 1. 사용자 정보 확인
+    if (!userInfo?.id) {
+      addToast({ message: '로그인 후 사용해주세요.' });
+      return;
+    }
+
+    // 2. 타이틀과 AI 생성된 내용이 있는지 확인
+    const reportCaptions = getAllReportCaptions();
+    if (reportCaptions.length === 0) {
+      showAlert({ message: '먼저 타이틀을 입력해주세요.' });
+      return;
+    }
+
+    // 3. AI 생성된 내용이 있는지 확인
+    if (!hasAnyAiGeneratedContent()) {
+      showAlert({ message: 'AI로 생성된 내용이 없습니다. 먼저 AI 생성을 해주세요.' });
+      return;
+    }
+
+    // 로딩 시작
+    setIsCreatingPlayRecord(true);
+
+    // 재생성인 경우 기존 데이터를 먼저 클리어
+    const isRegeneration = hasPlayRecordResult();
+    if (isRegeneration) {
+      clearPlayRecordResult();
+    }
+
+    const ageParam = searchParams.get('age');
+    const age = ageParam ? parseInt(ageParam, 10) : 2; // 기본값: 2 (6세)
+
+    // 오늘 날짜를 YYYY-MM-DD 형식으로 생성
+    const today = new Date().toISOString().split('T')[0];
+
+    const requestData = {
+      profileId: userInfo.id,
+      subject: "놀이기록", // 기본 주제명
+      age,
+      startsAt: today,
+      endsAt: today,
+      reportCaptions
+    };
+
+    console.log(`놀이기록 ${isRegeneration ? '재생성' : '생성'} 요청 데이터:`, requestData);
+
+    try {
+      const response = await fetch('/api/ai/v2/report/type-a/create-record', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error(`놀이기록 ${isRegeneration ? '재생성' : '생성'} 실패:`, errorData);
+        showAlert({ message: `놀이기록 ${isRegeneration ? '재생성' : '생성'}에 실패했습니다. 다시 시도해주세요.` });
+        return;
+      }
+
+      const result = await response.json();
+      console.log(`놀이기록 ${isRegeneration ? '재생성' : '생성'} 성공:`, result);
+      console.log('result 구조 확인:', JSON.stringify(result, null, 2));
+      console.log('외부 API 응답 구조 확인:', result);
+
+      // API 응답에서 실제 데이터는 result 객체 안에 있음
+      const actualResult = result.result || result;
+      console.log('실제 데이터:', actualResult);
+
+      // zustand에 놀이기록 결과 저장
+      const playRecordData = {
+        subject: actualResult.subject || actualResult.playActivity || '',
+        objective: actualResult.objective || actualResult.homeConnection || '',
+        support: actualResult.support || actualResult.teacherSupport || actualResult.playLearning || '',
+      };
+      
+      console.log('playRecordData 매핑 결과:', playRecordData);
+      setPlayRecordResult(playRecordData);
+      
+      addToast({ message: `놀이기록이 성공적으로 ${isRegeneration ? '재생성' : '생성'}되었습니다.` });
+
+    } catch (error) {
+      console.error(`놀이기록 ${isRegeneration ? '재생성' : '생성'} 중 오류:`, error);
+      showAlert({ message: `놀이기록 ${isRegeneration ? '재생성' : '생성'} 중 오류가 발생했습니다.` });
+    } finally {
+      // 로딩 종료 (성공/실패 상관없이)
+      setIsCreatingPlayRecord(false);
+    }
+  };
+
+  // 놀이기록 생성 버튼 활성화 조건 체크
+  const reportCaptions = getAllReportCaptions();
+  const hasValidContent = reportCaptions.length > 0 && hasAnyAiGeneratedContent() && !isCreatingPlayRecord;
+
   return (
     <div className="flex flex-col gap-2.5 max-h-[calc(100vh-120px)] overflow-y-auto overflow-x-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
       <Button
-        className="box-border flex flex-col gap-1 justify-center items-center py-3 pr-2 pl-2 bg-primary hover:bg-primary/80 rounded-xl h-[72px] w-[110px] max-sm:w-full max-sm:text-sm max-sm:max-w-[280px]"
+        className={`box-border flex flex-col gap-1 justify-center items-center py-3 pr-2 pl-2 rounded-xl h-[72px] w-[110px] max-sm:w-full max-sm:text-sm max-sm:max-w-[280px] ${
+          hasValidContent 
+            ? "bg-primary hover:bg-primary/80" 
+            : "bg-gray-400 hover:bg-gray-400/80 cursor-not-allowed"
+        }`}
         onClick={() => {
-          // 놀이기록 생성 로직
-          console.log("놀이기록 생성");
+          if (hasValidContent) {
+            handleCreatePlayRecord();
+          }
         }}
+        disabled={!hasValidContent}
       >
         <Image
           src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/create.svg"
@@ -293,8 +408,10 @@ function RightSideBarContent() {
           height={17.5}
           className="rounded-full object-cover flex-shrink-0"
         />
-        <div className="text-xs font-semibold leading-3 text-white whitespace-nowrap flex items-center gap-1 max-sm:text-sm">
-          놀이기록 생성
+        <div className={`text-xs font-semibold leading-3 whitespace-nowrap flex items-center gap-1 max-sm:text-sm ${
+          hasValidContent ? "text-white" : "text-gray-200"
+        }`}>
+          {hasPlayRecordResult() ? "놀이기록 재생성" : "놀이기록 생성"}
         </div>
       </Button>
 
@@ -424,6 +541,23 @@ function RightSideBarContent() {
       {/* <div className="mt-4 overflow-visible">
         <InputDesign />
       </div> */}
+
+      {/* 놀이기록 생성 로딩 오버레이 */}
+      {isCreatingPlayRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* 배경 오버레이 (opacity 20%) */}
+          <div className="absolute inset-0 bg-black opacity-20" />
+          
+          {/* 중앙 로더 */}
+          <div className="relative z-10 p-8">
+            <Loader 
+              size="xl" 
+              text="놀이기록을 생성하고 있습니다..."
+              className="text-center"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

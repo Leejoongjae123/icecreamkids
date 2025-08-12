@@ -6,6 +6,7 @@ export interface GridContentData {
   hasPlaySubject: boolean; // 놀이주제 입력 여부
   hasImages: boolean; // 이미지 삽입 여부
   hasCategoryValue: boolean; // 카테고리 값 입력 여부
+  hasAiGenerated: boolean; // AI로 생성된 내용이 있는지 여부
   playSubjectText?: string; // 놀이주제 텍스트
   imageUrls?: string[]; // 이미지 URL 배열
   categoryValue?: string; // 카테고리 값
@@ -41,6 +42,15 @@ export interface GridContentStore {
   
   // 특정 타입(A, B, C)의 모든 Grid 초기화
   clearGridsByType: (type: string, gridCount: number) => void;
+  
+  // AI 생성 상태 업데이트
+  updateAiGenerated: (gridId: string, hasAiGenerated: boolean) => void;
+  
+  // AI 생성된 컨텐츠가 하나라도 있는지 확인
+  hasAnyAiGeneratedContent: () => boolean;
+  
+  // 모든 그리드 데이터를 reportCaptions 형태로 반환
+  getAllReportCaptions: () => { title: string; contents: string; }[];
 }
 
 const useGridContentStore = create<GridContentStore>((set, get) => ({
@@ -58,6 +68,7 @@ const useGridContentStore = create<GridContentStore>((set, get) => ({
             hasPlaySubject: data.hasPlaySubject ?? existingContent.hasPlaySubject ?? false,
             hasImages: data.hasImages ?? existingContent.hasImages ?? false,
             hasCategoryValue: data.hasCategoryValue ?? existingContent.hasCategoryValue ?? false,
+            hasAiGenerated: data.hasAiGenerated ?? existingContent.hasAiGenerated ?? false,
             playSubjectText: data.playSubjectText ?? existingContent.playSubjectText,
             imageUrls: data.imageUrls ?? existingContent.imageUrls,
             categoryValue: data.categoryValue ?? existingContent.categoryValue,
@@ -80,6 +91,7 @@ const useGridContentStore = create<GridContentStore>((set, get) => ({
             gridId,
             hasImages: (existingData.hasImages ?? false),
             hasCategoryValue: (existingData.hasCategoryValue ?? false),
+            hasAiGenerated: (existingData.hasAiGenerated ?? false),
             hasPlaySubject: text.trim().length > 0,
             playSubjectText: text,
           },
@@ -101,6 +113,7 @@ const useGridContentStore = create<GridContentStore>((set, get) => ({
             gridId,
             hasPlaySubject: (existingData.hasPlaySubject ?? false),
             hasCategoryValue: (existingData.hasCategoryValue ?? false),
+            hasAiGenerated: (existingData.hasAiGenerated ?? false),
             hasImages: imageUrls.length > 0,
             imageUrls,
           },
@@ -124,6 +137,7 @@ const useGridContentStore = create<GridContentStore>((set, get) => ({
             gridId,
             hasPlaySubject: (existingData.hasPlaySubject ?? false),
             hasImages: (existingData.hasImages ?? false),
+            hasAiGenerated: (existingData.hasAiGenerated ?? false),
             hasCategoryValue,
             categoryValue: value,
           },
@@ -155,6 +169,63 @@ const useGridContentStore = create<GridContentStore>((set, get) => ({
     const { gridContents } = get();
     const content = gridContents[gridId];
     return content ? (content.hasPlaySubject || content.hasImages || content.hasCategoryValue) : false;
+  },
+
+  updateAiGenerated: (gridId: string, hasAiGenerated: boolean) => {
+    set((state) => {
+      const existingContent = state.gridContents[gridId] || {} as Partial<GridContentData>;
+      const { gridId: _ignored, ...existingData } = existingContent;
+
+      return {
+        gridContents: {
+          ...state.gridContents,
+          [gridId]: {
+            ...existingData,
+            gridId,
+            hasPlaySubject: (existingData.hasPlaySubject ?? false),
+            hasImages: (existingData.hasImages ?? false),
+            hasCategoryValue: (existingData.hasCategoryValue ?? false),
+            hasAiGenerated,
+            playSubjectText: existingData.playSubjectText,
+            imageUrls: existingData.imageUrls,
+            categoryValue: existingData.categoryValue,
+          },
+        },
+      };
+    });
+  },
+
+  hasAnyAiGeneratedContent: () => {
+    const { gridContents } = get();
+    return Object.values(gridContents).some(
+      (content) => content.hasAiGenerated
+    );
+  },
+
+  getAllReportCaptions: () => {
+    const { gridContents } = get();
+    const reportCaptions: { title: string; contents: string; }[] = [];
+    
+    // gridContents를 gridId 순서대로 정렬 (grid-0, grid-1, grid-2 ...)
+    const sortedEntries = Object.entries(gridContents).sort((a, b) => {
+      const aIndex = parseInt(a[0].split('-').pop() || '0', 10);
+      const bIndex = parseInt(b[0].split('-').pop() || '0', 10);
+      return aIndex - bIndex;
+    });
+    
+    sortedEntries.forEach(([gridId, content]) => {
+      // categoryValue와 playSubjectText 모두 있는 경우만 포함
+      if (content.categoryValue && content.categoryValue.trim() !== "" && 
+          content.categoryValue !== "타이틀을 입력해주세요" && 
+          content.playSubjectText && content.playSubjectText.trim() !== "") {
+        reportCaptions.push({
+          title: content.categoryValue,
+          contents: content.playSubjectText
+        });
+      }
+    });
+    
+    return reportCaptions;
   },
 
   clearGridsByType: (type: string, gridCount: number) => {

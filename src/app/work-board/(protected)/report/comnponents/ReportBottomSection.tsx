@@ -8,8 +8,10 @@ import DecorationStickerModal from "./DecorationStickerModal";
 import TableModal from "./TableModal";
 import ApplyModal from "./ApplyModal";
 import BottomEditToolbar from "./BottomEditToolbar";
+import usePlayRecordStore from "@/hooks/store/usePlayRecordStore";
 
 const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
+  const { playRecordResult } = usePlayRecordStore();
   const [activeSection, setActiveSection] = React.useState<string | null>(null);
   const [playActivityText, setPlayActivityText] = React.useState("");
   const [teacherSupportText, setTeacherSupportText] = React.useState("");
@@ -55,6 +57,31 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  // 놀이기록 결과가 변경될 때마다 텍스트 필드에 반영
+  React.useEffect(() => {
+    console.log('ReportBottomSection - playRecordResult 변경됨:', playRecordResult);
+    if (playRecordResult) {
+      console.log('ReportBottomSection - 각 필드 확인:', {
+        subject: playRecordResult.subject,
+        objective: playRecordResult.objective, 
+        support: playRecordResult.support
+      });
+      
+      if (playRecordResult.subject && playRecordResult.subject.trim()) {
+        console.log('playActivity 텍스트 설정:', playRecordResult.subject);
+        setPlayActivityText(playRecordResult.subject);
+      }
+      if (playRecordResult.objective && playRecordResult.objective.trim()) {
+        console.log('homeConnection 텍스트 설정:', playRecordResult.objective);
+        setHomeConnectionText(playRecordResult.objective);
+      }
+      if (playRecordResult.support && playRecordResult.support.trim()) {
+        console.log('teacherSupport 텍스트 설정:', playRecordResult.support);
+        setTeacherSupportText(playRecordResult.support);
+      }
+    }
+  }, [playRecordResult]);
 
   const handleSectionClick = (section: string, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -244,7 +271,7 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
             </div>
             이렇게 놀이 했어요
           </h3>
-          {(activeSection === "playActivity" || playActivityText) && (
+          {(activeSection === "playActivity" || playActivityText.length > 0) && (
             <textarea
               value={playActivityText}
               onChange={(e) => handleTextChange("playActivity", e.target.value)}
@@ -302,7 +329,7 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
               </div>
               놀이속 배움 / 교사지원
             </h3>
-            {(activeSection === "teacherSupport" || teacherSupportText) && (
+            {(activeSection === "teacherSupport" || teacherSupportText.length > 0) && (
               <textarea
                 value={teacherSupportText}
                 onChange={(e) =>
@@ -356,7 +383,7 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
               </div>
               가정연계
             </h3>
-            {(activeSection === "homeConnection" || homeConnectionText) && (
+            {(activeSection === "homeConnection" || homeConnectionText.length > 0) && (
               <textarea
                 value={homeConnectionText}
                 onChange={(e) =>

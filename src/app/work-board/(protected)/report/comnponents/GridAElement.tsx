@@ -71,7 +71,7 @@ function GridAElement({
   onAIGenerate,
   onImageUpload,
   onDelete, // 삭제 핸들러 추가
-  placeholderText = "(선택) 놀이 키워드를 입력하거나 메모파일을 업로드해주세요요",
+  placeholderText = "(선택) 놀이 키워드를 입력하거나 메모파일을 업로드해주세요",
   isDragging = false, // 드래그 상태 추가
   dragAttributes, // 드래그 속성 추가
   dragListeners, // 드래그 리스너 추가
@@ -105,7 +105,7 @@ function GridAElement({
   });
   
   // Grid content store 사용
-  const { updatePlaySubject, updateImages, updateCategoryValue, gridContents } = useGridContentStore();
+  const { updatePlaySubject, updateImages, updateCategoryValue, updateAiGenerated, gridContents } = useGridContentStore();
   
   // Toast 및 Alert hook
   const addToast = useToast((state) => state.add);
@@ -808,12 +808,35 @@ function GridAElement({
     }
   }, [currentImages, gridId, updateImages]);
 
-  // categoryValue가 변경될 때 store 업데이트
+  // categoryValue가 변경될 때 store 업데이트 (무한 루프 방지를 위한 ref 사용)
+  const isUpdatingFromStore = React.useRef(false);
+  
   React.useEffect(() => {
-    if (gridId) {
+    if (gridId && !isUpdatingFromStore.current) {
+      console.log("📝 categoryValue store 업데이트:", { gridId, categoryValue });
       updateCategoryValue(gridId, categoryValue);
     }
   }, [categoryValue, gridId, updateCategoryValue]);
+
+  // store에서 categoryValue가 변경될 때 로컬 상태 동기화 (무한 루프 방지)
+  React.useEffect(() => {
+    if (gridId && gridContents[gridId]?.categoryValue !== undefined) {
+      const storeCategoryValue = gridContents[gridId].categoryValue || "";
+      if (storeCategoryValue !== categoryValue) {
+        console.log("🔄 store에서 categoryValue 동기화:", { 
+          gridId, 
+          현재값: categoryValue, 
+          스토어값: storeCategoryValue 
+        });
+        isUpdatingFromStore.current = true;
+        setCategoryValue(storeCategoryValue);
+        // 다음 렌더링에서 다시 store 업데이트가 가능하도록 플래그 초기화
+        setTimeout(() => {
+          isUpdatingFromStore.current = false;
+        }, 0);
+      }
+    }
+  }, [gridContents, gridId]);
 
   // store에서 해당 gridId가 삭제되었을 때 로컬 상태 초기화
   React.useEffect(() => {
@@ -844,8 +867,25 @@ function GridAElement({
 
   // LLM API 호출 함수
   const callLLMAPI = React.useCallback(async () => {
-    if (!profileId || !categoryValue || categoryValue.trim() === "" || categoryValue === "타이틀을 입력해주세요") {
-
+    console.log("🤖 AI 생성 조건 체크:", {
+      profileId,
+      categoryValue,
+      categoryValueTrimmed: categoryValue?.trim(),
+      categoryValueLength: categoryValue?.length,
+      isValidCategory: categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요"
+    });
+    
+    // profileId 체크 - 로그인 상태 확인
+    if (!profileId) {
+      console.log("❌ AI 생성 조건 실패: 로그인 필요");
+      addToast({ message: '로그인 후 사용해주세요.' });
+      return;
+    }
+    
+    // categoryValue 체크 - 타이틀 입력 상태 확인
+    if (!categoryValue || categoryValue.trim() === "" || categoryValue === "타이틀을 입력해주세요") {
+      console.log("❌ AI 생성 조건 실패: 타이틀이 유효하지 않음");
+      addToast({ message: '먼저 타이틀을 입력해주세요.' });
       return;
     }
 
@@ -939,6 +979,8 @@ function GridAElement({
       // Grid content store에도 업데이트 (gridId가 있을 때만)
       if (gridId) {
         updatePlaySubject(gridId, generatedText);
+        // AI 생성된 콘텐츠임을 표시
+        updateAiGenerated(gridId, true);
       }
 
       addToast({ message: 'AI 텍스트가 생성되었습니다.' });
@@ -950,8 +992,23 @@ function GridAElement({
   }, [profileId, categoryValue, currentImages, getDriveItemKeyByImageUrl, searchParams, inputValue, gridId, updatePlaySubject, showAlert, addToast]);
 
   const handleAIGenerate = () => {
-    console.log("AI 생성 버튼 클릭됨");
+    console.log("🎯 AI 생성 버튼 클릭됨");
     console.log("현재 isDescriptionExpanded:", isDescriptionExpanded);
+    console.log("현재 categoryValue:", categoryValue);
+    console.log("현재 이미지 개수:", getCurrentImageCount());
+    
+    // 추가 조건 체크 (안전장치)
+    if (!categoryValue || categoryValue.trim() === "" || categoryValue === "타이틀을 입력해주세요") {
+      console.log("❌ AI 생성 실패: 카테고리 값이 유효하지 않음");
+      addToast({ message: '먼저 타이틀을 입력해주세요.' });
+      return;
+    }
+    
+    if (getCurrentImageCount() === 0) {
+      console.log("❌ AI 생성 실패: 이미지가 없음");
+      addToast({ message: '먼저 이미지를 업로드해주세요.' });
+      return;
+    }
     
     // AI 생성 버튼을 클릭했다고 표시
     setHasClickedAIGenerate(true);
@@ -1127,13 +1184,23 @@ function GridAElement({
   const handleTextRefresh = (event: React.MouseEvent) => {
     event.stopPropagation(); // 이벤트 전파 방지
     
+    console.log("🔄 텍스트 새로고침 조건 체크:", {
+      profileId,
+      categoryValue,
+      categoryValueTrimmed: categoryValue?.trim(),
+      currentImageCount: getCurrentImageCount(),
+      isValidCategory: categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요"
+    });
+    
     // LLM 호출 조건 확인
     if (!profileId || !categoryValue || categoryValue.trim() === "" || categoryValue === "타이틀을 입력해주세요") {
+      console.log("❌ 새로고침 조건 실패: 타이틀이 유효하지 않음");
       addToast({ message: '먼저 타이틀을 입력해주세요.' });
       return;
     }
 
     if (getCurrentImageCount() === 0) {
+      console.log("❌ 새로고침 조건 실패: 이미지가 없음");
       addToast({ message: '먼저 이미지를 업로드해주세요.' });
       return;
     }
@@ -1307,7 +1374,9 @@ function GridAElement({
   };
 
   const handleCategoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCategoryValue(e.target.value);
+    const newValue = e.target.value;
+    console.log("📝 카테고리 값 변경:", { 이전값: categoryValue, 새값: newValue });
+    setCategoryValue(newValue);
   };
 
   const handleCategoryKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -2062,15 +2131,34 @@ function GridAElement({
               <button
                 onClick={(e) => {
                   e.stopPropagation(); // 이벤트 전파 방지
-                  if (!isLoading && getCurrentImageCount() > 0 && categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요") {
-                    handleAIGenerate();
-                  }
+                  handleAIGenerate();
                 }}
-                disabled={isLoading || getCurrentImageCount() === 0 || !categoryValue || categoryValue.trim() === "" || categoryValue === "타이틀을 입력해주세요"}
+                disabled={(() => {
+                  const hasValidCategory = categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요";
+                  const hasImages = getCurrentImageCount() > 0;
+                  const isNotLoading = !isLoading;
+                  const disabled = !hasValidCategory || !hasImages || !isNotLoading;
+                  
+                  console.log("🔘 AI 생성 버튼 상태:", {
+                    hasValidCategory,
+                    hasImages,
+                    isNotLoading,
+                    disabled,
+                    categoryValue,
+                    imageCount: getCurrentImageCount()
+                  });
+                  
+                  return disabled;
+                })()}
                 className={`flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight rounded-md flex justify-center items-center w-[54px] h-[26px] self-start transition-all ${
-                  isLoading || getCurrentImageCount() === 0 || !categoryValue || categoryValue.trim() === "" || categoryValue === "타이틀을 입력해주세요"
-                    ? 'cursor-not-allowed bg-gray-400 text-gray-300' 
-                    : 'text-white bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90'
+                  (() => {
+                    const hasValidCategory = categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요";
+                    const hasImages = getCurrentImageCount() > 0;
+                    const isNotLoading = !isLoading;
+                    return (!hasValidCategory || !hasImages || !isNotLoading)
+                      ? 'cursor-not-allowed bg-gray-400 text-gray-300' 
+                      : 'text-white bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90';
+                  })()
                 }`}
               >
                 {isLoading ? (
@@ -2079,7 +2167,11 @@ function GridAElement({
                   <>
                     <Image
                       src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/leaf.svg"
-                      className={`object-contain ${(getCurrentImageCount() === 0 || !categoryValue || categoryValue.trim() === "" || categoryValue === "타이틀을 입력해주세요") ? 'opacity-50' : ''}`}
+                      className={`object-contain ${(() => {
+                        const hasValidCategory = categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요";
+                        const hasImages = getCurrentImageCount() > 0;
+                        return (!hasValidCategory || !hasImages) ? 'opacity-50' : '';
+                      })()}`}
                       width={11}
                       height={11}
                       alt="AI icon"

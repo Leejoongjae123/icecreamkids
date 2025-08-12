@@ -10,7 +10,6 @@ import {
   DragEndEvent,
   DragStartEvent,
 } from "@dnd-kit/core";
-import GridCElement from "./GridCElement";
 import DragDropGridCItem from "./DragDropGridCItem";
 import { clipPathItems } from "../dummy/svgData";
 import { ClipPathItem } from "../dummy/types";

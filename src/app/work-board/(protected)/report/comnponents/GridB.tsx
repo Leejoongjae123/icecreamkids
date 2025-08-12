@@ -13,10 +13,8 @@ import {
   DragStartEvent,
   CollisionDetection,
 } from "@dnd-kit/core";
-import GridBElement from "./GridBElement";
 import DragDropGridBItem from "./DragDropGridBItem";
 import AddButton from "./AddButton";
-import GridEditToolbar from "./GridEditToolbar";
 import { GridBItem } from "./types";
 
 interface GridBProps {

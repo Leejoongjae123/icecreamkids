@@ -270,6 +270,13 @@ const ReportCard = forwardRef<ReportCardHandle, ReportCardProps>(function Report
       }
 
       // AI 생성 처리
+      // profileId 체크 - 로그인 상태 확인
+      if (!userInfo?.id) {
+        addToast({ message: '로그인 후 사용해주세요.' });
+        updateAIStatus(false);
+        return;
+      }
+      
       if (!mainSubject?.trim()) {
         showAlert({ message: '놀이주제를 입력해주세요.' });
         updateAIStatus(false);

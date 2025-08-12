@@ -10,7 +10,6 @@ import {
   DragEndEvent,
   DragStartEvent,
 } from "@dnd-kit/core";
-import GridAElement from "./GridAElement";
 import DragDropGridAItem from "./DragDropGridAItem";
 import { GridItem } from "./types";
 import { useImageEditModalStore } from "@/hooks/store/useImageEditModalStore";
@@ -394,8 +393,7 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
   };
 
   const layout = getGridLayout(subject);
-  const activeItem = items.find(item => item.id === activeId);
-
+  
   return (
     <DndContext
       sensors={isImageEditModalOpen || isAnimating ? [] : sensors}
