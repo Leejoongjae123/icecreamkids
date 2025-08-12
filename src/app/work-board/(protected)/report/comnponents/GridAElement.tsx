@@ -3,7 +3,7 @@ import * as React from "react";
 import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import GridEditToolbar from "./GridEditToolbar";
-import { Loader2 } from "lucide-react";
+import { Loader } from "@/components/ui/loader";
 import ImageEditModal from "./ImageEditModal";
 import { ImagePosition } from "../types";
 import {IoClose} from "react-icons/io5";
@@ -181,7 +181,7 @@ function GridAElement({
         });
 
         if (status === 200) {
-          addToast({ message: '메모가 수정되었습니다.' });
+          // addToast({ message: '메모가 수정되었습니다.' });
           await refetchMemo();
           // 메모 상태 업데이트
           setMemoStatuses(prev => ({
@@ -983,7 +983,7 @@ function GridAElement({
         updateAiGenerated(gridId, true);
       }
 
-      addToast({ message: 'AI 텍스트가 생성되었습니다.' });
+      // addToast({ message: 'AI 텍스트가 생성되었습니다.' });
 
     } catch (error) {
 
@@ -1380,6 +1380,9 @@ function GridAElement({
   };
 
   const handleCategoryKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // 드래그 관련 키 이벤트 전파 방지
+    e.stopPropagation();
+    
     if (e.key === 'Enter') {
       setIsEditingCategory(false);
     }
@@ -1417,7 +1420,11 @@ function GridAElement({
                 value={categoryValue}
                 onChange={handleCategoryChange}
                 onKeyDown={handleCategoryKeyDown}
+                onKeyUp={(e) => e.stopPropagation()} // 키업 이벤트 전파 방지
+                onKeyPress={(e) => e.stopPropagation()} // 키프레스 이벤트 전파 방지
                 onBlur={handleCategoryBlur}
+                onMouseDown={(e) => e.stopPropagation()} // 드래그 이벤트 방지
+                onDragStart={(e) => e.preventDefault()} // 드래그 시작 방지
                 placeholder="타이틀을 입력해주세요"
                 className="text-[16px] font-bold text-primary bg-transparent border-0 p-0 h-auto leading-tight focus:ring-0 focus-visible:ring-0 focus:outline-none focus:border-primary shadow-none min-w-[60px] w-auto placeholder:text-gray-400 focus:text-primary"
                 style={{ 
@@ -1427,6 +1434,7 @@ function GridAElement({
                   color: '#3b82f6 !important' // primary color 강제 적용
                 }}
                 autoFocus
+                draggable={false} // 드래그 완전 비활성화
               />
             ) : (
               <div 
@@ -2032,7 +2040,7 @@ function GridAElement({
         {isLoading ? (
           // 로딩 중일 때
           <div className="description-area flex flex-col items-center justify-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 min-h-[90px] flex-1 mt-1">
-            <Loader2 className="w-6 h-6 animate-spin text-primary mb-2" />
+            <Loader size="default" />
             <div className="text-[#B4B4B4] text-xs">내용을 생성중입니다...</div>
           </div>
         ) : isDescriptionExpanded ? (
@@ -2065,6 +2073,11 @@ function GridAElement({
               onChange={handleInputChange}
               onFocus={() => setIsTextareaFocused(true)}
               onBlur={() => setIsTextareaFocused(false)}
+              onMouseDown={(e) => e.stopPropagation()} // 드래그 이벤트 방지
+              onDragStart={(e) => e.preventDefault()} // 드래그 시작 방지
+              onKeyDown={(e) => e.stopPropagation()} // 키보드 이벤트 전파 방지 (스페이스바 포함)
+              onKeyUp={(e) => e.stopPropagation()} // 키업 이벤트 전파 방지
+              onKeyPress={(e) => e.stopPropagation()} // 키프레스 이벤트 전파 방지
               placeholder={placeholderText}
               className="w-full h-full px-2 py-1 pr-8 text-xs tracking-tight bg-white border-0 text-zinc-600 placeholder-zinc-400 shadow-none rounded-md focus:ring-0 focus:outline-none resize-none flex-1 scrollbar-hide"
               style={{ 
@@ -2076,6 +2089,7 @@ function GridAElement({
                 msOverflowStyle: 'none' /* IE and Edge */
               }}
               onClick={handleImageClick}
+              draggable={false} // 드래그 완전 비활성화
             />
             
             {/* 글자수 카운팅 - 우측하단 */}
@@ -2103,10 +2117,16 @@ function GridAElement({
               <Input
                 value={inputValue}
                 onChange={handleInputChange}
+                onMouseDown={(e) => e.stopPropagation()} // 드래그 이벤트 방지
+                onDragStart={(e) => e.preventDefault()} // 드래그 시작 방지
+                onKeyDown={(e) => e.stopPropagation()} // 키보드 이벤트 전파 방지 (스페이스바 포함)
+                onKeyUp={(e) => e.stopPropagation()} // 키업 이벤트 전파 방지
+                onKeyPress={(e) => e.stopPropagation()} // 키프레스 이벤트 전파 방지
                 placeholder={placeholderText}
                 className="h-[26px] min-h-[26px] max-h-[26px] px-2 py-1 text-xs tracking-tight bg-white border border-dashed border-zinc-400 text-zinc-600 placeholder-zinc-400 flex-1 shadow-none rounded-md focus:ring-0 focus:outline-none focus:border-primary resize-none"
                 style={{ borderRadius: '6px', fontSize: '10px', lineHeight: '1.2' }}
                 onClick={handleImageClick}
+                draggable={false} // 드래그 완전 비활성화
               />
               <button
                 onClick={(e) => {
@@ -2162,7 +2182,7 @@ function GridAElement({
                 }`}
               >
                 {isLoading ? (
-                  <Loader2 className="w-3 h-3 animate-spin text-white" />
+                  <Loader size="sm" className="text-white" />
                 ) : (
                   <>
                     <Image

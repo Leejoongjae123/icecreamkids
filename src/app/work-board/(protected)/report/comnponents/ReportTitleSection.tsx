@@ -6,6 +6,8 @@ import Image from "next/image";
 import AddPicture from "./AddPicture";
 import TitleEditToolbar from "./TitleEditToolbar";
 import ApplyModal from "./ApplyModal";
+import { UploadModal } from "@/components/modal";
+import { useImageUpload } from "@/hooks/useImageUpload";
 
 interface ReportTitleSectionProps {
   className?: string;
@@ -34,6 +36,58 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
   // 이미지 추가 상태
   const [hasImage, setHasImage] = useState(false);
   const [isImageSelected, setIsImageSelected] = useState(false);
+
+  // 이미지 업로드 관련 상태 (GridAElement 참고)
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [imageMetadata, setImageMetadata] = useState<{url: string, driveItemKey?: string}[]>([]);
+  const [currentImageUrl, setCurrentImageUrl] = useState<string>("");
+  
+  // 드래그앤드롭을 위한 ref
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  // 이미지 업로드 훅 (GridAElement 참고)
+  const {
+    isUploadModalOpen,
+    drop,
+    canDrop,
+    isOver,
+    handleOpenUploadModal,
+    handleCloseUploadModal,
+    handleConfirmUploadModal,
+    handleSetItemData,
+    processUploadedFiles,
+  } = useImageUpload({
+    uploadedFiles,
+    onFilesUpload: (files: File[] | any[]) => {
+      console.log('📥 이미지 업로드 완료:', files);
+      
+      if (files.length > 0) {
+        const item = files[0]; // 첫 번째 파일만 사용 (single 이미지)
+        
+        if (item instanceof File) {
+          // File 타입인 경우
+          const fileUrl = URL.createObjectURL(item);
+          setCurrentImageUrl(fileUrl);
+          setImageMetadata([{ url: fileUrl, driveItemKey: `local_${Date.now()}_${Math.random()}` }]);
+          setUploadedFiles([item]);
+          setHasImage(true);
+        } else if (item && typeof item === 'object' && item.thumbUrl) {
+          // SmartFolderItemResult 타입인 경우
+          setCurrentImageUrl(item.thumbUrl);
+          setImageMetadata([{ url: item.thumbUrl, driveItemKey: item.driveItemKey }]);
+          setHasImage(true);
+        }
+      }
+    },
+    maxDataLength: 1, // 단일 이미지만 허용
+  });
+
+  // ref를 drop에 연결
+  useEffect(() => {
+    if (dropRef.current) {
+      drop(dropRef);
+    }
+  }, [drop]);
 
   // 날짜 컨테이너 선택 상태
   const [isDateSelected, setIsDateSelected] = useState(false);
@@ -219,10 +273,13 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
     }
   };
 
-  // 이미지 클릭 핸들러
+  // 이미지 클릭 핸들러 - UploadModal 열기
   const handleImageClick = () => {
     if (hasImage) {
       setIsImageSelected(!isImageSelected);
+    } else {
+      // 이미지가 없으면 업로드 모달 열기
+      handleOpenUploadModal();
     }
   };
 
@@ -323,6 +380,7 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
         {isImageContainerVisible ? (
           <>
             <div
+              ref={dropRef}
               className={`flex flex-col w-[132px] h-full border rounded-[15px] transition-colors cursor-pointer bg-white ${
                 hasImage && isImageSelected
                   ? "border-primary border-solid border-2"
@@ -330,9 +388,22 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
                     ? "border-transparent "
                     : "border-dashed border-zinc-400 hover:border-gray-400"
               }`}
+              style={{
+                backgroundColor: canDrop && isOver ? '#f0f0f0' : 'white',
+                transition: 'background-color 0.2s ease'
+              }}
               onClick={handleImageClick}
             >
-              <AddPicture onImageAdded={handleImageAdded} mode="single">
+              {hasImage && currentImageUrl ? (
+                <div className="w-full h-full relative overflow-hidden rounded-[15px]">
+                  <Image
+                    src={currentImageUrl}
+                    fill
+                    className="object-cover"
+                    alt="Uploaded image"
+                  />
+                </div>
+              ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <Image
                     src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg"
@@ -342,7 +413,7 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
                     alt="no image"
                   />
                 </div>
-              </AddPicture>
+              )}
             </div>
 
             {/* 이미지 편집 툴바 */}
@@ -654,6 +725,25 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
       >
         <button style={{ display: "none" }} />
       </ApplyModal>
+
+      {/* 이미지 업로드 모달 */}
+      {isUploadModalOpen && (
+        <UploadModal
+          isOpen={isUploadModalOpen}
+          onCancel={handleCloseUploadModal}
+          onConfirm={handleConfirmUploadModal}
+          setItemData={handleSetItemData}
+          setFileData={(files: React.SetStateAction<File[]>) => {
+            // files가 File[] 배열인 경우에만 처리
+            if (Array.isArray(files) && files.length > 0) {
+              console.log('📁 파일 선택됨:', files);
+              processUploadedFiles(files);
+            }
+          }}
+          isMultiUpload={false} // 단일 이미지만 업로드
+          allowsFileTypes={['IMAGE']}
+        />
+      )}
     </div>
   );
 }
