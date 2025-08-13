@@ -53,10 +53,44 @@ function ReportAContent() {
     return parsed >= 0 ? parsed : 0;
   }, [themeParam]);
 
-  // theme 값에 따른 배경이미지 URL 생성
+  // theme 또는 명시적 bgUrl 값에 따른 배경이미지 URL 생성
+  const bgUrlParam = searchParams.get("bgUrl");
+  const bgIdParam = searchParams.get("bgId");
+  const [imageLoadError, setImageLoadError] = React.useState(false);
+  
   const backgroundImageUrl = React.useMemo(() => {
-    return `url(https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg${theme + 1}.png)`;
-  }, [theme]);
+    const url = bgUrlParam && bgUrlParam.trim() !== "" 
+      ? bgUrlParam 
+      : `https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg${theme + 1}.png`;
+    return `url(${url})`;
+  }, [bgUrlParam, theme]);
+
+  // 배경 이미지 URL 유효성 검증
+  React.useEffect(() => {
+    const validateImageUrl = async () => {
+      const rawUrl = bgUrlParam && bgUrlParam.trim() !== "" 
+        ? bgUrlParam 
+        : `https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg${theme + 1}.png`;
+      
+      try {
+        const img = document.createElement('img');
+        img.onload = () => {
+          console.log('✅ 배경 이미지 로드 성공:', rawUrl);
+          setImageLoadError(false);
+        };
+        img.onerror = () => {
+          console.error('❌ 배경 이미지 로드 실패:', rawUrl);
+          setImageLoadError(true);
+        };
+        img.src = rawUrl;
+      } catch (error) {
+        console.error('❌ 배경 이미지 검증 오류:', error);
+        setImageLoadError(true);
+      }
+    };
+
+    validateImageUrl();
+  }, [bgUrlParam, theme]);
 
   // subject 값을 감소시키는 함수
   const decreaseSubject = React.useCallback(() => {
@@ -114,13 +148,19 @@ function ReportAContent() {
       }
     }
   };
+  console.log('🎨 배경 이미지 디버깅:', {
+    bgUrlParam,
+    theme,
+    backgroundImageUrl,
+    rawUrl: bgUrlParam || `https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg${theme + 1}.png`
+  });
 
   return (
     <TooltipProvider>
       <div className="w-full h-full relative flex flex-col">
         
         {/* Header with A4 Template */}
-        <div className="bg-image w-full flex-1 shadow-custom border border-gray-200 rounded-xl pt-4 bg-cover bg-center bg-no-repeat flex flex-col ">
+        <div className="w-full flex-1 shadow-custom border border-gray-200 rounded-xl pt-4 flex flex-col">
           <div className="flex flex-row justify-between mb-4 px-4">
             <div className="flex gap-1 my-auto text-base tracking-tight">
               <img
@@ -177,12 +217,22 @@ function ReportAContent() {
 
           <div
             ref={stickerContainerRef}
-            className="flex flex-col w-full h-full justify-between gap-y-3 px-4 py-4 rounded-br-xl rounded-bl-xl relative"
-            style={{
-              backgroundImage: backgroundImageUrl,
-              overflow: "visible",
-            }}
+            className="relative flex flex-col w-full h-full justify-between gap-y-3 px-4 py-4 rounded-br-xl rounded-bl-xl relative"
+            
+            data-id={bgIdParam || undefined}
           >
+            <Image
+              src={bgUrlParam ||""}
+              alt="background"
+              fill
+              className="object-cover"
+            />
+            {/* 이미지 로드 실패 시 표시할 안내 */}
+            {imageLoadError && (
+              <div className="absolute top-2 right-2 text-xs text-red-500 bg-white px-2 py-1 rounded shadow">
+                배경 이미지를 불러올 수 없습니다
+              </div>
+            )}
             <ReportTitleSection />
             
             {/* 이미지 그리드 */}

@@ -32,17 +32,22 @@ function ReportCContent() {
     return parsed >= 1 && parsed <= 9 ? parsed : 9;
   }, [photoParam]);
 
-  // searchParams에서 theme 값 가져오기 (기본값 0)
+  // searchParams에서 theme/bgUrl/bgId 가져오기
   const themeParam = searchParams.get("theme");
   const theme = React.useMemo(() => {
     const parsed = parseInt(themeParam || "0", 10);
     return parsed >= 0 ? parsed : 0;
   }, [themeParam]);
+  const bgUrlParam = searchParams.get("bgUrl");
+  const bgIdParam = searchParams.get("bgId");
 
-  // theme 값에 따른 배경이미지 URL 생성
+  // theme 또는 명시적 bgUrl 값에 따른 배경이미지 URL 생성
   const backgroundImageUrl = React.useMemo(() => {
-    return `url(https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg${theme + 1}.png)`;
-  }, [theme]);
+    const url = bgUrlParam && bgUrlParam.trim() !== "" 
+      ? bgUrlParam 
+      : `https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg${theme + 1}.png`;
+    return `url(${url})`;
+  }, [bgUrlParam, theme]);
 
   // 이미지 로드 상태 확인을 위한 핸들러
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -133,6 +138,7 @@ function ReportCContent() {
               overflow: "visible",
               height: "calc(1123px - 66px)", // 전체 높이에서 헤더 높이만 제외
             }}
+            data-id={bgIdParam || undefined}
           >
             {/* Title Section - 고정 높이 */}
             <div style={{ height: "84px", flexShrink: 0 }}>

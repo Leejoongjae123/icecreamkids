@@ -40,17 +40,22 @@ function ReportBContent() {
     return parsed >= 1 && parsed <= 12 ? parsed : 6;
   }, [gridCountParam]);
 
-  // searchParams에서 theme 값 가져오기 (기본값 0)
+  // searchParams에서 theme/bgUrl/bgId 가져오기
   const themeParam = searchParams.get("theme");
   const theme = React.useMemo(() => {
     const parsed = parseInt(themeParam || "0", 10);
     return parsed >= 0 ? parsed : 0;
   }, [themeParam]);
+  const bgUrlParam = searchParams.get("bgUrl");
+  const bgIdParam = searchParams.get("bgId");
 
-  // theme 값에 따른 배경이미지 URL 생성
+  // theme 또는 명시적 bgUrl 값에 따른 배경이미지 URL 생성
   const backgroundImageUrl = React.useMemo(() => {
-    return `url(https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg${theme + 1}.png)`;
-  }, [theme]);
+    const url = bgUrlParam && bgUrlParam.trim() !== "" 
+      ? bgUrlParam 
+      : `https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg${theme + 1}.png`;
+    return `url(${url})`;
+  }, [bgUrlParam, theme]);
 
   // 툴바 아이콘 클릭 핸들러
   const handleIconClick = (index: number) => {
@@ -167,6 +172,7 @@ function ReportBContent() {
             style={{
               backgroundImage: backgroundImageUrl,
             }}
+            data-id={bgIdParam || undefined}
           >
             {/* 타이틀 섹션 - 고정 높이 84px */}
             <div className="flex-shrink-0 pb-4">
