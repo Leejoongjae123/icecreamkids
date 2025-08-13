@@ -944,6 +944,42 @@ function GridBElement({
     }
   };
 
+  // 텍스트 파일 업로드 핸들러
+  const handleTextFileUpload = () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.txt';
+    fileInput.style.display = 'none';
+    
+    fileInput.onchange = (event) => {
+      const target = event.target as HTMLInputElement;
+      const file = target.files?.[0];
+      
+      if (file && file.type === 'text/plain') {
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+          const content = e.target?.result as string;
+          if (content) {
+            setInputValue(content);
+            if (gridId) {
+              updatePlaySubject(gridId, content);
+            }
+          }
+        };
+        
+        reader.readAsText(file, 'UTF-8');
+      } else {
+        alert('텍스트 파일(.txt)만 업로드 가능합니다.');
+      }
+      
+      document.body.removeChild(fileInput);
+    };
+    
+    document.body.appendChild(fileInput);
+    fileInput.click();
+  };
+
   // 이미지 편집 모달 열기 핸들러
   const handleImageAdjustClick = (imageIndex: number, imageUrl: string) => {
     if (imageUrl && imageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
@@ -1382,10 +1418,10 @@ function GridBElement({
               <button
                 onClick={(e) => {
                   e.stopPropagation(); // 이벤트 전파 방지
-                  handleImageUpload();
+                  handleTextFileUpload();
                 }}
                 className="flex overflow-hidden justify-center items-center w-[26px] h-[26px] bg-[#979797] border border-dashed border-zinc-400 rounded-md hover:bg-[#979797]/80 transition-colors"
-                title="파일 업로드"
+                title="텍스트 파일 업로드"
               >
                 <Image
                   src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload.svg"
