@@ -25,7 +25,7 @@ function RightSideBarContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const currentType = searchParams.get("type") || "A";
-  const { hasAnyContent, clearGridsByType, clearAllGridContents, hasAnyAiGeneratedContent, getAllReportCaptions } = useGridContentStore();
+  const { hasAnyContent, clearGridsByType, clearAllGridContents, hasAnyAiGeneratedContent, getAllReportCaptions, getReportCaptionsByType } = useGridContentStore();
   const { userInfo } = useUserStore();
   const addToast = useToast((state) => state.add);
   const { showAlert } = useAlertStore();
@@ -298,7 +298,7 @@ function RightSideBarContent() {
     }
 
     // 2. 타이틀과 AI 생성된 내용이 있는지 확인
-    const reportCaptions = getAllReportCaptions();
+    const reportCaptions = getReportCaptionsByType(currentType);
     if (reportCaptions.length === 0) {
       showAlert({ message: '먼저 타이틀을 입력해주세요.' });
       return;
@@ -327,7 +327,7 @@ function RightSideBarContent() {
 
     const requestData = {
       profileId: userInfo.id,
-      subject: "놀이기록", // 기본 주제명
+      subject: currentType === 'B' ? '놀이 활동' : '놀이기록',
       age,
       startsAt: today,
       endsAt: today,
@@ -337,7 +337,12 @@ function RightSideBarContent() {
     console.log(`놀이기록 ${isRegeneration ? '재생성' : '생성'} 요청 데이터:`, requestData);
 
     try {
-      const response = await fetch('/api/ai/v2/report/type-a/create-record', {
+      const endpoint = currentType === 'B' 
+        ? '/api/ai/v2/report/type-b/create-record' 
+        : currentType === 'C' 
+          ? '/api/ai/v2/report/type-c/create-record' 
+          : '/api/ai/v2/report/type-a/create-record';
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -382,8 +387,8 @@ function RightSideBarContent() {
     }
   };
 
-  // 놀이기록 생성 버튼 활성화 조건 체크
-  const reportCaptions = getAllReportCaptions();
+  // 놀이기록 생성 버튼 활성화 조건 체크 (타입별 캡션 생성 규칙 반영)
+  const reportCaptions = getReportCaptionsByType(currentType);
   const hasValidContent = reportCaptions.length > 0 && hasAnyAiGeneratedContent() && !isCreatingPlayRecord;
 
   return (

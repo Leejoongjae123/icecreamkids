@@ -1,14 +1,25 @@
 "use client";
 import * as React from "react";
 import Image from "next/image";
-import AddPicture from "./AddPicture";
 import { Input } from "@/components/ui/input";
 import GridEditToolbar from "./GridEditToolbar";
-import { Loader2 } from "lucide-react";
+import { Loader } from "@/components/ui/loader";
 import ImageEditModal from "./ImageEditModal";
 import { ImagePosition } from "../types";
 import {IoClose} from "react-icons/io5";
+import useUserStore from "@/hooks/store/useUserStore";
 import useGridContentStore from "@/hooks/store/useGridContentStore";
+import { useImageUpload } from "@/hooks/useImageUpload";
+import { useMemoCheck } from "@/hooks/useMemoCheck";
+import MemoIndicator from "../components/MemoIndicator";
+import { MemoEditModal } from "@/components/modal/memo-edit";
+import { UploadModal } from "@/components/modal";
+import { useGetDriveItemMemos, useUpdateDriveItemMemo } from "@/service/file/fileStore";
+import { useToast } from "@/hooks/store/useToastStore";
+import { useAlertStore } from "@/hooks/store/useAlertStore";
+import { DriveItemMemoUpdateRequest } from "@/service/file/schemas";
+import { IEditMemoData } from "@/components/modal/memo-edit/types";
+import { useSearchParams } from "next/navigation";
 
 interface GridBElementProps {
   index: number;
@@ -49,8 +60,146 @@ function GridBElement({
   imageCount: propsImageCount = 1, // 초기 이미지 개수
   onImageCountChange, // 이미지 개수 변경 콜백
 }: GridBElementProps) {
+  // 사용자 정보 가져오기
+  const { userInfo } = useUserStore();
+  const profileId = React.useMemo(() => userInfo?.id || null, [userInfo?.id]);
+  const accountId = React.useMemo(() => userInfo?.accountId || null, [userInfo?.accountId]);
+  
+  // URL 파라미터 가져오기
+  const searchParams = useSearchParams();
+
+  // 각 이미지의 메모 존재 여부를 체크하는 상태
+  const [memoStatuses, setMemoStatuses] = React.useState<{[key: string]: boolean}>({});
+  
+  // 현재 메모를 편집하고자 하는 driveItemKey 상태 관리
+  const [currentDriveItemKey, setCurrentDriveItemKey] = React.useState<string>('');
+  const [isMemoOpen, setIsMemoOpen] = React.useState<boolean>(false);
+  const [memoData, setMemoData] = React.useState<IEditMemoData>({
+    title: '',
+    memo: ''
+  });
+  
   // Grid content store 사용
-  const { updatePlaySubject, updateImages } = useGridContentStore();
+  const { updatePlaySubject, updateImages, updateCategoryValue, updateAiGenerated, gridContents } = useGridContentStore();
+  
+  // Toast 및 Alert hook
+  const addToast = useToast((state) => state.add);
+  const { showAlert } = useAlertStore();
+
+  // 메모 조회 및 업데이트 hooks
+  const { data: driveItemMemo, refetch: refetchMemo } = useGetDriveItemMemos(
+    currentDriveItemKey,
+    {
+      owner_account_id: accountId?.toString() || '0',
+    },
+    {
+      query: { enabled: !!currentDriveItemKey && !!accountId },
+    }
+  );
+
+  const { mutateAsync: updateMemo } = useUpdateDriveItemMemo();
+  // 메모 데이터가 조회되면 상태 업데이트
+  React.useEffect(() => {
+    if (driveItemMemo?.result?.[0]) {
+      const existingMemo = driveItemMemo.result[0];
+      setMemoData({
+        title: existingMemo.title || '',
+        memo: existingMemo.memo || ''
+      });
+    } else {
+      // 메모가 없으면 초기화
+      setMemoData({ title: '', memo: '' });
+    }
+  }, [driveItemMemo]);
+
+  // 메모 모달 열기 함수
+  const openMemoModal = (driveItemKey: string) => {
+    setCurrentDriveItemKey(driveItemKey);
+    setIsMemoOpen(true);
+  };
+
+  // 메모 모달 닫기 함수
+  const closeMemoModal = () => {
+    setIsMemoOpen(false);
+    setCurrentDriveItemKey('');
+    setMemoData({ title: '', memo: '' });
+  };
+
+  // 메모 데이터 업데이트 함수
+  const updateMemoData = (data: Partial<IEditMemoData>) => {
+    setMemoData(prev => ({ ...prev, ...data }));
+  };
+
+  // 메모 저장 함수
+  const saveMemo = async () => {
+    if (!currentDriveItemKey || !accountId || !profileId) {
+      return;
+    }
+
+    const existingMemo = driveItemMemo?.result?.[0];
+
+    try {
+      if (existingMemo?.id) {
+        // 기존 메모 업데이트
+        const updateMemoDataPayload: DriveItemMemoUpdateRequest = {
+          title: memoData.title,
+          memo: memoData.memo,
+          ownerAccountId: accountId,
+          ownerProfileId: profileId,
+        };
+
+        const { status } = await updateMemo({
+          idOrKey: currentDriveItemKey,
+          memoId: existingMemo.id.toString(),
+          data: updateMemoDataPayload,
+        });
+
+        if (status === 200) {
+          await refetchMemo();
+          // 메모 상태 업데이트
+          setMemoStatuses(prev => ({
+            ...prev,
+            [currentDriveItemKey]: true
+          }));
+        } else {
+          showAlert({ message: '메모 수정에 실패하였습니다.' });
+        }
+      } else {
+        // 새 메모 생성 - API 호출
+        const response = await fetch(
+          `/api/file/v1/drive-items/${currentDriveItemKey}/memos?owner_account_id=${accountId}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'accept': '*/*',
+            },
+            body: JSON.stringify({
+              title: memoData.title,
+              memo: memoData.memo,
+            }),
+          }
+        );
+
+        if (response.ok) {
+          addToast({ message: '메모가 저장되었습니다.' });
+          await refetchMemo();
+          // 메모 상태 업데이트
+          setMemoStatuses(prev => ({
+            ...prev,
+            [currentDriveItemKey]: true
+          }));
+        } else {
+          showAlert({ message: '메모 저장에 실패하였습니다.' });
+        }
+      }
+    } catch {
+      showAlert({ message: '메모 저장 중 오류가 발생했습니다.' });
+    } finally {
+      closeMemoModal();
+    }
+  };
+
   // 이미지 개수 상태 관리
   const [imageCount, setImageCount] = React.useState(propsImageCount);
   
@@ -65,9 +214,6 @@ function GridBElement({
   
   // textarea focus 상태 관리 추가
   const [isTextareaFocused, setIsTextareaFocused] = React.useState(false);
-  
-  // 텍스트 토글 상태 관리 (true: 애국가 1절, false: 애국가 2절)
-  const [isFirstVerse, setIsFirstVerse] = React.useState(true);
   
   // 이미지 배열을 imageCount에 맞게 조정
   const [currentImages, setCurrentImages] = React.useState<string[]>(() => {
@@ -85,6 +231,151 @@ function GridBElement({
     });
     return initialImages;
   });
+
+  // 이미지 업로드 관련 상태
+  const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([]);
+  
+  // 이미지 메타데이터 상태 (driveItemKey 포함)
+  const [imageMetadata, setImageMetadata] = React.useState<{url: string, driveItemKey?: string}[]>([]);
+  
+  // 드래그앤드롭을 위한 ref
+  const dropRef = React.useRef<HTMLDivElement>(null);
+
+  // 이미지 업로드 훅
+  const {
+    isUploadModalOpen,
+    drop,
+    canDrop,
+    isOver,
+    handleOpenUploadModal,
+    handleCloseUploadModal,
+    handleConfirmUploadModal,
+    handleSetItemData,
+    processUploadedFiles,
+  } = useImageUpload({
+    uploadedFiles,
+    onFilesUpload: (files: File[] | any[]) => {
+      console.log('📥 GridB 이미지 업로드 완료:', files);
+      
+      const imageUrls: string[] = [];
+      const metadata: {url: string, driveItemKey?: string}[] = [];
+      
+      files.forEach((item) => {
+        if (item instanceof File) {
+          // File 타입인 경우
+          const fileUrl = URL.createObjectURL(item);
+          imageUrls.push(fileUrl);
+          metadata.push({ url: fileUrl, driveItemKey: `local_${Date.now()}_${Math.random()}` });
+          setUploadedFiles(prev => [...prev, item]);
+        } else if (item && typeof item === 'object' && item.thumbUrl) {
+          // SmartFolderItemResult 타입인 경우
+          imageUrls.push(item.thumbUrl);
+          metadata.push({ url: item.thumbUrl, driveItemKey: item.driveItemKey });
+        }
+      });
+      
+      // 이미지 메타데이터 업데이트
+      setImageMetadata(prev => [...prev, ...metadata]);
+      
+      // 이미지 URL들을 currentImages에 추가
+      handleImagesAdded(imageUrls);
+    },
+    maxDataLength: imageCount, // 현재 이미지 개수만큼 제한
+  });
+
+  // ref를 drop에 연결
+  React.useEffect(() => {
+    if (dropRef.current) {
+      drop(dropRef);
+    }
+  }, [drop]);
+
+  // 이미지 URL로 driveItemKey 찾기
+  const getDriveItemKeyByImageUrl = React.useCallback((imageUrl: string): string | undefined => {
+    const metadata = imageMetadata.find(item => item.url === imageUrl);
+    return metadata?.driveItemKey;
+  }, [imageMetadata]);
+
+  // 이미지 메타데이터가 변경될 때마다 메모 상태 체크
+  React.useEffect(() => {
+    const checkMemosForImages = async () => {
+      if (!userInfo?.accountId) {
+        return;
+      }
+
+      const memoCheckPromises = imageMetadata.map(async (metadata) => {
+        if (metadata.driveItemKey && metadata.driveItemKey.startsWith('local_')) {
+          // 로컬 이미지(직접 업로드)는 메모 체크하지 않음
+          return null;
+        }
+
+        if (metadata.driveItemKey) {
+          try {
+            const response = await fetch(
+              `/api/file/v1/drive-items/${metadata.driveItemKey}/memos?owner_account_id=${userInfo.accountId}`,
+              {
+                method: 'GET',
+                headers: {
+                  'accept': '*/*',
+                },
+              }
+            );
+
+            if (response.ok) {
+              const data = await response.json();
+              const memoExists = Array.isArray(data.result) ? data.result.length > 0 : false;
+              return { driveItemKey: metadata.driveItemKey, hasMemo: memoExists };
+            }
+          } catch (error) {
+            console.log('메모 체크 실패:', error);
+          }
+        }
+        return null;
+      });
+
+      const results = await Promise.all(memoCheckPromises);
+      const newMemoStatuses: {[key: string]: boolean} = {};
+      
+      results.forEach((result) => {
+        if (result) {
+          newMemoStatuses[result.driveItemKey] = result.hasMemo;
+        }
+      });
+
+      setMemoStatuses(newMemoStatuses);
+    };
+
+    checkMemosForImages();
+  }, [imageMetadata, userInfo?.accountId]);
+
+  // props에서 받은 images가 변경될 때 currentImages 상태 업데이트 (초기화 반영)
+  React.useEffect(() => {
+    if (Array.isArray(images)) {
+      console.log("🔄 GridBElement props.images 변경됨, currentImages 업데이트:", {
+        propsImages: images,
+        이전currentImages: currentImages,
+        imageCount: imageCount
+      });
+      
+      // props images가 비어있으면 currentImages도 초기화
+      if (images.length === 0 || images.every(img => !img || img === "")) {
+        setCurrentImages(new Array(imageCount).fill(""));
+        setImageMetadata([]); // 메타데이터도 초기화
+        setUploadedFiles([]); // 업로드 파일도 초기화
+      } else {
+        // props images를 currentImages에 반영
+        const newCurrentImages = new Array(imageCount).fill("");
+        images.forEach((img, index) => {
+          if (index < newCurrentImages.length && img && img !== "") {
+            newCurrentImages[index] = img;
+          }
+        });
+        setCurrentImages(newCurrentImages);
+      }
+    }
+  }, [images, imageCount]);
+
+
 
   // props에서 받은 imageCount가 변경될 때 내부 상태 업데이트
   React.useEffect(() => {
@@ -203,6 +494,12 @@ function GridBElement({
       }
       // 이미지 개수가 감소한 경우 배열 크기 조정
       return newPositions.slice(0, imageCount);
+    });
+
+    // 이미지 메타데이터도 imageCount에 맞게 조정
+    setImageMetadata(prev => {
+      // 현재 currentImages에 있는 URL들과 매칭되는 메타데이터만 유지
+      return prev.filter((metadata, index) => index < imageCount);
     });
   }, [imageCount]);
 
@@ -434,6 +731,24 @@ function GridBElement({
 
   const [inputValue, setInputValue] = React.useState("");
   
+  // Grid content store에서 해당 그리드의 playSubjectText 값 변경 시 inputValue 업데이트 (초기화 반영)
+  React.useEffect(() => {
+    if (gridId && gridContents[gridId]) {
+      const storePlaySubjectText = gridContents[gridId].playSubjectText || "";
+      console.log(`🔄 GridBElement ${gridId} store playSubjectText 변경됨:`, {
+        storeValue: storePlaySubjectText,
+        currentInputValue: inputValue
+      });
+      
+      // store에서 값이 초기화된 경우 inputValue도 초기화
+      if (storePlaySubjectText === "" && inputValue !== "") {
+        setInputValue("");
+      } else if (storePlaySubjectText !== inputValue) {
+        setInputValue(storePlaySubjectText);
+      }
+    }
+  }, [gridContents, gridId, inputValue]);
+  
   // 툴바 상태 관리
   const [toolbarState, setToolbarState] = React.useState({
     show: false,
@@ -468,9 +783,134 @@ function GridBElement({
     }
   };
 
+  // LLM API 호출 함수
+  const callLLMAPI = React.useCallback(async () => {
+    console.log("🤖 GridB AI 생성 조건 체크:", {
+      profileId,
+      이미지개수: getCurrentImageCount(),
+      키워드: inputValue?.trim()
+    });
+    
+    // profileId 체크 - 로그인 상태 확인
+    if (!profileId) {
+      console.log("❌ AI 생성 조건 실패: 로그인 필요");
+      addToast({ message: '로그인 후 사용해주세요.' });
+      return;
+    }
+
+    // 그리드에서 이미지의 data-id 값들 수집
+    const photoDriveItemKeys: string[] = [];
+    currentImages.forEach((imageUrl) => {
+      if (imageUrl && imageUrl !== "" && imageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
+        const driveItemKey = getDriveItemKeyByImageUrl(imageUrl);
+        if (driveItemKey && !driveItemKey.startsWith('local_')) {
+          photoDriveItemKeys.push(driveItemKey);
+        }
+      }
+    });
+
+    if (photoDriveItemKeys.length === 0) {
+      console.log("❌ AI 생성 조건 실패: 유효한 이미지가 없음");
+      addToast({ message: '먼저 이미지를 업로드해주세요.' });
+      return;
+    }
+
+    // searchParams에서 age 값 가져오기
+    const ageParam = searchParams?.get('age');
+    const age = ageParam ? parseInt(ageParam, 10) : 3; // 기본값: 3 (6세)
+
+    const requestData = {
+      profileId,
+      subject: "놀이 활동", // GridB는 categoryValue가 없으므로 기본값 사용
+      age,
+      startsAt: new Date().toISOString().split('T')[0], // 오늘 날짜
+      endsAt: new Date().toISOString().split('T')[0], // 오늘 날짜
+      photoDriveItemKeys,
+      keywords: inputValue.trim() || "" // 현재 입력된 키워드 사용
+    };
+
+    console.log("GridB LLM API 호출 데이터:", requestData);
+
+    try {
+      const response = await fetch('/api/ai/v2/report/type-b/analyze-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.log("API 오류:", errorData);
+        showAlert({ message: 'AI 생성에 실패했습니다. 다시 시도해주세요.' });
+        return;
+      }
+
+      const result = await response.json() as any;
+      console.log("GridB LLM API 응답:", result);
+
+      // API 응답 구조에서 텍스트 추출
+      let generatedText = "";
+      
+      console.log("응답 구조 분석:", {
+        hasSuccess: !!result.success,
+        hasData: !!result.data,
+        hasDataResult: !!result.data?.result,
+        hasDataResultContents: !!result.data?.result?.contents,
+        fullResponse: result
+      });
+      
+      if (result.success && result.data?.result?.contents) {
+        // type-b API 응답 구조: { success: true, data: { result: { contents: "..." } } }
+        generatedText = result.data.result.contents;
+      } else if (result.success && result.data?.contents) {
+        generatedText = result.data.contents;
+      } else if (result.data && typeof result.data === 'string') {
+        generatedText = result.data;
+      } else if (result.data && result.data.content) {
+        generatedText = result.data.content;
+      } else if (result.data && result.data.text) {
+        generatedText = result.data.text;
+      } else if (result.contents) {
+        // 직접 contents 필드가 있는 경우
+        generatedText = result.contents;
+      } else if (typeof result === 'string') {
+        generatedText = result;
+      } else {
+        console.warn("예상하지 못한 응답 구조:", result);
+        generatedText = "AI 텍스트 생성에 성공했지만 내용을 추출할 수 없습니다."; // 기본값
+      }
+
+      // 생성된 텍스트로 input 값 업데이트
+      setInputValue(generatedText);
+      
+      // Grid content store에도 업데이트 (gridId가 있을 때만)
+      if (gridId) {
+        updatePlaySubject(gridId, generatedText);
+        // AI 생성된 콘텐츠임을 표시
+        updateAiGenerated(gridId, true);
+      }
+
+      addToast({ message: 'AI 텍스트가 생성되었습니다.' });
+
+    } catch (error) {
+      console.log("API 호출 오류:", error);
+      showAlert({ message: 'AI 생성 중 오류가 발생했습니다.' });
+    }
+  }, [profileId, currentImages, getDriveItemKeyByImageUrl, searchParams, inputValue, gridId, updatePlaySubject, updateAiGenerated, getCurrentImageCount, showAlert, addToast]);
+
   const handleAIGenerate = () => {
-    console.log("AI 생성 버튼 클릭됨");
+    console.log("🎯 GridB AI 생성 버튼 클릭됨");
     console.log("현재 isDescriptionExpanded:", isDescriptionExpanded);
+    console.log("현재 이미지 개수:", getCurrentImageCount());
+    
+    // 추가 조건 체크 (안전장치)
+    if (getCurrentImageCount() === 0) {
+      console.log("❌ AI 생성 실패: 이미지가 없음");
+      addToast({ message: '먼저 이미지를 업로드해주세요.' });
+      return;
+    }
     
     // AI 생성 버튼을 클릭했다고 표시
     setHasClickedAIGenerate(true);
@@ -478,26 +918,27 @@ function GridBElement({
     // 로딩 상태 시작
     setIsLoading(true);
     
-    // 2초 후에 로딩 완료 및 내용 변경
-    setTimeout(() => {
-      // 설명 내용 변경 (애국가 1절로 초기화)
-      setInputValue("동해물과 백두산이\n마르고 닳도록\n하느님이 보우하사\n우리나라 만세");
-      setIsFirstVerse(true); // 1절 상태로 설정
-      
-      // description-area를 확장된 textarea로 변경
-      setIsDescriptionExpanded(true);
-      console.log("setIsDescriptionExpanded(true) 호출됨");
-      
-      // 로딩 상태 종료
+    // description-area를 확장된 textarea로 변경
+    setIsDescriptionExpanded(true);
+    console.log("setIsDescriptionExpanded(true) 호출됨");
+    
+    // LLM API 호출
+    callLLMAPI().finally(() => {
+      // 로딩 상태 종료 (성공/실패 관계없이)
       setIsLoading(false);
-      
-      if (onAIGenerate) {
-        onAIGenerate();
-      }
-    }, 2000);
+    });
+    
+    if (onAIGenerate) {
+      onAIGenerate();
+    }
   };
 
   const handleImageUpload = () => {
+    console.log('GridB 이미지 업로드 버튼 클릭됨');
+    // 새로운 이미지 업로드 모달 열기
+    handleOpenUploadModal();
+    
+    // 기존 핸들러도 호출 (필요시)
     if (onImageUpload) {
       onImageUpload();
     }
@@ -564,28 +1005,37 @@ function GridBElement({
     });
   };
 
-  // 텍스트 새로고침(토글) 핸들러
+  // 텍스트 새로고침 핸들러 - LLM API 호출
   const handleTextRefresh = (event: React.MouseEvent) => {
     event.stopPropagation(); // 이벤트 전파 방지
+    
+    console.log("🔄 GridB 텍스트 새로고침 조건 체크:", {
+      profileId,
+      currentImageCount: getCurrentImageCount(),
+      키워드: inputValue?.trim()
+    });
+    
+    // LLM 호출 조건 확인
+    if (!profileId) {
+      console.log("❌ 새로고침 조건 실패: 로그인 필요");
+      addToast({ message: '로그인 후 사용해주세요.' });
+      return;
+    }
+
+    if (getCurrentImageCount() === 0) {
+      console.log("❌ 새로고침 조건 실패: 이미지가 없음");
+      addToast({ message: '먼저 이미지를 업로드해주세요.' });
+      return;
+    }
     
     // 로딩 상태 시작
     setIsLoading(true);
     
-    // 2초 후에 로딩 완료 및 내용 변경
-    setTimeout(() => {
-      if (isFirstVerse) {
-        // 애국가 2절로 변경
-        setInputValue("남산 위의 저 소나무\n철갑을 두른 듯\n바람서리 불변함은\n우리 기상일세");
-        setIsFirstVerse(false);
-      } else {
-        // 애국가 1절로 변경
-        setInputValue("동해물과 백두산이\n마르고 닳도록\n하느님이 보우하사\n우리나라 만세");
-        setIsFirstVerse(true);
-      }
-      
-      // 로딩 상태 종료
+    // LLM API 호출
+    callLLMAPI().finally(() => {
+      // 로딩 상태 종료 (성공/실패 관계없이)
       setIsLoading(false);
-    }, 2000);
+    });
   };
 
   const handleDelete = () => {
@@ -599,11 +1049,21 @@ function GridBElement({
     event.stopPropagation(); // 이벤트 전파 방지
     
     setCurrentImages(prev => {
+      const deletedImageUrl = prev[imageIndex];
       const newImages = [...prev];
       newImages[imageIndex] = ""; // 해당 인덱스의 이미지를 빈 문자열로 설정
+      
+      // 이미지 메타데이터에서도 해당 URL을 가진 메타데이터 삭제
+      if (deletedImageUrl) {
+        setImageMetadata(prevMetadata => 
+          prevMetadata.filter(metadata => metadata.url !== deletedImageUrl)
+        );
+      }
+      
       console.log(`🗑️ GridB 이미지 ${imageIndex} 삭제:`, {
         이전이미지: prev,
-        새이미지: newImages
+        새이미지: newImages,
+        삭제된URL: deletedImageUrl
       });
       return newImages;
     });
@@ -732,10 +1192,12 @@ function GridBElement({
 
         {/* 이미지 그리드 - 계산된 높이로 설정하여 공간 최적화 */}
         <div 
-          ref={imageContainerRef}
+          ref={dropRef}
           className={`grid gap-1 w-full ${getImageGridLayout(imageCount).className}`}
           style={{ 
             height: 'calc(100% - 70px)', // 전체 높이에서 하단 입력 영역(70px) 제외
+            backgroundColor: canDrop && isOver ? '#f0f0f0' : 'transparent',
+            transition: 'background-color 0.2s ease',
             ...getImageGridLayout(imageCount).style
           }}
         >
@@ -757,90 +1219,98 @@ function GridBElement({
             }
             
             return (
-              <AddPicture 
+              <div 
                 key={index}
-                targetImageRatio={getImageAreaRatio(index)}
-                targetFrame={measureImageCellSize(index)}
-                onImagesAdded={handleImagesAdded}
-                onImageAdded={(hasImage) => handleSingleImageAdded(hasImage, index)}
-                imageIndex={index}
-                mode="multiple"
-                hasImage={Boolean(imageSrc && imageSrc !== "" && imageSrc !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg")}
-                maxImageCount={getRemainingImageCount()}
+                className="w-full h-full"
               >
                 <div 
-                  className="flex relative cursor-pointer hover:opacity-80 transition-opacity group h-full"
+                  className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
                   style={gridAreaStyle}
                   onClick={(e) => {
                     // 클릭 시에도 크기 측정
                     measureImageCellSize(index);
+                    if (!imageSrc || imageSrc === "" || imageSrc === "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
+                      handleOpenUploadModal();
+                    }
                     handleImageClick(e);
                   }}
                 >
-                {imageSrc && imageSrc !== "" && imageSrc !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
-                  <div
-                    className="absolute inset-0 overflow-hidden rounded-md cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleImageAdjustClick(index, imageSrc);
-                    }}
-                  >
-                    <Image
-                      src={imageSrc}
-                      alt={`Image ${index + 1}`}
-                      fill
-                      className="object-cover rounded-md"
-                      style={{
-                        transform: `translate(${imagePositions[index]?.x || 0}px, ${imagePositions[index]?.y || 0}px) scale(${imagePositions[index]?.scale || 1})`,
-                        transformOrigin: 'center'
+                  {imageSrc && imageSrc !== "" && imageSrc !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
+                    <div
+                      className="absolute inset-0 overflow-hidden rounded-md cursor-pointer group"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleImageAdjustClick(index, imageSrc);
                       }}
-                    />
-                    {/* X 삭제 버튼 */}
-                    <button
-                      className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
-                      onClick={(e) => handleImageDelete(index, e)}
-                      title="이미지 삭제"
                     >
-                      <IoClose className="w-4 h-4 text-black" />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <Image
-                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
-                      alt="No image"
-                      fill
-                      className="object-cover rounded-md"
-                    />
-                    {/* Black overlay - 이미지가 없을 때만 표시 */}
-                    <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-                      {/* Upload icon */}
                       <Image
-                        src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                        width={20}
-                        height={20}
-                        className="object-contain mb-2"
-                        alt="Upload icon"
-                      />
-                      {/* Upload text */}
-                      <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
-                        이미지를 드래그하거나<br />클릭하여 업로드
-                      </div>
-                      {/* File select button */}
-                      <button 
-                        className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // 파일 선택 로직
+                        src={imageSrc}
+                        alt={`Image ${index + 1}`}
+                        fill
+                        className="object-cover rounded-md"
+                        style={{
+                          transform: `translate(${imagePositions[index]?.x || 0}px, ${imagePositions[index]?.y || 0}px) scale(${imagePositions[index]?.scale || 1})`,
+                          transformOrigin: 'center'
                         }}
+                        data-id={getDriveItemKeyByImageUrl(imageSrc)}
+                      />
+                      {/* X 삭제 버튼 */}
+                      <button
+                        className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
+                        onClick={(e) => handleImageDelete(index, e)}
+                        title="이미지 삭제"
                       >
-                        파일선택
+                        <IoClose className="w-4 h-4 text-black" />
                       </button>
+                      {/* 메모 인디케이터 */}
+                      <MemoIndicator 
+                        show={Boolean(getDriveItemKeyByImageUrl(imageSrc) && memoStatuses[getDriveItemKeyByImageUrl(imageSrc) || ''])}
+                        driveItemKey={getDriveItemKeyByImageUrl(imageSrc)}
+                        onMemoClick={() => {
+                          const driveItemKey = getDriveItemKeyByImageUrl(imageSrc);
+                          if (driveItemKey) {
+                            openMemoModal(driveItemKey);
+                          }
+                        }}
+                      />
                     </div>
-                  </>
-                )}
+                  ) : (
+                    <>
+                      <Image
+                        src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+                        alt="No image"
+                        fill
+                        className="object-cover rounded-md"
+                      />
+                      {/* Black overlay - 이미지가 없을 때만 표시 */}
+                      <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                        {/* Upload icon */}
+                        <Image
+                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
+                          width={20}
+                          height={20}
+                          className="object-contain mb-2"
+                          alt="Upload icon"
+                        />
+                        {/* Upload text */}
+                        <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                          이미지를 드래그하거나<br />클릭하여 업로드
+                        </div>
+                        {/* File select button */}
+                        <button 
+                          className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenUploadModal();
+                          }}
+                        >
+                          파일선택
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
-            </AddPicture>
             );
           })}
         </div>
@@ -848,8 +1318,8 @@ function GridBElement({
         {/* 하단 입력 영역 - 고정 높이 70px로 최적화 */}
         {isLoading ? (
           // 로딩 중일 때
-          <div className="flex flex-col items-center justify-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 h-[70px] flex-shrink-0">
-            <Loader2 className="w-6 h-6 animate-spin text-primary mb-2" />
+          <div className="flex flex-col gap-y-2 items-center justify-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 h-[70px] flex-shrink-0">
+            <Loader size="default" />
             <div className="text-[#B4B4B4] text-xs">내용을 생성중입니다...</div>
           </div>
         ) : isDescriptionExpanded ? (
@@ -944,7 +1414,7 @@ function GridBElement({
                 }`}
               >
                 {isLoading ? (
-                  <Loader2 className="w-3 h-3 animate-spin text-white" />
+                  <Loader size="sm" className="text-white" />
                 ) : (
                   <>
                     <Image
@@ -999,6 +1469,34 @@ function GridBElement({
         onApply={handleImageEditApply}
         onImageOrderChange={handleImageOrderChange}
         targetFrame={measureImageCellSize(imageEditModal.originalImageIndex || 0)}
+      />
+      
+      {/* 이미지 업로드 모달 */}
+      {isUploadModalOpen && (
+        <UploadModal
+          isOpen={isUploadModalOpen}
+          onCancel={handleCloseUploadModal}
+          onConfirm={handleConfirmUploadModal}
+          setItemData={handleSetItemData}
+          setFileData={(files: React.SetStateAction<File[]>) => {
+            // files가 File[] 배열인 경우에만 처리
+            if (Array.isArray(files) && files.length > 0) {
+              console.log('📁 GridB 파일 선택됨:', files);
+              processUploadedFiles(files);
+            }
+          }}
+          isMultiUpload
+          allowsFileTypes={['IMAGE']}
+        />
+      )}
+
+      {/* 메모 편집 모달 */}
+      <MemoEditModal
+        isOpen={isMemoOpen}
+        memo={memoData}
+        onChangeMemo={updateMemoData}
+        onSave={saveMemo}
+        onCancel={closeMemoModal}
       />
     </div>
   );

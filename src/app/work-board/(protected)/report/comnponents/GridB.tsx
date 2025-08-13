@@ -15,7 +15,9 @@ import {
 } from "@dnd-kit/core";
 import DragDropGridBItem from "./DragDropGridBItem";
 import AddButton from "./AddButton";
+import ApplyModal from "./ApplyModal";
 import { GridBItem } from "./types";
+import useGridContentStore from "@/hooks/store/useGridContentStore";
 
 interface GridBProps {
   gridCount?: number;
@@ -27,6 +29,9 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
   // searchParams에서 subject 값을 가져오고, 1~12 범위로 제한
   const subjectParam = searchParams.get('subject');
   const subjectCount = subjectParam ? Math.min(Math.max(parseInt(subjectParam), 1), 12) : 12;
+  
+  // Grid content store 사용 (초기화용)
+  const { updatePlaySubject, updateImages, updateCategoryValue, updateAiGenerated, gridContents } = useGridContentStore();
   
   // 그리드 아이템 데이터 관리
   const [items, setItems] = React.useState<GridBItem[]>(() => {
@@ -52,6 +57,14 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
   // 선택된 아이템 관리 (하나만 선택 가능)
   const [selectedItem, setSelectedItem] = React.useState<number | null>(null);
   
+  // ApplyModal 상태 관리
+  const [isApplyModalOpen, setIsApplyModalOpen] = React.useState(false);
+  const [pendingAction, setPendingAction] = React.useState<{
+    type: 'expand' | 'split';
+    firstIndex: number;
+    secondIndex: number;
+  } | null>(null);
+  
   // 숨겨진 아이템들을 관리하는 상태 (쓰레기통으로 삭제한 경우)
   const [hiddenItems, setHiddenItems] = React.useState<Set<number>>(new Set());
   
@@ -76,6 +89,17 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
 
   // + 버튼 클릭 핸들러 (확장 기능)
   const handleExpand = (firstIndex: number, secondIndex: number) => {
+    // 모달 열기 전에 대기 중인 액션 설정
+    setPendingAction({
+      type: 'expand',
+      firstIndex,
+      secondIndex
+    });
+    setIsApplyModalOpen(true);
+  };
+
+  // 실제 확장 실행 함수 (모달 확인 후)
+  const executeExpand = (firstIndex: number, secondIndex: number) => {
     // 뒤쪽 아이템 완전히 제거 (DOM에서 제거)
     setRemovedItems(prev => {
       const newSet = new Set(prev);
@@ -90,15 +114,30 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
       return newSet;
     });
     
-    // items 상태 업데이트
+    // items 상태 업데이트 - 이미지와 입력값 초기화
     setItems(prev => 
       prev.map(item => {
-        if (item.index === firstIndex) {
-          return { ...item, isExpanded: true };
+        if (item.index === firstIndex || item.index === secondIndex) {
+          return { 
+            ...item, 
+            isExpanded: item.index === firstIndex,
+            images: [], // 이미지 초기화
+            inputValue: "", // 텍스트 입력값 초기화
+            imageCount: 1 // 이미지 개수도 1로 초기화
+          };
         }
         return item;
       })
     );
+    
+    // Grid content store에서도 데이터 초기화
+    const gridIds = [`grid-b-${firstIndex}`, `grid-b-${secondIndex}`];
+    gridIds.forEach(gridId => {
+      updatePlaySubject(gridId, ""); // 텍스트 초기화
+      updateImages(gridId, []); // 이미지 초기화
+      updateCategoryValue(gridId, ""); // 카테고리 값 초기화
+      updateAiGenerated(gridId, false); // AI 생성 상태 초기화
+    });
     
     // 제거된 아이템이 선택되어 있다면 선택 해제
     if (selectedItem === secondIndex) {
@@ -108,6 +147,17 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
 
   // - 버튼 클릭 핸들러 (분할 기능)
   const handleSplit = (firstIndex: number, secondIndex: number) => {
+    // 모달 열기 전에 대기 중인 액션 설정
+    setPendingAction({
+      type: 'split',
+      firstIndex,
+      secondIndex
+    });
+    setIsApplyModalOpen(true);
+  };
+
+  // 실제 분할 실행 함수 (모달 확인 후)
+  const executeSplit = (firstIndex: number, secondIndex: number) => {
     // 뒤쪽 아이템 다시 활성화 (제거 상태 해제)
     setRemovedItems(prev => {
       const newSet = new Set(prev);
@@ -122,7 +172,7 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
       return newSet;
     });
     
-    // items 상태 업데이트 - imageCount도 1로 초기화
+    // items 상태 업데이트 - 이미지와 입력값 초기화
     setItems(prev => 
       prev.map(item => {
         if (item.index === firstIndex || item.index === secondIndex) {
@@ -139,6 +189,15 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
         return item;
       })
     );
+    
+    // Grid content store에서도 데이터 초기화
+    const gridIds = [`grid-b-${firstIndex}`, `grid-b-${secondIndex}`];
+    gridIds.forEach(gridId => {
+      updatePlaySubject(gridId, ""); // 텍스트 초기화
+      updateImages(gridId, []); // 이미지 초기화
+      updateCategoryValue(gridId, ""); // 카테고리 값 초기화
+      updateAiGenerated(gridId, false); // AI 생성 상태 초기화
+    });
     
     // 선택 상태도 초기화
     if (selectedItem === firstIndex || selectedItem === secondIndex) {
@@ -319,6 +378,36 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
 
       return result;
     });
+  };
+
+  // ApplyModal 핸들러들
+  const handleApplyModalConfirm = () => {
+    if (pendingAction) {
+      const { type, firstIndex, secondIndex } = pendingAction;
+      if (type === 'expand') {
+        executeExpand(firstIndex, secondIndex);
+      } else if (type === 'split') {
+        executeSplit(firstIndex, secondIndex);
+      }
+    }
+    setIsApplyModalOpen(false);
+    setPendingAction(null);
+  };
+
+  const handleApplyModalCancel = () => {
+    setIsApplyModalOpen(false);
+    setPendingAction(null);
+  };
+
+  // ApplyModal 메시지 생성
+  const getApplyModalMessage = () => {
+    if (!pendingAction) return "";
+    
+    if (pendingAction.type === 'expand') {
+      return "기존에 입력한 내용이 모두 초기화됩니다.\n진행하시겠습니까?";
+    } else {
+      return "기존에 입력한 내용이 모두 초기화됩니다.\n진행하시겠습니까?";
+    }
   };
 
   // 툴바 핸들러들
@@ -515,6 +604,19 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
           {/* Floating 마이너스 버튼들 (그리드 쪼개기) */}
           {renderSplitButtons()}
         </div>
+        
+        {/* ApplyModal */}
+        <ApplyModal
+          open={isApplyModalOpen}
+          onOpenChange={setIsApplyModalOpen}
+          description={getApplyModalMessage()}
+          onConfirm={handleApplyModalConfirm}
+          onCancel={handleApplyModalCancel}
+          confirmText="확인"
+          cancelText="취소"
+        >
+          <div />
+        </ApplyModal>
       {/* DragOverlay 제거됨: 중복 기울기 프리뷰 방지 */}
     </DndContext>
   );

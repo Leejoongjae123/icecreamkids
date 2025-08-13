@@ -51,6 +51,9 @@ export interface GridContentStore {
   
   // 모든 그리드 데이터를 reportCaptions 형태로 반환
   getAllReportCaptions: () => { title: string; contents: string; }[];
+
+  // 타입에 따라 캡션 생성 방식 분기 (A, B, C)
+  getReportCaptionsByType: (type: string) => { title: string; contents: string; }[];
 }
 
 const useGridContentStore = create<GridContentStore>((set, get) => ({
@@ -225,6 +228,45 @@ const useGridContentStore = create<GridContentStore>((set, get) => ({
       }
     });
     
+    return reportCaptions;
+  },
+
+  getReportCaptionsByType: (type: string) => {
+    const { gridContents } = get();
+    const reportCaptions: { title: string; contents: string; }[] = [];
+
+    // gridContents를 gridId 순서대로 정렬 (grid-0, grid-1, grid-2 ...)
+    const sortedEntries = Object.entries(gridContents).sort((a, b) => {
+      const aIndex = parseInt(a[0].split('-').pop() || '0', 10);
+      const bIndex = parseInt(b[0].split('-').pop() || '0', 10);
+      return aIndex - bIndex;
+    });
+
+    if ((type || '').toUpperCase() === 'B') {
+      // B타입: categoryValue가 없으므로, AI 생성된 내용(playSubjectText)이 있는 항목을 사용
+      sortedEntries.forEach(([_, content]) => {
+        const hasText = !!(content.playSubjectText && content.playSubjectText.trim() !== '');
+        if (content.hasAiGenerated && hasText) {
+          reportCaptions.push({
+            title: '놀이 활동',
+            contents: content.playSubjectText as string,
+          });
+        }
+      });
+      return reportCaptions;
+    }
+
+    // 기본(A/C): 기존 로직과 동일 - categoryValue + playSubjectText 모두 존재하는 항목만 포함
+    sortedEntries.forEach(([_, content]) => {
+      if (content.categoryValue && content.categoryValue.trim() !== '' &&
+          content.categoryValue !== '타이틀을 입력해주세요' &&
+          content.playSubjectText && content.playSubjectText.trim() !== '') {
+        reportCaptions.push({
+          title: content.categoryValue,
+          contents: content.playSubjectText,
+        });
+      }
+    });
     return reportCaptions;
   },
 

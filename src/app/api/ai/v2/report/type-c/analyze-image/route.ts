@@ -31,8 +31,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 외부 LLM API 호출
-    const apiUrl = process.env.NEXT_PUBLIC_DRIVE_URL + '/ai/v2/report/type-a/analyze-image';
+    // 외부 LLM API 호출 (Type C)
+    const apiUrl = process.env.NEXT_PUBLIC_DRIVE_URL + '/ai/v2/report/type-c/analyze-image';
     
     const requestData = {
       profileId: Number(profileId),
@@ -43,8 +43,6 @@ export async function POST(request: NextRequest) {
       photoDriveItemKeys: Array.isArray(photoDriveItemKeys) ? photoDriveItemKeys : [photoDriveItemKeys],
       keywords: keywords || ''
     };
-
-    console.log('LLM API 요청 데이터:', requestData);
 
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -69,7 +67,6 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await response.json();
-    console.log('LLM API 응답:', result);
 
     // LLM API 응답 구조 확인: result.result.contents
     if (result && result.result && result.result.contents) {

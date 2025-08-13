@@ -922,7 +922,7 @@ function GridAElement({
     console.log("LLM API 호출 데이터:", requestData);
 
     try {
-      const response = await fetch('/api/ai/analyze-image', {
+      const response = await fetch('/api/ai/v2/report/type-a/analyze-image', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2039,7 +2039,7 @@ function GridAElement({
         {console.log("렌더링 시점 isDescriptionExpanded:", isDescriptionExpanded)}
         {isLoading ? (
           // 로딩 중일 때
-          <div className="description-area flex flex-col items-center justify-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 min-h-[90px] flex-1 mt-1">
+          <div className="description-area gap-y-3 flex flex-col items-center justify-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 min-h-[90px] flex-1 mt-1">
             <Loader size="default" />
             <div className="text-[#B4B4B4] text-xs">내용을 생성중입니다...</div>
           </div>
