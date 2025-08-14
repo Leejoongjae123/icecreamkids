@@ -15,6 +15,7 @@ export interface DragDropGridCItemProps {
   onDelete?: () => void;
   onImageUpload: (gridId: string, imageUrl: string) => void;
   onClipPathChange?: (gridId: string, clipPathData: ClipPathItem) => void;
+  onIntegratedUpload?: () => void; // 통합 업로드 핸들러
   isOverlay?: boolean;
   style?: React.CSSProperties;
   isAnimating?: boolean;
@@ -31,6 +32,7 @@ function DragDropGridCItem({
   onDelete,
   onImageUpload,
   onClipPathChange,
+  onIntegratedUpload,
   isOverlay = false,
   style,
   isAnimating = false,
@@ -95,6 +97,7 @@ function DragDropGridCItem({
         onDelete={onDelete}
         onImageUpload={onImageUpload}
         onClipPathChange={onClipPathChange}
+        onIntegratedUpload={onIntegratedUpload}
       />
     </div>
   );

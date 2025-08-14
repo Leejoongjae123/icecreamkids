@@ -20,6 +20,7 @@ import PhotoSelector from "./PhotoSelector";
 import InputDesign from "./InputDesign";
 import usePlayRecordStore from "@/hooks/store/usePlayRecordStore";
 import { Loader } from "@/components/ui/loader";
+import useGridCStore from "@/hooks/store/useGridCStore";
 
 function RightSideBarContent() {
   const searchParams = useSearchParams();
@@ -44,9 +45,10 @@ function RightSideBarContent() {
   const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
   const [subjectCount, setSubjectCount] = useState(parseInt(searchParams.get('subject') || (currentType === "B" ? '12' : '4')));
 
-  const [selectedPhoto, setSelectedPhoto] = useState("4개");
+  // typeC일 때만 photo 초기값 설정
+  const [selectedPhoto, setSelectedPhoto] = useState(currentType === "C" ? (searchParams.get('photo') ? `${searchParams.get('photo')}개` : "9개") : "9개");
   const [isPhotoPopoverOpen, setIsPhotoPopoverOpen] = useState(false);
-  const [photoCount, setPhotoCount] = useState(4);
+  const [photoCount, setPhotoCount] = useState(currentType === "C" ? parseInt(searchParams.get('photo') || '9') : 9);
 
   const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
 
@@ -59,6 +61,9 @@ function RightSideBarContent() {
 
   // 놀이기록 생성 로딩 상태
   const [isCreatingPlayRecord, setIsCreatingPlayRecord] = useState(false);
+  const { getImagesPayload, getImagesForValidation } = useGridCStore();
+  // 상태 변경에 반응하도록 byGridId를 구독 (버튼 활성화 즉시 반영)
+  const gridCMap = useGridCStore((s) => s.byGridId);
 
   // 초기 렌더링 시 searchParams에서 age 값 읽어오기
   useEffect(() => {
@@ -98,8 +103,8 @@ function RightSideBarContent() {
   useEffect(() => {
     console.log("useEffect 실행 - 현재 타입:", currentType);
 
-    // B타입일 때는 subject 관련 상태를 설정하지 않음
-    if (currentType === "B") {
+    // B타입과 C타입일 때는 subject 관련 상태를 설정하지 않음
+    if (currentType === "B" || currentType === "C") {
       return;
     }
 
@@ -117,6 +122,31 @@ function RightSideBarContent() {
       console.log("URL 파라미터 사용:", `${subjectParam}개`);
       setSelectedSubject(`${subjectParam}개`);
       setSubjectCount(parseInt(subjectParam));
+    }
+  }, [currentType, searchParams]);
+
+  // 타입이 변경될 때 photo 관련 상태 업데이트
+  useEffect(() => {
+    console.log("useEffect 실행 - photo 상태 업데이트, 현재 타입:", currentType);
+
+    // C타입이 아닐 때는 photo 관련 상태를 초기화
+    if (currentType !== "C") {
+      return;
+    }
+
+    const photoParam = searchParams.get('photo');
+    console.log("photoParam:", photoParam);
+
+    if (!photoParam) {
+      // URL에 photo 파라미터가 없으면 기본값 설정
+      console.log("기본값 설정: 9개");
+      setSelectedPhoto("9개");
+      setPhotoCount(9);
+    } else {
+      // URL에 photo 파라미터가 있으면 그 값 사용
+      console.log("URL 파라미터 사용:", `${photoParam}개`);
+      setSelectedPhoto(`${photoParam}개`);
+      setPhotoCount(parseInt(photoParam));
     }
   }, [currentType, searchParams]);
 
@@ -194,6 +224,12 @@ function RightSideBarContent() {
     // Update the count logic as needed
     const count = parseInt(photo.replace("개", ""));
     setPhotoCount(count);
+    
+    // searchParams 업데이트
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set("photo", count.toString());
+    router.push(`?${newSearchParams.toString()}`);
+    
     console.log(`사진 개수 선택: ${photo}`);
   };
 
@@ -217,9 +253,17 @@ function RightSideBarContent() {
     const newSearchParams = new URLSearchParams(searchParams);
     newSearchParams.set("type", type);
 
-    // B타입일 때는 subject 파라미터 제거
-    if (type === "B") {
+    // B타입과 C타입일 때는 subject 파라미터 제거
+    if (type === "B" || type === "C") {
       newSearchParams.delete("subject");
+    }
+
+    // C타입이 아닐 때는 photo 파라미터 제거, C타입일 때는 photo 기본값 설정
+    if (type !== "C") {
+      newSearchParams.delete("photo");
+    } else {
+      // C타입일 때 photo 기본값을 9로 설정
+      newSearchParams.set("photo", "9");
     }
 
     router.push(`?${newSearchParams.toString()}`);
@@ -297,17 +341,32 @@ function RightSideBarContent() {
       return;
     }
 
-    // 2. 타이틀과 AI 생성된 내용이 있는지 확인
+    // 타입별 유효성 체크
     const reportCaptions = getReportCaptionsByType(currentType);
-    if (reportCaptions.length === 0) {
-      showAlert({ message: '먼저 타이틀을 입력해주세요.' });
-      return;
-    }
-
-    // 3. AI 생성된 내용이 있는지 확인
-    if (!hasAnyAiGeneratedContent()) {
-      showAlert({ message: 'AI로 생성된 내용이 없습니다. 먼저 AI 생성을 해주세요.' });
-      return;
+    if (currentType === 'C') {
+      const images = getImagesPayload(); // 서버 이미지만 가져오기
+      const allImages = getImagesForValidation(); // 로컬 이미지 포함
+      const hasText = allImages.some((it) => (it.userTextForImage || '').trim().length > 0);
+      
+      // 로컬 이미지만 있고 서버 이미지가 없는 경우 경고
+      if (allImages.length > 0 && images.length === 0) {
+        showAlert({ message: '로컬 이미지는 놀이기록 생성에 사용할 수 없습니다. 클라우드에 업로드된 이미지를 사용해주세요.' });
+        return;
+      }
+      
+      if (!images.length || !hasText) {
+        showAlert({ message: '이미지와 키워드를 입력해주세요.' });
+        return;
+      }
+    } else {
+      if (reportCaptions.length === 0) {
+        showAlert({ message: '먼저 타이틀을 입력해주세요.' });
+        return;
+      }
+      if (!hasAnyAiGeneratedContent()) {
+        showAlert({ message: 'AI로 생성된 내용이 없습니다. 먼저 AI 생성을 해주세요.' });
+        return;
+      }
     }
 
     // 로딩 시작
@@ -325,14 +384,20 @@ function RightSideBarContent() {
     // 오늘 날짜를 YYYY-MM-DD 형식으로 생성
     const today = new Date().toISOString().split('T')[0];
 
-    const requestData = {
-      profileId: userInfo.id,
-      subject: currentType === 'B' ? '놀이 활동' : '놀이기록',
-      age,
-      startsAt: today,
-      endsAt: today,
-      reportCaptions
-    };
+    const requestData = currentType === 'C'
+      ? {
+          profileId: userInfo.id,
+          age,
+          images: getImagesPayload(),
+        }
+      : {
+          profileId: userInfo.id,
+          subject: currentType === 'B' ? '놀이 활동' : '놀이기록',
+          age,
+          startsAt: today,
+          endsAt: today,
+          reportCaptions,
+        };
 
     console.log(`놀이기록 ${isRegeneration ? '재생성' : '생성'} 요청 데이터:`, requestData);
 
@@ -389,7 +454,15 @@ function RightSideBarContent() {
 
   // 놀이기록 생성 버튼 활성화 조건 체크 (타입별 캡션 생성 규칙 반영)
   const reportCaptions = getReportCaptionsByType(currentType);
-  const hasValidContent = reportCaptions.length > 0 && hasAnyAiGeneratedContent() && !isCreatingPlayRecord;
+  // gridCMap이 바뀌면 재계산되도록 의도적으로 참조
+  const hasValidContent = currentType === 'C'
+    ? (() => { 
+        const _ = gridCMap; // subscribe only
+        const imgs = getImagesForValidation(); // 로컬 이미지도 포함하여 검증
+        // 체크된 모든 그리드에 이미지와 키워드가 입력되어야 함
+        return imgs.length > 0 && imgs.every((it) => (it.userTextForImage || '').trim().length > 0) && !isCreatingPlayRecord; 
+      })()
+    : (reportCaptions.length > 0 && hasAnyAiGeneratedContent() && !isCreatingPlayRecord);
 
   return (
     <div className="flex flex-col gap-2.5 max-h-[calc(100vh-120px)] overflow-y-auto overflow-x-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">

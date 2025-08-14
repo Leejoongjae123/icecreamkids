@@ -1,35 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-interface ReportCaption {
-  title: string;
-  contents: string;
+interface TypeCImageItem {
+  imageDriveItemKey: string;
+  userTextForImage: string;
 }
 
-interface CreatePlayRecordRequest {
+type TypeCCreateRecordRequest = {
   profileId: number;
-  subject: string;
   age: number;
-  startsAt: string;
-  endsAt: string;
-  reportCaptions: ReportCaption[];
-}
+  images: TypeCImageItem[];
+};
 
 export async function POST(request: NextRequest) {
   try {
-    const body: CreatePlayRecordRequest = await request.json();
+    const body = (await request.json()) as unknown as TypeCCreateRecordRequest;
     
-    // 필수 필드 검증
-    const { profileId, subject, age, startsAt, endsAt, reportCaptions } = body;
-    
-    if (!profileId || !subject || age === undefined || !startsAt || !endsAt || !reportCaptions) {
+    // 필수 필드 검증 (Type C 스키마)
+    const isValid = Boolean(body && body.profileId && typeof body.age === 'number' && Array.isArray(body.images) && body.images.length > 0);
+    if (!isValid) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Invalid request: profileId, age, images[] are required' },
         { status: 400 }
       );
     }
 
     // 실제 외부 API 호출 (Type C)
-    const response = await fetch(process.env.NEXT_PUBLIC_DRIVE_URL + '/ai/v2/report/type-c/create-record', {
+    const response = await fetch(String(process.env.NEXT_PUBLIC_DRIVE_URL) + '/ai/v2/report/type-c/create-record', {
       method: 'POST',
       headers: {
         'accept': '*/*',
@@ -49,7 +45,7 @@ export async function POST(request: NextRequest) {
     const result = await response.json();
 
     return NextResponse.json(result, { status: 200 });
-  } catch (error) {
+  } catch (_) {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

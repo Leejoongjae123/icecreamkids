@@ -13,6 +13,10 @@ import {
 import DragDropGridCItem from "./DragDropGridCItem";
 import { clipPathItems } from "../dummy/svgData";
 import { ClipPathItem } from "../dummy/types";
+import { UploadModal } from "@/components/modal";
+import { useImageUpload } from "@/hooks/useImageUpload";
+import ApplyModal from "./ApplyModal";
+import useGridCStore from "@/hooks/store/useGridCStore";
 
 interface GridCItem {
   id: string;
@@ -35,6 +39,7 @@ interface GridCProps {
 }
 
 function GridC({ isClippingEnabled, photoCount }: GridCProps) {
+  const { setSelected, remove, setImage, clearAll } = useGridCStore();
   // photoCount에 따라 그리드 아이템 데이터 관리
   const [items, setItems] = React.useState<GridCItem[]>(() => {
     const initialItems: GridCItem[] = [];
@@ -56,6 +61,45 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
 
   // 선택된 아이템들 관리
   const [selectedItems, setSelectedItems] = React.useState<Set<string>>(new Set());
+
+  // ApplyModal 관련 상태
+  const [isApplyModalOpen, setIsApplyModalOpen] = React.useState(false);
+  const [pendingUploadFiles, setPendingUploadFiles] = React.useState<File[] | null>(null);
+
+  // 통합 이미지 업로드 상태
+  const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([]);
+
+  // 재업로드 시 내부 키워드 입력 로컬 상태 초기화를 강제하기 위한 버전 키
+  const [resetVersion, setResetVersion] = React.useState(0);
+
+  // 현재 빈 그리드 개수 계산
+  const getEmptyGridCount = React.useCallback(() => {
+    const defaultImage = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
+    return items.filter(item => item.imageUrl === defaultImage).length;
+  }, [items]);
+
+  // 기존 이미지가 있는지 확인하는 헬퍼 함수
+  const hasExistingImages = React.useCallback(() => {
+    const defaultImage = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
+    return items.some(item => item.imageUrl && item.imageUrl !== defaultImage);
+  }, [items]);
+
+  // 통합 이미지 업로드 훅
+  const {
+    isUploadModalOpen,
+    handleOpenUploadModal,
+    handleCloseUploadModal,
+    handleConfirmUploadModal,
+    handleSetItemData,
+    processUploadedFiles,
+  } = useImageUpload({
+    uploadedFiles,
+    onFilesUpload: (files: File[] | any[]) => {
+      console.log('📥 GridC 통합 이미지 업로드 완료:', files);
+      handleMultipleImageUpload(files);
+    },
+    maxDataLength: items.length, // 전체 그리드 개수에 따른 최대 업로드 제한
+  });
 
   // photoCount가 변경되면 items 재생성
   React.useEffect(() => {
@@ -81,6 +125,25 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
       setLargeItemPosition(0);
     }
   }, [photoCount]);
+
+  // 이미지가 있는 아이템들을 자동으로 체크박스 선택 상태로 만들기
+  React.useEffect(() => {
+    const defaultImage = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
+    const itemsWithImages = items.filter(item => item.imageUrl && item.imageUrl !== defaultImage);
+    const idsWithImages = new Set(itemsWithImages.map(item => item.id));
+    
+    // 현재 선택된 아이템들과 비교해서 다르면 업데이트
+    if (idsWithImages.size !== selectedItems.size || 
+        !Array.from(idsWithImages).every(id => selectedItems.has(id))) {
+      setSelectedItems(idsWithImages);
+      
+      // GridCStore에도 체크 상태 반영
+      items.forEach(item => {
+        const hasImage = !!(item.imageUrl && item.imageUrl !== defaultImage);
+        setSelected(item.id, hasImage);
+      });
+    }
+  }, [items, selectedItems, setSelected]);
 
   // 현재 드래그 중인 아이템
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -639,6 +702,92 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     );
   };
 
+  // 다중 이미지 업로드 핸들러 - 1번째부터 순차적으로 새롭게 할당
+  const handleMultipleImageUpload = React.useCallback((files: File[] | any[]) => {
+    const defaultImage = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
+    
+    console.log('📥 GridC 다중 이미지 업로드 시작:', {
+      파일수: files.length,
+      그리드수: items.length
+    });
+    
+    setItems(prevItems => {
+      const updatedItems = [...prevItems];
+      const uploadedCount = { success: 0, total: files.length };
+      
+      // 1번째 그리드부터 순차적으로 이미지 배정 (기존 이미지가 있어도 덮어쓰기)
+      for (let i = 0; i < Math.min(files.length, updatedItems.length); i++) {
+        const file = files[i];
+        let imageUrl = "";
+        let driveItemKey = "";
+        
+        if (file instanceof File) {
+          // File 타입인 경우
+          imageUrl = URL.createObjectURL(file);
+          driveItemKey = `local_${Date.now()}_${Math.random()}`;
+        } else if (file && typeof file === 'object' && file.thumbUrl) {
+          // SmartFolderItemResult 타입인 경우
+          imageUrl = file.thumbUrl;
+          driveItemKey = file.driveItemKey || `external_${Date.now()}_${Math.random()}`;
+        }
+        
+        if (imageUrl) {
+          // 기존 이미지가 있어도 새로운 이미지로 덮어쓰기
+          updatedItems[i] = { ...updatedItems[i], imageUrl };
+          
+          // GridCStore에 이미지 정보 저장 (optional)
+          try {
+            setImage(updatedItems[i].id, driveItemKey);
+          } catch (error) {
+            console.log('GridCStore 저장 실패:', error);
+          }
+          
+          uploadedCount.success++;
+          
+          console.log(`📷 이미지 ${i + 1}/${files.length} 배정 완료:`, {
+            gridId: updatedItems[i].id,
+            gridIndex: i,
+            imageUrl: imageUrl.substring(0, 50) + '...',
+            덮어쓰기: updatedItems[i].imageUrl !== defaultImage
+          });
+        }
+      }
+      
+      // 업로드된 파일 수가 그리드 수보다 많은 경우 알림
+      const notAssignedCount = Math.max(0, files.length - updatedItems.length);
+      
+      console.log('✅ GridC 다중 이미지 업로드 완료:', {
+        성공: uploadedCount.success,
+        전체: uploadedCount.total,
+        배정안됨: notAssignedCount,
+        새롭게할당됨: `1번째부터 ${uploadedCount.success}번째까지`
+      });
+      
+      return updatedItems;
+    });
+  }, [items.length]);
+
+  // 통합 업로드 모달 열기 핸들러
+  const handleOpenIntegratedUpload = React.useCallback(() => {
+    const totalGridCount = items.length;
+    
+    if (totalGridCount === 0) {
+      console.log('⚠️ 사용 가능한 그리드가 없어 업로드 불가');
+      // 사용자에게 알림 (필요시 토스트 메시지 추가)
+      return;
+    }
+    
+    // 기존 이미지가 있는지 확인
+    if (hasExistingImages()) {
+      console.log('⚠️ 기존 이미지가 있어 ApplyModal 표시');
+      setIsApplyModalOpen(true);
+      return;
+    }
+    
+    console.log(`📂 업로드 모달 열기 - 최대 ${totalGridCount}개 이미지 선택 가능 (1번째부터 순차 할당)`);
+    handleOpenUploadModal();
+  }, [handleOpenUploadModal, hasExistingImages, items.length]);
+
   // 클립패스 변경 핸들러
   const handleClipPathChange = (gridId: string, clipPathData: ClipPathItem) => {
     console.log("GridC - 클립패스 변경:", { gridId, clipPathData });
@@ -660,6 +809,9 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
       }
       return newSelected;
     });
+    
+    // GridCStore에 체크 상태 반영
+    setSelected(gridId, isSelected);
   };
 
   // 아이템 삭제 핸들러
@@ -670,7 +822,46 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
       newSelected.delete(gridId);
       return newSelected;
     });
+    
+    // GridCStore에서도 제거
+    remove(gridId);
   };
+
+  // ApplyModal 확인 핸들러 - 기존 이미지 초기화하고 새로운 업로드 진행
+  const handleApplyModalConfirm = React.useCallback(() => {
+    console.log('🔄 기존 이미지 초기화 후 새로운 업로드 진행');
+    
+    // 모든 이미지를 기본 이미지로 초기화
+    const defaultImage = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
+    setItems(prevItems => 
+      prevItems.map(item => ({
+        ...item,
+        imageUrl: defaultImage
+      }))
+    );
+    
+    // 선택 상태 초기화
+    setSelectedItems(new Set());
+    
+    // GridC 전역 스토어의 이미지/키워드/선택 상태 모두 초기화
+    try { clearAll(); } catch (_) {}
+    
+    // 각 GridCElement의 로컬 입력 상태 초기화를 위해 재마운트 유도
+    setResetVersion((v) => v + 1);
+    
+    // ApplyModal 닫기
+    setIsApplyModalOpen(false);
+    
+    // 새로운 업로드 모달 열기
+    handleOpenUploadModal();
+  }, [handleOpenUploadModal]);
+
+  // ApplyModal 취소 핸들러
+  const handleApplyModalCancel = React.useCallback(() => {
+    console.log('❌ 업로드 취소');
+    setIsApplyModalOpen(false);
+    setPendingUploadFiles(null);
+  }, []);
 
   const activeItem = items.find(item => item.id === activeId);
 
@@ -873,7 +1064,7 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
               
               return (
                 <DragDropGridCItem
-                  key={item.id}
+                  key={`${item.id}-${resetVersion}`}
                   id={item.id}
                   index={item.index}
                   clipPathData={item.clipPathData}
@@ -884,6 +1075,7 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
                   onDelete={() => handleDelete(item.id)}
                   onImageUpload={handleImageUpload}
                   onClipPathChange={handleClipPathChange}
+                  onIntegratedUpload={handleOpenIntegratedUpload}
                   style={computedStyle}
                   isAnimating={isAnimating}
                 />
@@ -891,8 +1083,38 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
             })}
           </div>
         </div>
-      {/* DragOverlay 제거됨: 중복 기울기 프리뷰 방지 */}
-    </DndContext>
+
+        {/* 통합 이미지 업로드 모달 */}
+        {isUploadModalOpen && (
+          <UploadModal
+            isOpen={isUploadModalOpen}
+            onCancel={handleCloseUploadModal}
+            onConfirm={handleConfirmUploadModal}
+            setItemData={handleSetItemData}
+            setFileData={(files: React.SetStateAction<File[]>) => {
+              if (Array.isArray(files) && files.length > 0) {
+                console.log('📁 GridC 통합 파일 선택됨:', files);
+                processUploadedFiles(files);
+              }
+            }}
+            isMultiUpload={true} // 다중 이미지 업로드 허용
+            allowsFileTypes={['IMAGE']}
+          />
+        )}
+
+        {/* 기존 이미지 재업로드 확인 모달 */}
+        <ApplyModal
+          open={isApplyModalOpen}
+          onOpenChange={setIsApplyModalOpen}
+          description="이미지가 이미 업로드되어 있습니다.&#10;새롭게 업로드하면 기존 이미지가 모두 초기화됩니다.&#10;계속 진행하시겠습니까?"
+          onConfirm={handleApplyModalConfirm}
+          onCancel={handleApplyModalCancel}
+          confirmText="확인"
+          cancelText="취소"
+        >
+          <div />
+        </ApplyModal>
+      </DndContext>
   );
 }
 

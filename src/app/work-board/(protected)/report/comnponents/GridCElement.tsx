@@ -12,7 +12,10 @@ import AddPictureClipping from "./AddPictureClipping";
 import KonvaImageCanvas, { KonvaImageCanvasRef } from "./KonvaImageCanvas";
 import GridEditToolbar from "./GridEditToolbar";
 import { ClipPathItem } from "../dummy/types";
-import {IoClose} from "react-icons/io5"
+import {IoClose} from "react-icons/io5";
+import useKeywordStore from "@/hooks/store/useKeywordStore";
+import useUserStore from "@/hooks/store/useUserStore";
+import useGridCStore from "@/hooks/store/useGridCStore";
 
 interface GridCElementProps {
   index: number;
@@ -28,6 +31,7 @@ interface GridCElementProps {
   onDelete?: () => void;
   onImageUpload: (gridId: string, imageUrl: string) => void;
   onClipPathChange?: (gridId: string, clipPathData: ClipPathItem) => void;
+  onIntegratedUpload?: () => void; // 통합 업로드 핸들러
 }
 
 function GridCElement({
@@ -44,16 +48,33 @@ function GridCElement({
   onDelete,
   onImageUpload,
   onClipPathChange,
+  onIntegratedUpload,
 }: GridCElementProps) {
   const [activityKeyword, setActivityKeyword] = React.useState("");
   const [isKeywordExpanded, setIsKeywordExpanded] = React.useState(false);
   const [isInputFocused, setIsInputFocused] = React.useState(false);
-  const [selectedKeyword, setSelectedKeyword] = React.useState<string>("");
+  const [selectedKeywords, setSelectedKeywords] = React.useState<string[]>([]);
   const [currentImageUrl, setCurrentImageUrl] = React.useState<string>(imageUrl);
   const [isHovered, setIsHovered] = React.useState(false);
   
+  // 사용자 정보 가져오기
+  const { userInfo } = useUserStore();
+  const accountId = React.useMemo(() => userInfo?.accountId || null, [userInfo?.accountId]);
+  
+  // 메모 상태 관리
+  const [memoStatus, setMemoStatus] = React.useState<boolean>(false);
+  
+  // 전역 키워드 store 사용
+  const { recommendedKeywords, loadKeywords, addKeyword } = useKeywordStore();
+  
   // placeholder 이미지 URL
   const NO_IMAGE_URL = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
+
+
+  
+  // 이미지 메타데이터 상태 (driveItemKey 포함)
+  const [imageMetadata, setImageMetadata] = React.useState<{url: string, driveItemKey?: string}[]>([]);
+  const { setImage, setKeyword, remove } = useGridCStore();
 
   // KonvaImageCanvas ref
   const konvaCanvasRef = React.useRef<KonvaImageCanvasRef>(null);
@@ -79,6 +100,54 @@ function GridCElement({
 
   // 이미지가 있는지 확인하는 헬퍼 함수
   const hasImage = currentImageUrl && currentImageUrl !== NO_IMAGE_URL;
+
+  // 이미지 URL로 driveItemKey 찾기
+  const getDriveItemKeyByImageUrl = React.useCallback((imageUrl: string): string | undefined => {
+    const metadata = imageMetadata.find(item => item.url === imageUrl);
+    return metadata?.driveItemKey;
+  }, [imageMetadata]);
+
+  // 현재 이미지의 driveItemKey 가져오기 (type-c create-record API 호출용)
+  const getCurrentImageDataId = React.useCallback((): string | undefined => {
+    if (hasImage) {
+      const dataId = getDriveItemKeyByImageUrl(currentImageUrl);
+      console.log("🔍 GridC getCurrentImageDataId:", {
+        gridId,
+        currentImageUrl,
+        dataId,
+        hasImage
+      });
+      return dataId;
+    }
+    return undefined;
+  }, [hasImage, currentImageUrl, getDriveItemKeyByImageUrl, gridId]);
+
+  // 메모 상태 체크
+  const checkMemoStatus = React.useCallback(async (driveItemKey: string) => {
+    if (!accountId || driveItemKey.startsWith('local_')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/file/v1/drive-items/${driveItemKey}/memos?owner_account_id=${accountId}`,
+        {
+          method: 'GET',
+          headers: { 'accept': '*/*' },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const memoExists = Array.isArray(data.result) ? data.result.length > 0 : false;
+        setMemoStatus(memoExists);
+      }
+    } catch (error) {
+      console.log('메모 체크 실패:', error);
+    }
+  }, [accountId]);
+
+
 
   // 컨테이너 클릭 핸들러 - 툴바 표시
   const handleContainerClick = (event: React.MouseEvent) => {
@@ -134,6 +203,12 @@ function GridCElement({
     // 현재 이미지 URL 초기화
     setCurrentImageUrl("");
     
+    // 이미지 메타데이터 초기화
+    setImageMetadata([]);
+    try {
+      remove(gridId);
+    } catch (_) {}
+    
     // 이미지 변환 데이터 초기화
     setImageTransformData(null);
     
@@ -147,6 +222,18 @@ function GridCElement({
   React.useEffect(() => {
     setCurrentImageUrl(imageUrl);
   }, [imageUrl]);
+
+  // 이미지 메타데이터 변경 시 메모 상태 체크
+  React.useEffect(() => {
+    if (imageMetadata.length > 0 && accountId) {
+      const currentMetadata = imageMetadata[0]; // GridC는 단일 이미지
+      if (currentMetadata?.driveItemKey) {
+        checkMemoStatus(currentMetadata.driveItemKey);
+      }
+    } else {
+      setMemoStatus(false);
+    }
+  }, [imageMetadata, accountId, checkMemoStatus]);
 
   // canvas-container 크기 감지
   React.useEffect(() => {
@@ -186,10 +273,15 @@ function GridCElement({
   }, []);
 
   // AddPictureClipping용 이미지 추가 핸들러
-  const handleImageAdded = (hasImage: boolean, imageUrl?: string) => {
+  const handleImageAdded = (hasImage: boolean, imageUrl?: string, driveItemKey?: string) => {
     if (hasImage && imageUrl) {
       // 이미지가 추가되면 현재 이미지 URL 업데이트
       setCurrentImageUrl(imageUrl);
+      
+      // 이미지 메타데이터 업데이트
+      const resolvedKey = driveItemKey || `local_${Date.now()}_${Math.random()}`;
+      setImageMetadata([{ url: imageUrl, driveItemKey: resolvedKey }]);
+      setImage(gridId, resolvedKey);
       
       // 부모 컴포넌트에 이미지 업로드 알림
       if (onImageUpload) {
@@ -294,6 +386,10 @@ function GridCElement({
       // 현재 이미지 URL 초기화
       setCurrentImageUrl("");
       
+      // 이미지 메타데이터 초기화
+      setImageMetadata([]);
+      try { remove(gridId); } catch (_) {}
+      
       // 이미지 변환 데이터 초기화
       setImageTransformData(null);
       
@@ -359,17 +455,26 @@ function GridCElement({
       ? "border-solid border-primary border-2 rounded-xl border-2"
       : "border-none";
 
+  // 컴포넌트 마운트 시 저장된 키워드 불러오기
+  React.useEffect(() => {
+    loadKeywords();
+  }, [loadKeywords]);
+
   // 키워드 버튼 클릭 핸들러
   const handleKeywordClick = (keyword: string) => {
     // 이미 선택된 키워드인지 확인
-    if (selectedKeyword === keyword) {
+    if (selectedKeywords.includes(keyword)) {
       // 이미 선택된 경우 제거
-      setSelectedKeyword("");
-      setActivityKeyword("");
+      const newKeywords = selectedKeywords.filter(k => k !== keyword);
+      setSelectedKeywords(newKeywords);
+      setActivityKeyword(newKeywords.join(", "));
+      try { setKeyword(gridId, newKeywords.join(", ")); } catch (_) {}
     } else {
-      // 새로 선택하는 경우 기존 선택을 덮어쓰기
-      setSelectedKeyword(keyword);
-      setActivityKeyword(keyword);
+      // 새로 선택하는 경우 배열에 추가
+      const newKeywords = [...selectedKeywords, keyword];
+      setSelectedKeywords(newKeywords);
+      setActivityKeyword(newKeywords.join(", "));
+      try { setKeyword(gridId, newKeywords.join(", ")); } catch (_) {}
     }
   };
 
@@ -377,9 +482,39 @@ function GridCElement({
   const handleKeywordInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { value } = e.target;
     setActivityKeyword(value);
+    try {
+      setKeyword(gridId, value);
+    } catch (_) {}
     
-    // 현재 input의 키워드를 selectedKeyword에 설정
-    setSelectedKeyword(value.trim());
+    // 쉼표로 구분된 키워드들을 배열로 변환
+    const keywordsArray = value.split(",").map(k => k.trim()).filter(k => k.length > 0);
+    setSelectedKeywords(keywordsArray);
+  };
+
+  // 키워드 입력 완료 시 (Enter 키 또는 포커스 해제) 전역 store에 저장
+  const handleKeywordSubmit = React.useCallback((keyword: string) => {
+    if (keyword.trim()) {
+      // 쉼표로 구분된 각 키워드를 개별적으로 저장
+      const keywordsArray = keyword.split(",").map(k => k.trim()).filter(k => k.length > 0);
+      keywordsArray.forEach(k => addKeyword(k));
+    }
+  }, [addKeyword]);
+
+  // Enter 키 핸들러
+  const handleKeywordKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleKeywordSubmit(activityKeyword);
+    }
+  };
+
+  // 포커스 해제 시 저장
+  const handleKeywordBlur = () => {
+    setIsInputFocused(false);
+    handleKeywordSubmit(activityKeyword);
+    try {
+      setKeyword(gridId, activityKeyword);
+    } catch (_) {}
   };
 
   return (
@@ -458,43 +593,43 @@ function GridCElement({
           {/* 이미지가 없을 때 hover시 업로드 UI 표시 */}
           {!hasImage && isHovered && (
             <div className="absolute inset-0 z-20">
-              <AddPictureClipping 
-                onImageAdded={handleImageAdded}
-                clipPathData={clipPathData}
-                gridId={gridId}
-                isClippingEnabled={isClippingEnabled}
-                imageTransformData={imageTransformData}
+                              <div 
+                className="absolute inset-0 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onIntegratedUpload) {
+                    onIntegratedUpload();
+                  }
+                }}
               >
-                <div 
-                  className="absolute inset-0 cursor-pointer"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* 업로드 오버레이 */}
-                  <div className="absolute inset-0 bg-black bg-opacity-50 rounded-md flex flex-col items-center justify-center transition-opacity duration-200 z-10">
-                    {/* Upload icon */}
-                    <Image
-                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                      width={24}
-                      height={24}
-                      className="object-contain mb-2"
-                      alt="Upload icon"
-                    />
-                    {/* Upload text */}
-                    <div className="text-white text-[10px] font-medium text-center mb-2 px-2">
-                      이미지를 드래그하거나<br />클릭하여 업로드
-                    </div>
-                    {/* File select button */}
-                    <button 
-                      className="bg-primary text-white text-[10px] px-3 py-1.5 rounded hover:bg-primary/80 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
-                    >
-                      파일선택
-                    </button>
+                {/* 업로드 오버레이 */}
+                <div className="absolute inset-0 bg-black bg-opacity-50 rounded-md flex flex-col items-center justify-center transition-opacity duration-200 z-10">
+                  {/* Upload icon */}
+                  <Image
+                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
+                    width={24}
+                    height={24}
+                    className="object-contain mb-2"
+                    alt="Upload icon"
+                  />
+                  {/* Upload text */}
+                  <div className="text-white text-[10px] font-medium text-center mb-2 px-2">
+                    이미지를 드래그하거나<br />클릭하여 업로드
                   </div>
+                  {/* File select button */}
+                  <button 
+                    className="bg-primary text-white text-[10px] px-3 py-1.5 rounded hover:bg-primary/80 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onIntegratedUpload) {
+                        onIntegratedUpload();
+                      }
+                    }}
+                  >
+                    파일선택
+                  </button>
                 </div>
-              </AddPictureClipping>
+              </div>
             </div>
           )}
         </div>
@@ -531,7 +666,8 @@ function GridCElement({
                   value={activityKeyword}
                   onChange={handleKeywordInputChange}
                   onFocus={() => setIsInputFocused(true)}
-                  onBlur={() => setIsInputFocused(false)}
+                  onBlur={handleKeywordBlur}
+                  onKeyDown={handleKeywordKeyDown}
                   placeholder="활동주제나 관련 키워드를 입력하세요."
                   className="w-full outline-none border-none bg-transparent placeholder-zinc-400 text-zinc-800"
                   onClick={(e) => e.stopPropagation()}
@@ -557,206 +693,38 @@ function GridCElement({
               <div className="flex items-center mt-3.5">
                 <div className="font-semibold">추천 키워드</div>
               </div>
-              {/* 첫 번째 키워드 행 */}
-              <div className="mt-2 w-full bg-white">
-                <div className="flex gap-1.5 font-medium overflow-x-auto scrollbar-hide">
-                  <div className="flex gap-1.5 min-w-max">
-                    <div 
-                      className={`flex overflow-hidden flex-col justify-center px-2.5 py-1.5 whitespace-nowrap rounded-[50px] cursor-pointer transition-colors ${
-                        selectedKeyword === '촉감놀이' 
-                          ? 'bg-primary text-white hover:bg-primary/80' 
-                          : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleKeywordClick('촉감놀이');
-                      }}
-                    >
-                      <div>촉감놀이</div>
-                    </div>
-                    <div 
-                      className={`flex overflow-hidden flex-col justify-center px-2.5 py-1.5 whitespace-nowrap rounded-[50px] cursor-pointer transition-colors ${
-                        selectedKeyword === '친구와 촉감놀이' 
-                          ? 'bg-primary text-white hover:bg-primary/80' 
-                          : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleKeywordClick('친구와 촉감놀이');
-                      }}
-                    >
-                      <div>친구와 촉감놀이</div>
-                    </div>
-                    <div 
-                      className={`flex overflow-hidden flex-col justify-center px-2.5 py-1.5 whitespace-nowrap rounded-[50px] cursor-pointer transition-colors ${
-                        selectedKeyword === '선생님과 촉감놀이' 
-                          ? 'bg-primary text-white hover:bg-primary/80' 
-                          : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleKeywordClick('선생님과 촉감놀이');
-                      }}
-                    >
-                      <div>선생님과 촉감놀이</div>
+              {/* 추천 키워드 목록 - 2줄까지만 표시하고 나머지는 스크롤 */}
+              {recommendedKeywords.length > 0 && (
+                <div className="mt-2 w-full bg-white">
+                  <div className="max-h-[4.5rem] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                    <div className="flex flex-wrap gap-1.5 font-medium">
+                      {recommendedKeywords.map((keyword, index) => (
+                        <div 
+                          key={`${keyword}-${index}`}
+                          className={`flex overflow-hidden flex-col justify-center px-2.5 py-1.5 whitespace-nowrap rounded-[50px] cursor-pointer transition-colors ${
+                            selectedKeywords.includes(keyword) 
+                              ? 'bg-primary text-white hover:bg-primary/80' 
+                              : 'bg-gray-50 hover:bg-gray-100'
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleKeywordClick(keyword);
+                          }}
+                        >
+                          <div>{keyword}</div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
-              </div>
-              <div className="max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent mt-1.5">
-                <div className="flex gap-1.5 mb-1.5 w-full overflow-x-auto scrollbar-hide">
-                  <div className="flex gap-1.5 min-w-max">
-                    <div 
-                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 whitespace-nowrap rounded-[50px] cursor-pointer transition-colors ${
-                        selectedKeyword === '촉감' 
-                          ? 'bg-primary text-white hover:bg-primary/80' 
-                          : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleKeywordClick('촉감');
-                      }}
-                    >
-                      <div className="self-stretch my-auto">촉감</div>
-                    </div>
-                    <div 
-                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 whitespace-nowrap rounded-[50px] cursor-pointer transition-colors ${
-                        selectedKeyword === '눅눅한' 
-                          ? 'bg-primary text-white hover:bg-primary/80' 
-                          : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleKeywordClick('눅눅한');
-                      }}
-                    >
-                      <div className="self-stretch my-auto">눅눅한</div>
-                    </div>
-                    <div 
-                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 rounded-[50px] cursor-pointer transition-colors ${
-                        selectedKeyword === '촉촉촉촉 촉촉촉촉' 
-                          ? 'bg-primary text-white hover:bg-primary/80' 
-                          : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleKeywordClick('촉촉촉촉 촉촉촉촉');
-                      }}
-                    >
-                      <div className="self-stretch my-auto">
-                        촉촉촉촉 촉촉촉촉
-                      </div>
-                    </div>
-                    <div 
-                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 whitespace-nowrap rounded-[50px] cursor-pointer transition-colors ${
-                        selectedKeyword === '사후르' 
-                          ? 'bg-primary text-white hover:bg-primary/80' 
-                          : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleKeywordClick('사후르');
-                      }}
-                    >
-                      <div className="self-stretch my-auto">사후르</div>
-                    </div>
-                  </div>
+              )}
+              
+              {/* 저장된 키워드가 없을 때 안내 메시지 */}
+              {recommendedKeywords.length === 0 && (
+                <div className="mt-2 text-center text-gray-400 text-xs py-1">
+                  키워드를 입력하면 추천 키워드로 저장됩니다.
                 </div>
-
-                <div className="flex gap-1.5 mb-1.5 w-full whitespace-nowrap overflow-x-auto scrollbar-hide">
-                  <div className="flex gap-1.5 min-w-max">
-                    <div 
-                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 rounded-[50px] cursor-pointer transition-colors ${
-                        selectedKeyword === '발레리나카푸치나' 
-                          ? 'bg-primary text-white hover:bg-primary/80' 
-                          : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleKeywordClick('발레리나카푸치나');
-                      }}
-                    >
-                      <div className="self-stretch my-auto">
-                        발레리나카푸치나
-                      </div>
-                    </div>
-                    <div 
-                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 rounded-[50px] cursor-pointer transition-colors ${
-                        selectedKeyword === '트랄라레오트랄랄라' 
-                          ? 'bg-primary text-white hover:bg-primary/80' 
-                          : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleKeywordClick('트랄라레오트랄랄라');
-                      }}
-                    >
-                      <div className="self-stretch my-auto">
-                        트랄라레오트랄랄라
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-1.5 mb-1.5 w-full whitespace-nowrap overflow-x-auto scrollbar-hide">
-                  <div className="flex gap-1.5 min-w-max">
-                    <div 
-                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 rounded-[50px] cursor-pointer transition-colors ${
-                        selectedKeyword === '봄바르딜로크로코딜로' 
-                          ? 'bg-primary text-white hover:bg-primary/80' 
-                          : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleKeywordClick('봄바르딜로크로코딜로');
-                      }}
-                    >
-                      <div className="self-stretch my-auto">
-                        봄바르딜로크로코딜로
-                      </div>
-                    </div>
-                    <div 
-                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 rounded-[50px] cursor-pointer transition-colors ${
-                        selectedKeyword === '촉감' 
-                          ? 'bg-primary text-white hover:bg-primary/80' 
-                          : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleKeywordClick('촉감');
-                      }}
-                    >
-                      <div className="self-stretch my-auto">촉감</div>
-                    </div>
-                    <div 
-                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 rounded-[50px] cursor-pointer transition-colors ${
-                        selectedKeyword === '눅눅한' 
-                          ? 'bg-primary text-white hover:bg-primary/80' 
-                          : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleKeywordClick('눅눅한');
-                      }}
-                    >
-                      <div className="self-stretch my-auto">눅눅한</div>
-                    </div>
-                    <div 
-                      className={`flex overflow-hidden gap-2.5 justify-center items-center px-2.5 py-1.5 rounded-[50px] cursor-pointer transition-colors ${
-                        selectedKeyword === '사후르' 
-                          ? 'bg-primary text-white hover:bg-primary/80' 
-                          : 'bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleKeywordClick('사후르');
-                      }}
-                    >
-                      <div className="self-stretch my-auto">사후르</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              )}
 
               {/* 하단 안내 텍스트 */}
               <div className="self-center mt-3 text-xs font-semibold tracking-tight text-slate-300 text-center">
@@ -779,6 +747,8 @@ function GridCElement({
         </div>
       </div>
       )}
+
+
     </div>
   );
 }
