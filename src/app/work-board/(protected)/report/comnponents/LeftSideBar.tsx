@@ -1,17 +1,18 @@
 "use client";
 import React, { useState, useEffect, Suspense, useMemo } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import ThemeSelectionModal from "./ThemeSelectionModal";
 import type { ThemeItem, ThemeItemListResponse } from "./types";
+import { useGlobalThemeStore, type ReportType } from "@/hooks/store/useGlobalThemeStore";
 
 function LeftSideBarContent() {
   
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [themes, setThemes] = useState<ThemeItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const { setTheme, setCurrentType } = useGlobalThemeStore();
 
   const [selectedTab, setSelectedTab] = useState<"theme" | "background">("theme");
   const [selectedTheme, setSelectedTheme] = useState<number>(0);
@@ -19,14 +20,19 @@ function LeftSideBarContent() {
 
   // type 파라미터 추출 (메모화)
   const currentType = useMemo(() => {
-    return (searchParams.get("type") || "A").toUpperCase();
+    return (searchParams.get("type") || "A").toUpperCase() as ReportType;
   }, [searchParams.get("type")]);
 
-  // API에서 추천 테마 가져오기 (type이 변경될 때만 호출)
+  // 현재 타입을 전역 상태에 설정
+  useEffect(() => {
+    setCurrentType(currentType);
+  }, [currentType, setCurrentType]);
+
+  // API에서 추천 테마 가져오기
   useEffect(() => {
     const fetchThemes = async () => {
       setIsLoading(true);
-      const endpoint = `/api/report/theme-item-list?type=${encodeURIComponent(currentType)}&offsetWithLimit=0,8&sorts=createdAt.desc,name.asc`;
+      const endpoint = `/api/report/theme-item-list?offsetWithLimit=0,8&sorts=createdAt.desc,name.asc`;
       try {
         const res = await fetch(endpoint, { method: "GET" });
         if (!res.ok) {
@@ -35,7 +41,18 @@ function LeftSideBarContent() {
           return;
         }
         const data = (await res.json()) as ThemeItemListResponse;
-        setThemes(Array.isArray(data?.result) ? data.result : []);
+        const themeList = Array.isArray(data?.result) ? data.result : [];
+        setThemes(themeList);
+        
+        // 첫 번째 테마를 기본으로 설정
+        if (themeList.length > 0) {
+          const firstTheme = themeList[0];
+          setTheme({
+            id: firstTheme.id,
+            name: firstTheme.name,
+            backgroundImage: firstTheme.backgroundImage
+          }, currentType);
+        }
       } catch (e) {
         setThemes([]);
       } finally {
@@ -43,44 +60,20 @@ function LeftSideBarContent() {
       }
     };
     fetchThemes();
-  }, [currentType]); // searchParams 대신 currentType만 dependency로 사용
+  }, [currentType, setTheme]); // currentType이 변경될 때마다 재실행
 
-  // theme 파라미터 추출 (메모화)
-  const themeParam = useMemo(() => searchParams.get("theme"), [searchParams.get("theme")]);
-
-  // 초기 렌더링 및 데이터 로드 후 searchParams에서 theme 값 읽어오기
-  useEffect(() => {
-    if (themeParam) {
-      const themeIndex = parseInt(themeParam);
-      if (!isNaN(themeIndex) && themeIndex >= 0 && themeIndex < (themes?.length || 0)) {
-        setSelectedTheme(themeIndex);
-      }
-    }
-  }, [themeParam, themes]);
-
-  // 테마 선택 시 URL searchParams 업데이트
+  // 테마 선택 핸들러
   const handleThemeSelect = (index: number) => {
     setSelectedTheme(index);
 
-    const current = new URLSearchParams(Array.from(searchParams.entries()));
-    current.set("theme", index.toString());
-
     const theme = themes[index];
-    if (theme?.backgroundImage?.imageUrl) {
-      current.set("bgUrl", theme.backgroundImage.imageUrl);
-    } else {
-      current.delete("bgUrl");
+    if (theme) {
+      setTheme({
+        id: theme.id,
+        name: theme.name,
+        backgroundImage: theme.backgroundImage
+      }, currentType);
     }
-    if (typeof theme?.backgroundImage?.id === 'number') {
-      current.set("bgId", String(theme.backgroundImage.id));
-    } else {
-      current.delete("bgId");
-    }
-
-    const search = current.toString();
-    const query = search ? `?${search}` : "";
-
-    router.push(`${window.location.pathname}${query}`);
   };
 
   return (

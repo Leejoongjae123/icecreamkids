@@ -14,6 +14,7 @@ import ReportBottomSection from "./ReportBottomSection";
 import ReportTitleSection from "./ReportTitleSection";
 import GridC from "./GridC";
 import { useStickerStore } from "@/hooks/store/useStickerStore";
+import { useGlobalThemeStore } from "@/hooks/store/useGlobalThemeStore";
 import DraggableSticker from "./DraggableSticker";
 
 // searchParams를 사용하는 컴포넌트 분리
@@ -23,6 +24,8 @@ function ReportCContent() {
   
   // 스티커 관련
   const { stickers } = useStickerStore();
+  const { backgroundImageUrlByType } = useGlobalThemeStore();
+  const backgroundImageUrl = backgroundImageUrlByType['C'];
   const stickerContainerRef = useRef<HTMLDivElement>(null);
 
   // searchParams에서 photo 값 가져오기 (1-9 범위, 기본값 9)
@@ -32,22 +35,7 @@ function ReportCContent() {
     return parsed >= 1 && parsed <= 9 ? parsed : 9;
   }, [photoParam]);
 
-  // searchParams에서 theme/bgUrl/bgId 가져오기
-  const themeParam = searchParams.get("theme");
-  const theme = React.useMemo(() => {
-    const parsed = parseInt(themeParam || "0", 10);
-    return parsed >= 0 ? parsed : 0;
-  }, [themeParam]);
-  const bgUrlParam = searchParams.get("bgUrl");
-  const bgIdParam = searchParams.get("bgId");
 
-  // theme 또는 명시적 bgUrl 값에 따른 배경이미지 URL 생성
-  const backgroundImageUrl = React.useMemo(() => {
-    const url = bgUrlParam && bgUrlParam.trim() !== "" 
-      ? bgUrlParam 
-      : `https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg${theme + 1}.png`;
-    return `url(${url})`;
-  }, [bgUrlParam, theme]);
 
   // 이미지 로드 상태 확인을 위한 핸들러
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -132,14 +120,23 @@ function ReportCContent() {
 
           <div
             ref={stickerContainerRef}
-            className="flex flex-col w-full px-4 py-4 rounded-br-xl rounded-bl-xl relative"
+            className="flex flex-col w-full px-4 py-4 rounded-br-xl rounded-bl-xl relative overflow-hidden"
             style={{
-              backgroundImage: backgroundImageUrl,
-              overflow: "visible",
               height: "calc(1123px - 66px)", // 전체 높이에서 헤더 높이만 제외
             }}
-            data-id={bgIdParam || undefined}
           >
+            {/* 배경 이미지 */}
+            {backgroundImageUrl && (
+              <Image
+                key={backgroundImageUrl} // URL이 바뀔 때마다 재렌더링 강제
+                src={backgroundImageUrl}
+                alt="Report background"
+                fill
+                className="object-cover rounded-br-xl rounded-bl-xl -z-10"
+                priority
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 70vw"
+              />
+            )}
             {/* Title Section - 고정 높이 */}
             <div style={{ height: "84px", flexShrink: 0 }}>
               <ReportTitleSection />

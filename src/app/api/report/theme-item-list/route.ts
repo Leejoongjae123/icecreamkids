@@ -21,26 +21,16 @@ const mapType = (typeParam: string | null): ReportTypeABC | null => {
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
 
+  // 타입 파라미터는 선택적으로 처리 (타입 무관하게 모든 테마 가져오기)
   const typeParam = searchParams.get('type');
   const reportType = mapType(typeParam);
-
-  if (!reportType) {
-    return NextResponse.json(
-      {
-        success: false,
-        message: '유효한 type 파라미터가 필요합니다. (A | B | C)'
-      },
-      { status: 400 }
-    );
-  }
 
   const offsetWithLimit = searchParams.get('offsetWithLimit') || '0,20';
   const sorts = searchParams.get('sorts') || 'createdAt.desc,name.asc';
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://3.37.227.162:8080';
-  const url = `${baseUrl}/file/v1/play-record/theme-item-list?reportType=${encodeURIComponent(
-    reportType
-  )}&offsetWithLimit=${encodeURIComponent(offsetWithLimit)}&sorts=${encodeURIComponent(sorts)}`;
+  // 타입 무관하게 모든 테마를 가져오도록 URL 구성
+  const url = `${baseUrl}/file/v1/play-record/theme-item-list?offsetWithLimit=${encodeURIComponent(offsetWithLimit)}&sorts=${encodeURIComponent(sorts)}`;
 
   try {
     const response = await fetch(url, {

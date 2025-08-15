@@ -17,6 +17,7 @@ import { UploadModal } from "@/components/modal";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import ApplyModal from "./ApplyModal";
 import useGridCStore from "@/hooks/store/useGridCStore";
+import useKeywordExpansionStore from "@/hooks/store/useKeywordExpansionStore";
 
 interface GridCItem {
   id: string;
@@ -40,6 +41,7 @@ interface GridCProps {
 
 function GridC({ isClippingEnabled, photoCount }: GridCProps) {
   const { setSelected, remove, setImage, clearAll } = useGridCStore();
+  const { expandFirstImageGrid } = useKeywordExpansionStore();
   // photoCount에 따라 그리드 아이템 데이터 관리
   const [items, setItems] = React.useState<GridCItem[]>(() => {
     const initialItems: GridCItem[] = [];
@@ -762,6 +764,17 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
         배정안됨: notAssignedCount,
         새롭게할당됨: `1번째부터 ${uploadedCount.success}번째까지`
       });
+      
+      // 이미지가 업로드되면 첫 번째 아이템만 키워드 영역 확장
+      if (uploadedCount.success > 0) {
+        const imageGridIds = updatedItems
+          .filter(item => item.imageUrl && item.imageUrl !== defaultImage)
+          .map(item => item.id);
+        
+        if (imageGridIds.length > 0) {
+          expandFirstImageGrid(imageGridIds);
+        }
+      }
       
       return updatedItems;
     });

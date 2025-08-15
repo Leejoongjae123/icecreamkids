@@ -1,12 +1,9 @@
 "use client";
 import * as React from "react";
+import * as ReactDOM from "react-dom";
 import Image from "next/image";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+
 import { ChevronDown } from "lucide-react";
 import AddPictureClipping from "./AddPictureClipping";
 import KonvaImageCanvas, { KonvaImageCanvasRef } from "./KonvaImageCanvas";
@@ -16,6 +13,7 @@ import {IoClose} from "react-icons/io5";
 import useKeywordStore from "@/hooks/store/useKeywordStore";
 import useUserStore from "@/hooks/store/useUserStore";
 import useGridCStore from "@/hooks/store/useGridCStore";
+import useKeywordExpansionStore from "@/hooks/store/useKeywordExpansionStore";
 
 interface GridCElementProps {
   index: number;
@@ -51,7 +49,6 @@ function GridCElement({
   onIntegratedUpload,
 }: GridCElementProps) {
   const [activityKeyword, setActivityKeyword] = React.useState("");
-  const [isKeywordExpanded, setIsKeywordExpanded] = React.useState(false);
   const [isInputFocused, setIsInputFocused] = React.useState(false);
   const [selectedKeywords, setSelectedKeywords] = React.useState<string[]>([]);
   const [currentImageUrl, setCurrentImageUrl] = React.useState<string>(imageUrl);
@@ -66,6 +63,10 @@ function GridCElement({
   
   // 전역 키워드 store 사용
   const { recommendedKeywords, loadKeywords, addKeyword } = useKeywordStore();
+  
+  // 키워드 확장 상태 전역 store 사용
+  const { isExpanded, expandOnlyOne, setExpanded } = useKeywordExpansionStore();
+  const isRecommendedKeywordsExpanded = isExpanded(gridId);
   
   // placeholder 이미지 URL
   const NO_IMAGE_URL = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
@@ -82,6 +83,10 @@ function GridCElement({
   // canvas-container ref 및 크기 상태
   const canvasContainerRef = React.useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = React.useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  
+  // photo-description-input ref 및 높이 상태
+  const photoDescriptionRef = React.useRef<HTMLDivElement>(null);
+  const [photoDescriptionHeight, setPhotoDescriptionHeight] = React.useState<number>(0);
 
   // 이미지 변환 정보 상태 (위치, 스케일 동기화용)
   const [imageTransformData, setImageTransformData] = React.useState<{
@@ -97,6 +102,9 @@ function GridCElement({
     show: false,
     isExpanded: false,
   });
+  
+  // 툴바 위치 상태
+  const [toolbarPosition, setToolbarPosition] = React.useState({ left: 0, top: 0 });
 
   // 이미지가 있는지 확인하는 헬퍼 함수
   const hasImage = currentImageUrl && currentImageUrl !== NO_IMAGE_URL;
@@ -169,6 +177,15 @@ function GridCElement({
           });
         }
       }
+      
+      // 툴바 위치 업데이트
+      if (canvasContainerRef.current) {
+        const rect = canvasContainerRef.current.getBoundingClientRect();
+        setToolbarPosition({
+          left: rect.left + 8,
+          top: rect.bottom + 8
+        });
+      }
 
       setToolbarState({
         show: true,
@@ -181,6 +198,13 @@ function GridCElement({
   const handleCheckboxChange = (checked: boolean | "indeterminate") => {
     if (onSelectChange && typeof checked === "boolean") {
       onSelectChange(checked);
+      
+      // 체크박스가 선택되면 해당 아이템만 키워드 영역 펼치고 나머지는 축소
+      if (checked) {
+        expandOnlyOne(gridId);
+      } else {
+        setExpanded(gridId, false);
+      }
     }
   };
 
@@ -272,6 +296,32 @@ function GridCElement({
     };
   }, []);
 
+  // photo-description-input 높이 감지
+  React.useEffect(() => {
+    const updatePhotoDescriptionHeight = () => {
+      if (photoDescriptionRef.current) {
+        const rect = photoDescriptionRef.current.getBoundingClientRect();
+        setPhotoDescriptionHeight(rect.height);
+      }
+    };
+
+    // 초기 높이 설정
+    updatePhotoDescriptionHeight();
+
+    // ResizeObserver를 사용하여 높이 변화 감지
+    const resizeObserver = new ResizeObserver(() => {
+      updatePhotoDescriptionHeight();
+    });
+
+    if (photoDescriptionRef.current) {
+      resizeObserver.observe(photoDescriptionRef.current);
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [isSelected]); // isSelected가 변경될 때마다 재실행
+
   // AddPictureClipping용 이미지 추가 핸들러
   const handleImageAdded = (hasImage: boolean, imageUrl?: string, driveItemKey?: string) => {
     if (hasImage && imageUrl) {
@@ -290,6 +340,11 @@ function GridCElement({
       
       // hover 상태 해제
       setIsHovered(false);
+      
+      // 이미지가 첨부되면 현재 그리드의 키워드 영역만 확장하고 나머지는 축소
+      if (isSelected) {
+        expandOnlyOne(gridId);
+      }
     }
   };
 
@@ -323,6 +378,30 @@ function GridCElement({
     // console.log("이미지 변환 데이터 업데이트:", transformData);
     setImageTransformData(transformData);
   }, []);
+
+  // 크롭된 이미지 업데이트 핸들러
+  const handleCroppedImageUpdate = React.useCallback((croppedImageUrl: string) => {
+    console.log("🎯 크롭된 이미지 업데이트:", {
+      gridId,
+      이전이미지: currentImageUrl,
+      새이미지: croppedImageUrl.substring(0, 50) + '...'
+    });
+    
+    // 현재 이미지 URL을 크롭된 이미지로 업데이트
+    setCurrentImageUrl(croppedImageUrl);
+    
+    // 이미지 메타데이터 업데이트
+    const croppedKey = `cropped_${Date.now()}_${Math.random()}`;
+    setImageMetadata([{ url: croppedImageUrl, driveItemKey: croppedKey }]);
+    setImage(gridId, croppedKey);
+    
+    // 부모 컴포넌트에 크롭된 이미지 전달
+    if (onImageUpload) {
+      onImageUpload(gridId, croppedImageUrl);
+    }
+    
+    console.log("✅ 크롭된 이미지 적용 완료:", gridId);
+  }, [gridId, currentImageUrl, setImage, onImageUpload]);
 
   // 이미지 위치 초기화
   const handleResetImagePosition = React.useCallback(() => {
@@ -444,6 +523,29 @@ function GridCElement({
     };
   }, [toolbarState.show, gridId]);
 
+  // 스크롤이나 리사이즈 시 툴바 위치 업데이트
+  React.useEffect(() => {
+    const updateToolbarPosition = () => {
+      if (toolbarState.show && canvasContainerRef.current) {
+        const rect = canvasContainerRef.current.getBoundingClientRect();
+        setToolbarPosition({
+          left: rect.left + 8,
+          top: rect.bottom + 8
+        });
+      }
+    };
+
+    if (toolbarState.show) {
+      window.addEventListener('scroll', updateToolbarPosition, true);
+      window.addEventListener('resize', updateToolbarPosition);
+    }
+
+    return () => {
+      window.removeEventListener('scroll', updateToolbarPosition, true);
+      window.removeEventListener('resize', updateToolbarPosition);
+    };
+  }, [toolbarState.show]);
+
   // 드래그 상태에 따른 스타일
   const containerClass = isDragging
     ? "" // DragOverlay에서는 별도 스타일 적용하지 않음
@@ -459,6 +561,8 @@ function GridCElement({
   React.useEffect(() => {
     loadKeywords();
   }, [loadKeywords]);
+
+  // isSelected 상태 변경 시 키워드 확장 처리는 체크박스 핸들러에서 수행
 
   // 키워드 버튼 클릭 핸들러
   const handleKeywordClick = (keyword: string) => {
@@ -517,10 +621,66 @@ function GridCElement({
     } catch (_) {}
   };
 
+  // photo-description-input을 하단에 고정하기 위한 top 값 (고정값)
+  const [photoDescriptionTopOffset, setPhotoDescriptionTopOffset] = React.useState<number>(200);
+
+  // 처음 컨테이너 크기가 설정될 때만 한 번 계산하여 고정
+  React.useEffect(() => {
+    if (containerSize.height > 0 && photoDescriptionTopOffset === 200) {
+      // 예상 photo-description-input 높이를 80px로 가정하여 계산
+      const estimatedHeight = 80;
+      const calculatedTop = containerSize.height - estimatedHeight - 8;
+      setPhotoDescriptionTopOffset(calculatedTop > 0 ? calculatedTop : 200);
+    }
+  }, [containerSize.height, photoDescriptionTopOffset]);
+
+  // 텍스트 파일 업로드 핸들러
+  const handleTextFileUpload = () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.txt';
+    fileInput.style.display = 'none';
+    
+    fileInput.onchange = (event) => {
+      const target = event.target as HTMLInputElement;
+      const file = target.files?.[0];
+      
+      if (file && file.type === 'text/plain') {
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+          const content = e.target?.result as string;
+          if (content) {
+            setActivityKeyword(content);
+            try {
+              setKeyword(gridId, content);
+            } catch (_) {}
+            
+            // 쉼표로 구분된 키워드들을 배열로 변환
+            const keywordsArray = content.split(",").map(k => k.trim()).filter(k => k.length > 0);
+            setSelectedKeywords(keywordsArray);
+            
+            // 전역 store에 저장
+            keywordsArray.forEach(k => addKeyword(k));
+          }
+        };
+        
+        reader.readAsText(file, 'UTF-8');
+      } else {
+        alert('텍스트 파일(.txt)만 업로드 가능합니다.');
+      }
+      
+      document.body.removeChild(fileInput);
+    };
+    
+    document.body.appendChild(fileInput);
+    fileInput.click();
+  };
+
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full" style={{ zIndex: toolbarState.show ? 100 : 'auto' }}>
       <div
-        className={`relative w-full h-full ${!isClippingEnabled ? "bg-white rounded-xl" : "bg-transparent"} overflow-hidden ${containerClass} ${isDragging ? "opacity-100" : ""} transition-all duration-200 ${!isDragging && isClippingEnabled ? "cursor-grab active:cursor-grabbing" : ""} ${borderClass}`}
+        className={`relative w-full h-full ${!isClippingEnabled ? "bg-white rounded-xl" : "bg-transparent"} ${containerClass} ${isDragging ? "opacity-100" : ""} transition-all duration-200 ${!isDragging && isClippingEnabled ? "cursor-grab active:cursor-grabbing" : ""} ${borderClass}`}
         data-grid-id={gridId}
         {...(isDragging || !isClippingEnabled ? {} : dragAttributes)}
         {...(isDragging || !isClippingEnabled ? {} : dragListeners)}
@@ -574,6 +734,7 @@ function GridCElement({
             isClippingEnabled={isClippingEnabled}
             onImageMove={handleImageMove}
             onImageTransformUpdate={handleImageTransformUpdate}
+            onCroppedImageUpdate={handleCroppedImageUpdate}
             clipPath={isClippingEnabled ? clipPathData.pathData : undefined}
             gridId={gridId}
             imageTransformData={imageTransformData}
@@ -638,34 +799,47 @@ function GridCElement({
       </div>
 
       {/* GridEditToolbar - element 하단 좌측에 위치 (클리핑 활성화 시에만) */}
-      {toolbarState.show && isClippingEnabled && (
-        <div className="grid-edit-toolbar">
+      {toolbarState.show && isClippingEnabled && typeof window !== 'undefined' && ReactDOM.createPortal(
+        <div 
+          className="grid-edit-toolbar fixed"
+          style={{
+            zIndex: 9999,
+            pointerEvents: 'auto',
+            left: toolbarPosition.left,
+            top: toolbarPosition.top,
+          }}
+        >
           <GridEditToolbar
             show={toolbarState.show}
             isExpanded={toolbarState.isExpanded}
-            position={{ left: "8px", top: "calc(100% + 8px)" }}
+            position={{ left: "0", top: "0" }}
             onIconClick={handleToolbarIconClick}
             targetGridId={gridId}
           />
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Keyword Input Component at the bottom - 체크박스 선택 시에만 표시 */}
-      {isSelected && (
-        <div className="absolute bottom-0 left-0 right-0 z-50 p-2 photo-description-input">
-          <div className="flex overflow-hidden flex-col px-3 py-2 text-xs tracking-tight leading-none text-gray-700 bg-white rounded-lg w-full shadow-[1px_1px_10px_rgba(0,0,0,0.1)]">
+      {/* Keyword Input Component at the bottom - 체크박스 선택 시 및 클리핑 활성화 시에만 표시 */}
+      {isSelected && isClippingEnabled && (
+        <div 
+          ref={photoDescriptionRef}
+          className="absolute bottom-0 left-0 right-0 z-50 p-2 photo-description-input"
+          
+        >
+          <div className="flex flex-col px-3 py-2 text-xs tracking-tight leading-none text-gray-700 bg-white rounded-lg w-full shadow-[1px_1px_10px_rgba(0,0,0,0.1)]">
             {/* 검색 입력 */}
-            <Collapsible
-              open={isKeywordExpanded}
-              onOpenChange={setIsKeywordExpanded}
-            >
             <div className="flex gap-2.5 text-zinc-400 w-full">
               <div className={`flex-1 flex overflow-hidden flex-col justify-center items-start px-2 py-1 bg-white rounded-md border border-solid transition-colors ${isInputFocused ? 'border-primary' : 'border-zinc-100'}`}>
                 <input
                   type="text"
                   value={activityKeyword}
                   onChange={handleKeywordInputChange}
-                  onFocus={() => setIsInputFocused(true)}
+                  onFocus={() => {
+                    setIsInputFocused(true);
+                    // input에 포커스가 가면 해당 아이템만 확장하고 나머지는 축소
+                    expandOnlyOne(gridId);
+                  }}
                   onBlur={handleKeywordBlur}
                   onKeyDown={handleKeywordKeyDown}
                   placeholder="활동주제나 관련 키워드를 입력하세요."
@@ -673,77 +847,91 @@ function GridCElement({
                   onClick={(e) => e.stopPropagation()}
                 />
               </div>
-              <CollapsibleTrigger asChild>
-                <button
-                  className="flex-shrink-0 p-2 hover:bg-gray-100 rounded transition-colors"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <ChevronDown
-                    className={`h-4 w-4 transition-transform duration-200 ${
-                      isKeywordExpanded ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-              </CollapsibleTrigger>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleTextFileUpload();
+                }}
+                className="flex overflow-hidden justify-center items-center w-[32px] h-[32px] bg-[#979797] border border-dashed border-zinc-400 rounded-md hover:bg-[#979797]/80 transition-colors"
+                title="텍스트 파일 업로드"
+              >
+                <Image
+                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload.svg"
+                  className="object-contain"
+                  width={16}
+                  height={16}
+                  alt="Upload icon"
+                />
+              </button>
             </div>
 
-            {/* 모든 키워드들 (펼쳤을 때만 표시) */}
-            <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+            {/* 모든 키워드들 */}
+            <div className="relative">
               {/* 추천 키워드 섹션 */}
-              <div className="flex items-center mt-3.5">
-                <div className="font-semibold">추천 키워드</div>
-              </div>
-              {/* 추천 키워드 목록 - 2줄까지만 표시하고 나머지는 스크롤 */}
-              {recommendedKeywords.length > 0 && (
-                <div className="mt-2 w-full bg-white">
-                  <div className="max-h-[4.5rem] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-                    <div className="flex flex-wrap gap-1.5 font-medium">
-                      {recommendedKeywords.map((keyword, index) => (
-                        <div 
-                          key={`${keyword}-${index}`}
-                          className={`flex overflow-hidden flex-col justify-center px-2.5 py-1.5 whitespace-nowrap rounded-[50px] cursor-pointer transition-colors ${
-                            selectedKeywords.includes(keyword) 
-                              ? 'bg-primary text-white hover:bg-primary/80' 
-                              : 'bg-gray-50 hover:bg-gray-100'
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleKeywordClick(keyword);
-                          }}
-                        >
-                          <div>{keyword}</div>
+              <div className="relative">
+                <div className="flex items-center justify-between mt-3.5">
+                  <div className="font-semibold">추천 키워드</div>
+                  <button
+                    className="flex-shrink-0 p-1 hover:bg-gray-100 rounded transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isRecommendedKeywordsExpanded) {
+                        setExpanded(gridId, false);
+                      } else {
+                        expandOnlyOne(gridId);
+                      }
+                    }}
+                  >
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform duration-200 ${
+                        isRecommendedKeywordsExpanded ? "" : "rotate-180"
+                      }`}
+                    />
+                  </button>
+                </div>
+                
+                {/* 추천 키워드 확장 영역 */}
+                <div 
+                  className={`overflow-hidden transition-all duration-200 ease-in-out ${
+                    isRecommendedKeywordsExpanded ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
+                  }`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className=" mt-2 pt-2">
+                    {/* 추천 키워드 목록 - 2줄까지만 표시하고 나머지는 스크롤 */}
+                    {recommendedKeywords.length > 0 && (
+                      <div className="max-h-[4.5rem] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                        <div className="flex flex-wrap gap-1.5 font-medium">
+                          {recommendedKeywords.map((keyword, index) => (
+                            <div 
+                              key={`${keyword}-${index}`}
+                              className={`flex overflow-hidden flex-col justify-center px-2.5 py-1.5 whitespace-nowrap rounded-[50px] cursor-pointer transition-colors ${
+                                selectedKeywords.includes(keyword) 
+                                  ? 'bg-primary text-white hover:bg-primary/80' 
+                                  : 'bg-gray-50 hover:bg-gray-100'
+                              }`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleKeywordClick(keyword);
+                              }}
+                            >
+                              <div>{keyword}</div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {/* 저장된 키워드가 없을 때 안내 메시지 */}
-              {recommendedKeywords.length === 0 && (
-                <div className="mt-2 text-center text-gray-400 text-xs py-1">
-                  키워드를 입력하면 추천 키워드로 저장됩니다.
-                </div>
-              )}
-
-              {/* 하단 안내 텍스트 */}
-              <div className="self-center mt-3 text-xs font-semibold tracking-tight text-slate-300 text-center">
-                활동에 맞는 키워드를 입력하거나 메모를 드래그 또는
-              </div>
-              <div className="flex items-center gap-1.5 self-center mt-1 w-full text-xs font-semibold tracking-tight text-slate-300 text-center justify-center">
-                <div className="flex items-center gap-1.5">
-                  <img
-                    src="https://api.builder.io/api/v1/image/assets/TEMP/a8776df634680d6cea6086a76446c2b3a2d48eb2?placeholderIfAbsent=true&apiKey=304aa4871c104446b0f8164e96d049f4"
-                    className="object-contain shrink-0 aspect-square w-[15px] my-auto"
-                    alt="Upload icon"
-                  />
-                  <div className="grow shrink w-full ">
-                    를 눌러서 업로드 해 주세요.
+                      </div>
+                    )}
+                    
+                    {/* 저장된 키워드가 없을 때 안내 메시지 */}
+                    {recommendedKeywords.length === 0 && (
+                      <div className="text-center text-gray-400 text-xs py-2">
+                        키워드를 입력하면 추천 키워드로 저장됩니다.
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-            </CollapsibleContent>
-          </Collapsible>
+            </div>
         </div>
       </div>
       )}

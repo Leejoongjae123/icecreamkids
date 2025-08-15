@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import * as ReactDOM from "react-dom";
 import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import GridEditToolbar from "./GridEditToolbar";
@@ -789,6 +790,12 @@ function GridAElement({
     show: false,
     isExpanded: false,
   });
+  
+  // 툴바 위치 상태
+  const [toolbarPosition, setToolbarPosition] = React.useState({ left: 0, top: 0 });
+  
+  // 컨테이너 ref
+  const containerRef = React.useRef<HTMLDivElement>(null);
 
   // Default images if none provided - imageCount에 맞게 동적으로 생성
   const defaultImages = React.useMemo(() => {
@@ -1356,6 +1363,32 @@ function GridAElement({
       document.removeEventListener('click', handleClickOutside);
     };
   }, [toolbarState.show, gridId]);
+  
+  // 스크롤이나 리사이즈 시 툴바 위치 업데이트
+  React.useEffect(() => {
+    const updateToolbarPosition = () => {
+      if (toolbarState.show && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        setToolbarPosition({
+          left: rect.left + 8,
+          top: rect.bottom + 8
+        });
+      }
+    };
+
+    if (toolbarState.show) {
+      // 초기 위치 설정
+      updateToolbarPosition();
+      
+      window.addEventListener('scroll', updateToolbarPosition, true);
+      window.addEventListener('resize', updateToolbarPosition);
+    }
+
+    return () => {
+      window.removeEventListener('scroll', updateToolbarPosition, true);
+      window.removeEventListener('resize', updateToolbarPosition);
+    };
+  }, [toolbarState.show]);
 
   // 툴바 표시 상태에 따른 border 스타일 결정
   const borderClass = toolbarState.show 
@@ -1399,6 +1432,7 @@ function GridAElement({
   return (
     <div className="relative w-full h-full flex flex-col">
       <div
+        ref={containerRef}
         className={`drag-contents overflow-hidden px-2.5 py-2.5 bg-white rounded-2xl ${containerClass} w-full h-full flex flex-col ${className} gap-y-1.5 ${isDragging ? 'opacity-90' : ''} transition-all duration-200 cursor-grab active:cursor-grabbing`}
         style={style}
         onClick={handleNonImageClick}
@@ -2218,17 +2252,26 @@ function GridAElement({
         {children && <div className="mt-1 flex-shrink-0">{children}</div>}
       </div>
       
-      {/* GridEditToolbar - element 하단 좌측에 위치 */}
-      {toolbarState.show && (
-        <div className="grid-edit-toolbar">
+      {/* GridEditToolbar - Portal로 렌더링하여 최상위에 위치 */}
+      {toolbarState.show && typeof window !== 'undefined' && ReactDOM.createPortal(
+        <div 
+          className="grid-edit-toolbar fixed"
+          style={{
+            zIndex: 9999,
+            pointerEvents: 'auto',
+            left: toolbarPosition.left,
+            top: toolbarPosition.top,
+          }}
+        >
           <GridEditToolbar
             show={toolbarState.show}
             isExpanded={toolbarState.isExpanded}
-            position={{ left: "8px", top: "calc(100% + 8px)" }}
+            position={{ left: "0", top: "0" }}
             onIconClick={handleToolbarIconClick}
             targetGridId={gridId}
           />
-        </div>
+        </div>,
+        document.body
       )}
       
       {/* 이미지 편집 모달 */}

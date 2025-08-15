@@ -20,6 +20,7 @@ import ReportBottomSection from "./ReportBottomSection";
 import ReportTitleSection from "./ReportTitleSection";
 import GridB from "./GridB";
 import { useStickerStore } from "@/hooks/store/useStickerStore";
+import { useGlobalThemeStore } from "@/hooks/store/useGlobalThemeStore";
 import DraggableSticker from "./DraggableSticker";
 
 // searchParams를 사용하는 컴포넌트 분리
@@ -31,6 +32,8 @@ function ReportBContent() {
   
   // 스티커 관련
   const { stickers } = useStickerStore();
+  const { backgroundImageUrlByType } = useGlobalThemeStore();
+  const backgroundImageUrl = backgroundImageUrlByType['B'];
   const stickerContainerRef = useRef<HTMLDivElement>(null);
 
   // searchParams에서 gridCount 값 가져오기 (1-12 범위, 기본값 6)
@@ -40,22 +43,7 @@ function ReportBContent() {
     return parsed >= 1 && parsed <= 12 ? parsed : 6;
   }, [gridCountParam]);
 
-  // searchParams에서 theme/bgUrl/bgId 가져오기
-  const themeParam = searchParams.get("theme");
-  const theme = React.useMemo(() => {
-    const parsed = parseInt(themeParam || "0", 10);
-    return parsed >= 0 ? parsed : 0;
-  }, [themeParam]);
-  const bgUrlParam = searchParams.get("bgUrl");
-  const bgIdParam = searchParams.get("bgId");
 
-  // theme 또는 명시적 bgUrl 값에 따른 배경이미지 URL 생성
-  const backgroundImageUrl = React.useMemo(() => {
-    const url = bgUrlParam && bgUrlParam.trim() !== "" 
-      ? bgUrlParam 
-      : `https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg${theme + 1}.png`;
-    return `url(${url})`;
-  }, [bgUrlParam, theme]);
 
   // 툴바 아이콘 클릭 핸들러
   const handleIconClick = (index: number) => {
@@ -104,6 +92,7 @@ function ReportBContent() {
       }
     }
   };
+  console.log("backgroundImageUrlB:", backgroundImageUrl);
 
   return (
     <TooltipProvider>
@@ -168,12 +157,20 @@ function ReportBContent() {
           {/* 메인 컨텐츠 영역 - 남은 공간 모두 차지 */}
           <div
             ref={stickerContainerRef}
-            className="flex flex-col w-full h-full px-4 py-4 rounded-br-xl rounded-bl-xl relative overflow-visible"
-            style={{
-              backgroundImage: backgroundImageUrl,
-            }}
-            data-id={bgIdParam || undefined}
+            className="flex flex-col w-full h-full px-4 py-4 rounded-br-xl rounded-bl-xl relative overflow-hidden"
           >
+            {/* 배경 이미지 */}
+            
+              <Image
+                key={backgroundImageUrl||""} // URL이 바뀔 때마다 재렌더링 강제
+                src={backgroundImageUrl||""}
+                alt="Report background"
+                fill
+                className="object-cover rounded-br-xl rounded-bl-xl "
+                priority
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 70vw"
+              />
+            
             {/* 타이틀 섹션 - 고정 높이 84px */}
             <div className="flex-shrink-0 pb-4">
               <ReportTitleSection />

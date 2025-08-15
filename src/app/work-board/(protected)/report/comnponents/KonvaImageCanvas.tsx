@@ -55,6 +55,7 @@ interface KonvaImageCanvasProps {
   isClippingEnabled: boolean;
   onImageMove?: (x: number, y: number) => void;
   onImageTransformUpdate?: (transformData: { x: number; y: number; scale: number; width: number; height: number }) => void;
+  onCroppedImageUpdate?: (croppedImageUrl: string) => void;
   clipPath?: string;
   gridId?: string;
   imageTransformData?: {
@@ -76,10 +77,11 @@ export interface KonvaImageCanvasRef {
 }
 
 const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
-  ({ imageUrl, containerWidth, containerHeight, isClippingEnabled, onImageMove, onImageTransformUpdate, clipPath, gridId, imageTransformData }, ref) => {
+  ({ imageUrl, containerWidth, containerHeight, isClippingEnabled, onImageMove, onImageTransformUpdate, onCroppedImageUpdate, clipPath, gridId, imageTransformData }, ref) => {
       const stageRef = useRef<any>(null);
   const imageRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
+  const overlayGroupRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
     
     const [konvaImage, setKonvaImage] = useState<HTMLImageElement | null>(null);
@@ -191,7 +193,14 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
       setIsLoading(true);
 
       const imageObj = new window.Image();
-      imageObj.crossOrigin = "anonymous";
+
+      // CORS: 원격 이미지(toDataURL 사용) 크롭을 위해 anonymous 적용 후 실패 시 재시도
+      const isDataUrl = imageUrl.startsWith('data:');
+      const isHttpUrl = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
+      const isRelative = imageUrl.startsWith('/');
+      if ((isHttpUrl || isRelative) && !isDataUrl) {
+        imageObj.crossOrigin = 'anonymous';
+      }
       
       imageObj.onload = () => {
         const imgWidth = imageObj.width;
@@ -257,8 +266,75 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
         }
       };
 
-      imageObj.onerror = () => {
-        setIsLoading(false);
+      imageObj.onerror = (error) => {
+        console.log('❌ 이미지 로드 실패, CORS 없이 재시도:', { imageUrl, error });
+
+        // crossOrigin 제거 후 재시도
+        const retryImageObj = new window.Image();
+        
+        retryImageObj.onload = () => {
+            console.log('✅ CORS 없이 이미지 로드 성공');
+            const imgWidth = retryImageObj.width;
+            const imgHeight = retryImageObj.height;
+            
+            // 동일한 로드 로직 적용
+            let scale: number;
+            if (isPlaceholder) {
+              const scaleX = canvasSize.width / imgWidth;
+              const scaleY = canvasSize.height / imgHeight;
+              scale = Math.max(scaleX, scaleY);
+            } else {
+              const scaleX = (canvasSize.width * 0.8) / imgWidth;
+              const scaleY = (canvasSize.height * 0.8) / imgHeight;
+              scale = Math.min(scaleX, scaleY);
+            }
+            
+            const x = canvasSize.width / 2;
+            const y = canvasSize.height / 2;
+            
+            const imageData = {
+              x,
+              y,
+              scale,
+              width: imgWidth,
+              height: imgHeight
+            };
+            
+            setInitialImageData(imageData);
+            setKonvaImage(retryImageObj);
+            setIsLoading(false);
+            
+            if (imageTransformData && 
+                imageTransformData.width === imgWidth && 
+                imageTransformData.height === imgHeight) {
+              setImagePosition({ x: imageTransformData.x, y: imageTransformData.y });
+              setImageScale(imageTransformData.scale);
+              
+              if (onImageTransformUpdate) {
+                onImageTransformUpdate(imageTransformData);
+              }
+            } else {
+              setImagePosition({ x, y });
+              setImageScale(scale);
+              
+              if (onImageTransformUpdate) {
+                onImageTransformUpdate({
+                  x,
+                  y,
+                  scale,
+                  width: imgWidth,
+                  height: imgHeight
+                });
+              }
+            }
+        };
+        
+        retryImageObj.onerror = () => {
+          console.log('❌ 재시도도 실패, 로딩 종료');
+          setIsLoading(false);
+        };
+        
+        retryImageObj.src = imageUrl;
       };
 
       imageObj.src = imageUrl;
@@ -400,19 +476,37 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
       e.target.y(boundedY);
     }, [imageScale, initialImageData, canvasSize, onImageMove, onImageTransformUpdate]);
 
-    // Transform 이벤트 핸들러 (크기 조정, 회전)
+    // Transform 이벤트 핸들러 (크기 조정)
     const handleTransformEnd = useCallback((e: Konva.KonvaEventObject<Event>) => {
       const node = e.target;
       const scaleX = node.scaleX();
       const scaleY = node.scaleY();
-      const rotation = node.rotation();
       
       // 원본 비율 유지를 위해 동일한 스케일 적용
       const scale = Math.min(scaleX, scaleY);
       
       // 위치와 스케일 업데이트
-      const newX = node.x();
-      const newY = node.y();
+      let newX = node.x();
+      let newY = node.y();
+      
+      // 그리드 경계를 벗어나지 않도록 위치 제한
+      if (initialImageData) {
+        const imageWidth = initialImageData.width * scale;
+        const imageHeight = initialImageData.height * scale;
+        
+        // 이미지가 캔버스 경계를 벗어나지 않도록 위치 조정
+        const minX = imageWidth / 2;
+        const maxX = canvasSize.width - imageWidth / 2;
+        const minY = imageHeight / 2;
+        const maxY = canvasSize.height - imageHeight / 2;
+        
+        newX = Math.max(minX, Math.min(maxX, newX));
+        newY = Math.max(minY, Math.min(maxY, newY));
+        
+        // 조정된 위치를 노드에 적용
+        node.x(newX);
+        node.y(newY);
+      }
       
       setImagePosition({ x: newX, y: newY });
       setImageScale(scale);
@@ -431,7 +525,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
       // node의 스케일을 동일하게 설정
       node.scaleX(scale);
       node.scaleY(scale);
-    }, [onImageTransformUpdate, initialImageData]);
+    }, [onImageTransformUpdate, initialImageData, canvasSize]);
 
     // 이미지 경계 계산 - useMemo로 최적화
     const imageBounds = useMemo(() => {
@@ -517,16 +611,17 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
       updateClipBounds({ bottom: constrainedBottom });
     }, [clipBounds.top, canvasSize.height, imageBounds, updateClipBounds]);
 
-    // 클리핑 적용 함수 - 디버깅 로그 추가
+    // 클리핑 적용 함수 - 완전히 새로 구현
     const applyClipping = useCallback(() => {
       console.log('🎯 크롭 완료 버튼 클릭! applyClipping 함수 호출됨');
       
-      if (!konvaImage || !initialImageData) {
+      if (!konvaImage || !initialImageData || !stageRef.current) {
         console.log('❌ 클리핑 적용 실패: 필수 데이터 없음', { 
           konvaImage: !!konvaImage, 
-          initialImageData: !!initialImageData 
+          initialImageData: !!initialImageData,
+          stage: !!stageRef.current
         });
-        console.error('이미지 데이터가 없습니다.');
+        alert('이미지 데이터가 없습니다.');
         return;
       }
 
@@ -539,29 +634,32 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
       });
 
       try {
-        // 임시 캔버스 생성
-        const tempCanvas = document.createElement('canvas');
-        const ctx = tempCanvas.getContext('2d');
-        if (!ctx) {
-          console.log('❌ 캔버스 컨텍스트 생성 실패');
-          console.error('캔버스를 생성할 수 없습니다.');
-          return;
-        }
-
-        // 클리핑 영역 계산 (픽셀 단위)
+        // Stage에서 직접 데이터 추출 방식 사용 (더 안정적)
+        const stage = stageRef.current;
+        
+        // 클리핑 영역을 픽셀 단위로 계산
         const clipLeft = clipBounds.left * canvasSize.width;
         const clipTop = clipBounds.top * canvasSize.height;
         const clipWidth = (clipBounds.right - clipBounds.left) * canvasSize.width;
         const clipHeight = (clipBounds.bottom - clipBounds.top) * canvasSize.height;
 
-        console.log('📐 클리핑 영역 픽셀 계산:', {
-          clipLeft, clipTop, clipWidth, clipHeight
+        console.log('📐 클리핑 영역:', {
+          left: clipLeft, top: clipTop, width: clipWidth, height: clipHeight
         });
 
         // 유효성 검사
-        if (clipWidth <= 0 || clipHeight <= 0) {
-          console.log('❌ 유효하지 않은 클리핑 영역 크기');
-          console.error('크롭 영역이 너무 작습니다.');
+        if (clipWidth <= 10 || clipHeight <= 10) {
+          console.log('❌ 크롭 영역이 너무 작습니다');
+          alert('크롭 영역이 너무 작습니다. 더 큰 영역을 선택해주세요.');
+          return;
+        }
+
+        // 임시 캔버스 생성
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        if (!tempCtx) {
+          console.log('❌ 캔버스 컨텍스트 생성 실패');
+          alert('캔버스를 생성할 수 없습니다.');
           return;
         }
 
@@ -569,149 +667,255 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
         tempCanvas.width = clipWidth;
         tempCanvas.height = clipHeight;
 
-        // 이미지의 현재 위치와 스케일 계산
-        const imageWidth = initialImageData.width * imageScale;
-        const imageHeight = initialImageData.height * imageScale;
-        const imageLeft = imagePosition.x - imageWidth / 2;
-        const imageTop = imagePosition.y - imageHeight / 2;
-
-        console.log('🖼️ 이미지 정보:', {
-          원본크기: { width: initialImageData.width, height: initialImageData.height },
-          스케일된크기: { width: imageWidth, height: imageHeight },
-          위치: { left: imageLeft, top: imageTop },
-          중심점: { x: imagePosition.x, y: imagePosition.y }
-        });
-
-        // 소스 이미지에서 잘라낼 영역 계산
-        const sourceX = Math.max(0, (clipLeft - imageLeft) / imageScale);
-        const sourceY = Math.max(0, (clipTop - imageTop) / imageScale);
-        const sourceWidth = Math.min(initialImageData.width - sourceX, clipWidth / imageScale);
-        const sourceHeight = Math.min(initialImageData.height - sourceY, clipHeight / imageScale);
-
-        console.log('📏 소스 영역 계산:', {
-          sourceX, sourceY, sourceWidth, sourceHeight
-        });
-
-        // 클리핑 영역에 해당하는 이미지 부분을 그리기
-        ctx.drawImage(
-          konvaImage,
-          sourceX, sourceY, sourceWidth, sourceHeight,
-          0, 0, clipWidth, clipHeight
-        );
-
-        // 클리핑된 이미지를 데이터 URL로 변환
-        const clippedDataUrl = tempCanvas.toDataURL('image/png');
-        console.log('📸 클리핑된 이미지 데이터 URL 생성 완료, 길이:', clippedDataUrl.length);
-        
-        // 클리핑된 이미지 객체 생성
-        const clippedImageObj = new window.Image();
-        clippedImageObj.onload = () => {
-          console.log('✅ 클리핑된 이미지 로드 완료');
+        // Fallback 크롭 메서드 (원본 방식) - 선선언하여 이하에서 참조 가능하도록 함
+        const fallbackCropMethod = () => {
+          console.log('🔄 Fallback 크롭 방식 사용');
           
-          // 크롭된 이미지의 실제 크기 확인 (HTML 이미지 엘리먼트에서)
-          const croppedImageWidth = clippedImageObj.naturalWidth || clippedImageObj.width;
-          const croppedImageHeight = clippedImageObj.naturalHeight || clippedImageObj.height;
-          
-          console.log('📏 크롭된 이미지 실제 크기:', {
-            원본계산크기: { width: sourceWidth, height: sourceHeight },
-            실제이미지크기: { width: croppedImageWidth, height: croppedImageHeight },
-            캔버스크기: canvasSize
-          });
-          
-          // 실제 크롭된 이미지 크기를 기준으로 80% 스케일 계산
-          const scaleX = (canvasSize.width * 0.8) / croppedImageWidth;
-          const scaleY = (canvasSize.height * 0.8) / croppedImageHeight;
-          const optimalScale = Math.min(scaleX, scaleY);
-          
-          const newImageData = {
-            x: canvasSize.width / 2,
-            y: canvasSize.height / 2,
-            scale: optimalScale,
-            width: croppedImageWidth,  // 실제 크롭된 이미지 크기 사용
-            height: croppedImageHeight // 실제 크롭된 이미지 크기 사용
-          };
-          
-          console.log('🔄 크롭 후 reframe - 개선된 계산:', {
-            스케일계산: { scaleX, scaleY, 선택된스케일: optimalScale },
-            새위치: { x: newImageData.x, y: newImageData.y },
-            새이미지데이터: newImageData,
-            최종표시크기: { 
-              width: croppedImageWidth * optimalScale, 
-              height: croppedImageHeight * optimalScale 
-            }
-          });
-          
-          // 상태 업데이트 - 순서 중요!
-          setInitialImageData(newImageData);
-          setImagePosition({ x: newImageData.x, y: newImageData.y });
-          setImageScale(newImageData.scale);
-          setKonvaImage(clippedImageObj);
-          
-          // Konva 이미지 노드 속성 즉시 업데이트
-          if (imageRef.current) {
-            imageRef.current.x(newImageData.x);
-            imageRef.current.y(newImageData.y);
-            imageRef.current.scaleX(newImageData.scale);
-            imageRef.current.scaleY(newImageData.scale);
-            
-            // 강제로 레이어 다시 그리기
-            const layer = imageRef.current.getLayer();
-            if (layer) {
-              layer.batchDraw();
-            }
-            
-            console.log('🔧 Konva 노드 속성 강제 업데이트 완료');
+          const fallbackCanvas = document.createElement('canvas');
+          const fallbackCtx = fallbackCanvas.getContext('2d');
+          if (!fallbackCtx) {
+            return;
           }
           
-          // 클리핑 모드 종료하고 크롭된 상태로 편집 모드 진입
-          setIsClippingMode(false);
-          setIsClippingApplied(true);  // 크롭이 적용되었음을 표시 (재로딩 방지)
-          setClippedImage(clippedImageObj);  // 크롭된 이미지 보존 (재로딩 방지)
-          setClippedImageUrl(clippedDataUrl);  // 크롭된 이미지 URL 보존
+          fallbackCanvas.width = clipWidth;
+          fallbackCanvas.height = clipHeight;
           
-          // 새로운 이미지 전체 영역으로 클리핑 영역 재설정
-          const displayWidth = croppedImageWidth * optimalScale;
-          const displayHeight = croppedImageHeight * optimalScale;
-          const displayLeft = newImageData.x - displayWidth / 2;
-          const displayTop = newImageData.y - displayHeight / 2;
-          const displayRight = newImageData.x + displayWidth / 2;
-          const displayBottom = newImageData.y + displayHeight / 2;
-          
-          const resetClipBounds = {
-            left: Math.max(0, Math.min(1, displayLeft / canvasSize.width)),
-            top: Math.max(0, Math.min(1, displayTop / canvasSize.height)),
-            right: Math.max(0, Math.min(1, displayRight / canvasSize.width)),
-            bottom: Math.max(0, Math.min(1, displayBottom / canvasSize.height))
-          };
-          
-          console.log('🎯 클리핑 영역 초기화:', {
-            표시크기: { width: displayWidth, height: displayHeight },
-            표시경계: { left: displayLeft, top: displayTop, right: displayRight, bottom: displayBottom },
-            초기화된클립: resetClipBounds
-          });
-          
-          setClipBounds(resetClipBounds);
-          
-          // 변환 데이터를 부모에게 전달
-          if (onImageTransformUpdate) {
-            onImageTransformUpdate(newImageData);
+          // null 체크 추가
+          if (!initialImageData || !konvaImage) {
+            alert('이미지 데이터가 없습니다.');
+            return;
           }
           
-          console.log('🎉 크롭 완료! 캔버스 중앙으로 정확히 reframe됨');
+          // 이미지 위치 계산
+          const imageWidth = initialImageData.width * imageScale;
+          const imageHeight = initialImageData.height * imageScale;
+          const imageLeft = imagePosition.x - imageWidth / 2;
+          const imageTop = imagePosition.y - imageHeight / 2;
+          
+          // 소스 영역 계산
+          const sourceX = Math.max(0, (clipLeft - imageLeft) / imageScale);
+          const sourceY = Math.max(0, (clipTop - imageTop) / imageScale);
+          const sourceWidth = Math.min(initialImageData.width - sourceX, clipWidth / imageScale);
+          const sourceHeight = Math.min(initialImageData.height - sourceY, clipHeight / imageScale);
+          
+          // 타겟 위치 계산
+          const targetX = Math.max(0, imageLeft - clipLeft);
+          const targetY = Math.max(0, imageTop - clipTop);
+          
+          console.log('🔄 Fallback 크롭 계산:', {
+            source: { x: sourceX, y: sourceY, width: sourceWidth, height: sourceHeight },
+            target: { x: targetX, y: targetY }
+          });
+          
+          // 이미지 그리기
+          try {
+            fallbackCtx.drawImage(
+              konvaImage,
+              sourceX, sourceY, sourceWidth, sourceHeight,
+              targetX, targetY, sourceWidth * imageScale, sourceHeight * imageScale
+            );
+            
+            const fallbackDataUrl = fallbackCanvas.toDataURL('image/png', 0.9);
+            
+            if (fallbackDataUrl !== 'data:,') {
+              // Fallback 성공
+              const fallbackImageObj = new window.Image();
+              fallbackImageObj.onload = () => {
+                const croppedImageWidth = fallbackImageObj.naturalWidth || fallbackImageObj.width;
+                const croppedImageHeight = fallbackImageObj.naturalHeight || fallbackImageObj.height;
+                
+                const scaleX = (canvasSize.width * 0.8) / croppedImageWidth;
+                const scaleY = (canvasSize.height * 0.8) / croppedImageHeight;
+                const optimalScale = Math.min(scaleX, scaleY);
+                
+                const newImageData = {
+                  x: canvasSize.width / 2,
+                  y: canvasSize.height / 2,
+                  scale: optimalScale,
+                  width: croppedImageWidth,
+                  height: croppedImageHeight
+                };
+                
+                // 상태 업데이트
+                setInitialImageData(newImageData);
+                setImagePosition({ x: newImageData.x, y: newImageData.y });
+                setImageScale(newImageData.scale);
+                setKonvaImage(fallbackImageObj);
+                setIsClippingMode(false);
+                setIsClippingApplied(true);
+                setClippedImage(fallbackImageObj);
+                setClippedImageUrl(fallbackDataUrl);
+                
+                if (imageRef.current) {
+                  imageRef.current.x(newImageData.x);
+                  imageRef.current.y(newImageData.y);
+                  imageRef.current.scaleX(newImageData.scale);
+                  imageRef.current.scaleY(newImageData.scale);
+                  
+                  const layer = imageRef.current.getLayer();
+                  if (layer) {
+                    layer.batchDraw();
+                  }
+                }
+                
+                if (onImageTransformUpdate) {
+                  onImageTransformUpdate(newImageData);
+                }
+                
+                if (onCroppedImageUpdate) {
+                  onCroppedImageUpdate(fallbackDataUrl);
+                }
+                
+                console.log('🎉 Fallback 크롭 완료!');
+              };
+              
+              fallbackImageObj.src = fallbackDataUrl;
+            } else {
+              alert('크롭 기능을 사용할 수 없습니다. 이미지를 다시 업로드해주세요.');
+            }
+          } catch (err) {
+            console.log('❌ Fallback 크롭도 실패:', err);
+            alert('크롭 기능을 사용할 수 없습니다.');
+          }
         };
+
+        // Stage를 전체적으로 그린 다음 필요한 부분만 잘라내기
+        // 크롭 핸들과 오버레이가 결과물에 포함되지 않도록 캡처 직전 잠시 숨김
+        const overlayGroup = overlayGroupRef.current;
+        const prevVisible = overlayGroup ? overlayGroup.visible() : undefined;
+        try {
+          if (overlayGroup) {
+            overlayGroup.visible(false);
+            stage.draw();
+          }
+
+          const stageCanvas = stage.toCanvas({
+            x: clipLeft,
+            y: clipTop,
+            width: clipWidth,
+            height: clipHeight,
+            pixelRatio: 1
+          });
+
+          // HTMLCanvasElement에는 onload 이벤트가 없으므로 즉시 처리
+          // Stage에서 잘라낸 이미지를 임시 캔버스에 그리기
+          tempCtx.drawImage(stageCanvas, 0, 0);
+        } finally {
+          if (overlayGroup && prevVisible !== undefined) {
+            overlayGroup.visible(prevVisible);
+            stage.draw();
+          }
+        }
         
-        clippedImageObj.onerror = (error) => {
-          console.error('❌ 클리핑된 이미지 로드 실패:', error);
-          console.error('크롭된 이미지를 로드할 수 없습니다.');
-        };
+        try {
+          // 클리핑된 이미지를 데이터 URL로 변환
+          const clippedDataUrl = tempCanvas.toDataURL('image/png', 0.9);
+          console.log('📸 클리핑된 이미지 생성 완료, 길이:', clippedDataUrl.length);
+          
+          if (clippedDataUrl === 'data:,') {
+            console.log('❌ 빈 이미지 데이터 - CORS 문제일 수 있음');
+            // Fallback: Konva Image에서 직접 추출
+            fallbackCropMethod();
+            return;
+          }
+          
+          // 클리핑된 이미지 객체 생성
+          const clippedImageObj = new window.Image();
+          clippedImageObj.crossOrigin = 'anonymous';
+          
+          clippedImageObj.onload = () => {
+            console.log('✅ 클리핑된 이미지 로드 완료');
+            
+            const croppedImageWidth = clippedImageObj.naturalWidth || clippedImageObj.width;
+            const croppedImageHeight = clippedImageObj.naturalHeight || clippedImageObj.height;
+            
+            console.log('📏 크롭된 이미지 크기:', {
+              width: croppedImageWidth,
+              height: croppedImageHeight
+            });
+            
+            // 새로운 이미지 배치 계산 (80% 크기로 중앙 배치)
+            const scaleX = (canvasSize.width * 0.8) / croppedImageWidth;
+            const scaleY = (canvasSize.height * 0.8) / croppedImageHeight;
+            const optimalScale = Math.min(scaleX, scaleY);
+            
+            const newImageData = {
+              x: canvasSize.width / 2,
+              y: canvasSize.height / 2,
+              scale: optimalScale,
+              width: croppedImageWidth,
+              height: croppedImageHeight
+            };
+            
+            console.log('🔄 크롭 후 이미지 재배치:', newImageData);
+            
+            // 상태 업데이트
+            setInitialImageData(newImageData);
+            setImagePosition({ x: newImageData.x, y: newImageData.y });
+            setImageScale(newImageData.scale);
+            setKonvaImage(clippedImageObj);
+            setIsClippingMode(false);
+            setIsClippingApplied(true);
+            setClippedImage(clippedImageObj);
+            setClippedImageUrl(clippedDataUrl);
+            
+            // Konva 노드 업데이트
+            if (imageRef.current) {
+              imageRef.current.x(newImageData.x);
+              imageRef.current.y(newImageData.y);
+              imageRef.current.scaleX(newImageData.scale);
+              imageRef.current.scaleY(newImageData.scale);
+              
+              const layer = imageRef.current.getLayer();
+              if (layer) {
+                layer.batchDraw();
+              }
+            }
+            
+            // 클리핑 영역 재설정
+            const displayWidth = croppedImageWidth * optimalScale;
+            const displayHeight = croppedImageHeight * optimalScale;
+            const resetClipBounds = {
+              left: Math.max(0, (newImageData.x - displayWidth / 2) / canvasSize.width),
+              top: Math.max(0, (newImageData.y - displayHeight / 2) / canvasSize.height),
+              right: Math.min(1, (newImageData.x + displayWidth / 2) / canvasSize.width),
+              bottom: Math.min(1, (newImageData.y + displayHeight / 2) / canvasSize.height)
+            };
+            setClipBounds(resetClipBounds);
+            
+            // 부모 컴포넌트에 데이터 전달
+            if (onImageTransformUpdate) {
+              onImageTransformUpdate(newImageData);
+            }
+            
+            if (onCroppedImageUpdate) {
+              onCroppedImageUpdate(clippedDataUrl);
+              console.log('📤 크롭된 이미지를 부모에게 전달 완료');
+            }
+            
+            console.log('🎉 크롭 완료!');
+          };
+          
+          clippedImageObj.onerror = (error) => {
+            console.error('❌ 클리핑된 이미지 로드 실패:', error);
+            alert('크롭된 이미지를 로드할 수 없습니다.');
+          };
+          
+          clippedImageObj.src = clippedDataUrl;
+          
+        } catch (error) {
+          console.error('❌ toDataURL 실패 - Fallback 사용:', error);
+          fallbackCropMethod();
+        }
+
         
-        clippedImageObj.src = clippedDataUrl;
         
       } catch (error) {
         console.error('❌ 클리핑 적용 중 오류:', error);
-        console.error('크롭 중 오류가 발생했습니다:', error);
+        const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+        alert('크롭 중 오류가 발생했습니다: ' + errorMessage);
       }
-    }, [konvaImage, initialImageData, clipBounds, canvasSize, imageScale, imagePosition, onImageTransformUpdate]);
+    }, [konvaImage, initialImageData, clipBounds, canvasSize, imageScale, imagePosition, onImageTransformUpdate, onCroppedImageUpdate]);
 
     // 클리핑 모드 토글/완료 - 디버깅 로그 추가
     const toggleClippingMode = useCallback(() => {
@@ -941,7 +1145,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
                   <Transformer
                     ref={transformerRef}
                     flipEnabled={false}
-                    rotateEnabled={true}
+                    rotateEnabled={false}
                     borderDash={[3, 3]}
                     borderStroke="#3D8BFF"
                     borderStrokeWidth={2}
@@ -959,6 +1163,19 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
                       if (newBox.width > canvasSize.width * 2 || newBox.height > canvasSize.height * 2) {
                         return oldBox;
                       }
+                      
+                      // 그리드 경계를 벗어나지 않도록 제한
+                      const halfWidth = newBox.width / 2;
+                      const halfHeight = newBox.height / 2;
+                      const centerX = newBox.x + halfWidth;
+                      const centerY = newBox.y + halfHeight;
+                      
+                      // 이미지가 캔버스 경계를 벗어나지 않도록 제한
+                      if (centerX - halfWidth < 0 || centerX + halfWidth > canvasSize.width ||
+                          centerY - halfHeight < 0 || centerY + halfHeight > canvasSize.height) {
+                        return oldBox;
+                      }
+                      
                       return newBox;
                     }}
                   />
@@ -968,7 +1185,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
 
             {/* 클리핑 모드 오버레이 */}
             {isClippingMode && !isPlaceholder && Group && Rect && (
-              <Group>
+              <Group ref={overlayGroupRef}>
                 {/* 클리핑 영역 외부 오버레이 (반투명 검정) */}
                 {/* 왼쪽 영역 */}
                 <Rect
@@ -1105,7 +1322,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
         
         {/* 클리핑 모드 토글 플로팅 버튼 */}
         {!isPlaceholder && (
-          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[10000]">
             <Button
               onClick={toggleClippingMode}
               className={`h-10 px-4 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl text-lg ${

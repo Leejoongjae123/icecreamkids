@@ -214,7 +214,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
   return (
     <>
       <div
-        className="absolute z-[9999]"
+        className="absolute z-[100]"
         style={{
           left: position.left,
           top: position.top,
@@ -228,14 +228,14 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
             <Tooltip key={index}>
               <TooltipTrigger asChild>
                 <div
-                  className="w-[38px] h-[38px] bg-primary hover:opacity-80 rounded-full absolute flex items-center justify-center cursor-pointer hover:-translate-y-1 z-[10001]"
+                  className="w-[38px] h-[38px] bg-primary hover:opacity-80 rounded-full absolute flex items-center justify-center cursor-pointer hover:-translate-y-1 z-[101]"
                   style={{
                     left: `${index * (38 + 12)}px`,
                     opacity: internalExpanded ? 1 : 0,
                     transform: internalExpanded ? "scale(1) translateY(0)" : "scale(0.3) translateY(10px)",
                     transition: "opacity 0.4s ease-out, transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s ease-in-out",
                     transitionDelay: internalExpanded ? `${index * 100}ms` : "0ms",
-                    zIndex: 10001,
+                    zIndex: 101,
                   }}
                   onClick={() => handleIconClick(index)}
                 >
@@ -262,7 +262,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
               </TooltipTrigger>
               <TooltipContent
                 side="bottom"
-                className="bg-primary text-white text-sm px-2 py-1 z-[10002]"
+                className="bg-primary text-white text-sm px-2 py-1 z-[102]"
               >
                 {currentTooltipTexts[index]}
               </TooltipContent>

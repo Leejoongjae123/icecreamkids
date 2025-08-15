@@ -22,6 +22,7 @@ import Image from "next/image";
 import { useStickerStore } from "@/hooks/store/useStickerStore";
 import { useTextStickerStore } from "@/hooks/store/useTextStickerStore";
 import { useReportStore } from "@/hooks/store/useReportStore";
+import { useGlobalThemeStore } from "@/hooks/store/useGlobalThemeStore";
 import DraggableSticker from "./DraggableSticker";
 import DraggableTextSticker from "./DraggableTextSticker";
 // searchParams를 사용하는 컴포넌트 분리
@@ -36,6 +37,8 @@ function ReportAContent() {
   const { stickers } = useStickerStore();
   const { textStickers } = useTextStickerStore();
   const { getDefaultSubject } = useReportStore();
+  const { backgroundImageUrlByType } = useGlobalThemeStore();
+  const backgroundImageUrl = backgroundImageUrlByType['A'];
   const stickerContainerRef = useRef<HTMLDivElement>(null);
 
   // searchParams에서 subject 값 가져오기 (1-4 범위, 타입 A의 기본값은 4)
@@ -46,51 +49,29 @@ function ReportAContent() {
     return parsed >= 1 && parsed <= 4 ? parsed : defaultValue;
   }, [subjectParam, getDefaultSubject]);
 
-  // searchParams에서 theme 값 가져오기 (기본값 0)
-  const themeParam = searchParams.get("theme");
-  const theme = React.useMemo(() => {
-    const parsed = parseInt(themeParam || "0", 10);
-    return parsed >= 0 ? parsed : 0;
-  }, [themeParam]);
-
-  // theme 또는 명시적 bgUrl 값에 따른 배경이미지 URL 생성
-  const bgUrlParam = searchParams.get("bgUrl");
-  const bgIdParam = searchParams.get("bgId");
+  // 배경 이미지 로드 상태
   const [imageLoadError, setImageLoadError] = React.useState(false);
-  
-  const backgroundImageUrl = React.useMemo(() => {
-    const url = bgUrlParam && bgUrlParam.trim() !== "" 
-      ? bgUrlParam 
-      : `https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg${theme + 1}.png`;
-    return `url(${url})`;
-  }, [bgUrlParam, theme]);
 
   // 배경 이미지 URL 유효성 검증
   React.useEffect(() => {
-    const validateImageUrl = async () => {
-      const rawUrl = bgUrlParam && bgUrlParam.trim() !== "" 
-        ? bgUrlParam 
-        : `https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg${theme + 1}.png`;
-      
-      try {
-        const img = document.createElement('img');
-        img.onload = () => {
-          console.log('✅ 배경 이미지 로드 성공:', rawUrl);
-          setImageLoadError(false);
-        };
-        img.onerror = () => {
-          console.error('❌ 배경 이미지 로드 실패:', rawUrl);
+    if (backgroundImageUrl) {
+      const validateImageUrl = async () => {
+        try {
+          const img = document.createElement('img');
+          img.onload = () => {
+            setImageLoadError(false);
+          };
+          img.onerror = () => {
+            setImageLoadError(true);
+          };
+          img.src = backgroundImageUrl;
+        } catch (error) {
           setImageLoadError(true);
-        };
-        img.src = rawUrl;
-      } catch (error) {
-        console.error('❌ 배경 이미지 검증 오류:', error);
-        setImageLoadError(true);
-      }
-    };
-
-    validateImageUrl();
-  }, [bgUrlParam, theme]);
+        }
+      };
+      validateImageUrl();
+    }
+  }, [backgroundImageUrl]);
 
   // subject 값을 감소시키는 함수
   const decreaseSubject = React.useCallback(() => {
@@ -148,13 +129,8 @@ function ReportAContent() {
       }
     }
   };
-  console.log('🎨 배경 이미지 디버깅:', {
-    bgUrlParam,
-    theme,
-    backgroundImageUrl,
-    rawUrl: bgUrlParam || `https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bg${theme + 1}.png`
-  });
 
+  console.log("backgroundImageUrl:", backgroundImageUrl);
   return (
     <TooltipProvider>
       <div className="w-full h-full relative flex flex-col">
@@ -217,16 +193,20 @@ function ReportAContent() {
 
           <div
             ref={stickerContainerRef}
-            className="relative flex flex-col w-full h-full justify-between gap-y-3 px-4 py-4 rounded-br-xl rounded-bl-xl relative"
-            
-            data-id={bgIdParam || undefined}
+            className="relative flex flex-col w-full h-full justify-between gap-y-3 px-4 py-4 rounded-br-xl rounded-bl-xl overflow-hidden"
           >
-            <Image
-              src={bgUrlParam ||""}
-              alt="background"
-              fill
-              className="object-cover"
-            />
+            {/* 배경 이미지 */}
+            {backgroundImageUrl && (
+              <Image
+                key={backgroundImageUrl} // URL이 바뀔 때마다 재렌더링 강제
+                src={backgroundImageUrl}
+                alt="Report background"
+                fill
+                className="object-cover rounded-br-xl rounded-bl-xl -z-10"
+                priority
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 70vw"
+              />
+            )}
             {/* 이미지 로드 실패 시 표시할 안내 */}
             {imageLoadError && (
               <div className="absolute top-2 right-2 text-xs text-red-500 bg-white px-2 py-1 rounded shadow">
