@@ -66,6 +66,8 @@ interface KonvaImageCanvasProps {
     height: number;
   } | null;
   onFinishEdit?: () => void;
+  /** 외부 컨트롤(포털) 사용 시 내부 버튼 숨김 */
+  useExternalControls?: boolean;
 }
 
 export interface KonvaImageCanvasRef {
@@ -78,7 +80,7 @@ export interface KonvaImageCanvasRef {
 }
 
 const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
-  ({ imageUrl, containerWidth, containerHeight, isClippingEnabled, onImageMove, onImageTransformUpdate, onCroppedImageUpdate, clipPath, gridId, imageTransformData, onFinishEdit }, ref) => {
+  ({ imageUrl, containerWidth, containerHeight, isClippingEnabled, onImageMove, onImageTransformUpdate, onCroppedImageUpdate, clipPath, gridId, imageTransformData, onFinishEdit, useExternalControls }, ref) => {
       const stageRef = useRef<any>(null);
   const imageRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
@@ -1332,7 +1334,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
         </Stage>
         
         {/* 클리핑 모드 토글 + 수정 완료 플로팅 버튼들 */}
-        {!isPlaceholder && (
+        {!isPlaceholder && !useExternalControls && (
           <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[10000]">
             <div className="flex items-center gap-2">
               <Button

@@ -14,6 +14,7 @@ import useKeywordStore from "@/hooks/store/useKeywordStore";
 import useUserStore from "@/hooks/store/useUserStore";
 import useGridCStore from "@/hooks/store/useGridCStore";
 import useKeywordExpansionStore from "@/hooks/store/useKeywordExpansionStore";
+import { Button } from "@/components/ui/button";
 
 interface GridCElementProps {
   index: number;
@@ -116,6 +117,8 @@ function GridCElement({
     bottom: number;
     radius?: number;
   } | null>(null);
+  // 외부 포털 컨트롤에서 사용하는 크롭 모드 상태
+  const [isExternalClippingMode, setIsExternalClippingMode] = React.useState<boolean>(false);
   
   // 툴바 위치 상태
   const [toolbarPosition, setToolbarPosition] = React.useState({ left: 0, top: 0 });
@@ -221,6 +224,7 @@ function GridCElement({
   const handleFinishEdit = React.useCallback(() => {
     setIsLocalClippingDisabled(false);
     setOverlayRect(null);
+    setIsExternalClippingMode(false);
   }, []);
 
   // 더블클릭 편집 진입 시 현재 캔버스 영역을 제외한 화면을 어둡게 처리하기 위한 오버레이 위치 계산
@@ -812,6 +816,7 @@ function GridCElement({
             gridId={gridId}
             imageTransformData={imageTransformData}
             onFinishEdit={handleFinishEdit}
+            useExternalControls={isLocalClippingDisabled}
           />
 
           {/* 이미지가 있을 때 X 삭제 버튼 표시 */}
@@ -939,6 +944,48 @@ function GridCElement({
                   className="absolute"
                   style={{ right: 0, top: overlayRect.top, bottom: overlayRect.bottom, width: overlayRect.right, pointerEvents: 'auto' }}
                 />
+              </div>
+              {/* 외부 포털 컨트롤 - 홀 하단 중앙, 오버레이보다 상위(z) */}
+              <div
+                className="fixed z-[10002]"
+                style={{
+                  left: holeX + holeW / 2,
+                  top: holeY + holeH + 12,
+                  transform: 'translateX(-50%)',
+                  pointerEvents: 'auto'
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    className={`h-10 px-4 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl text-lg ${isExternalClippingMode ? 'bg-primary text-white' : 'bg-primary text-white'}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      try {
+                        if (!konvaCanvasRef.current) { return; }
+                        if (isExternalClippingMode) {
+                          konvaCanvasRef.current.applyClipping();
+                          setIsExternalClippingMode(false);
+                        } else {
+                          konvaCanvasRef.current.setClippingMode(true);
+                          setIsExternalClippingMode(true);
+                        }
+                      } catch (_) {}
+                    }}
+                  >
+                    {isExternalClippingMode ? '크롭 완료' : '크롭 시작'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-10 px-4 rounded-full shadow-lg transition-all duration-200 hover:bg-[#E5E7EC]/80 text-lg bg-[#E5E7EC] text-black"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      try { handleFinishEdit(); } catch (_) {}
+                    }}
+                  >
+                    적용
+                  </Button>
+                </div>
               </div>
             </>
           );
