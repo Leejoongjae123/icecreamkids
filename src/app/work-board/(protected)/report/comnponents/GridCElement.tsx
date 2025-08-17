@@ -103,6 +103,20 @@ function GridCElement({
     isExpanded: false,
   });
   
+  // 그리드 개별 클리핑 해제 상태 (true면 이 그리드만 클리핑 해제)
+  const [isLocalClippingDisabled, setIsLocalClippingDisabled] = React.useState<boolean>(false);
+  // 전역 설정과 개별 해제 상태를 합쳐서 실제 적용 여부 계산
+  const effectiveClippingEnabled = isClippingEnabled && !isLocalClippingDisabled;
+  
+  // 더블클릭 편집 진입 시 외부 영역 어둡게 오버레이용 rect 상태 (뷰포트 기준 여백)
+  const [overlayRect, setOverlayRect] = React.useState<{
+    top: number;
+    left: number;
+    right: number;
+    bottom: number;
+    radius?: number;
+  } | null>(null);
+  
   // 툴바 위치 상태
   const [toolbarPosition, setToolbarPosition] = React.useState({ left: 0, top: 0 });
 
@@ -161,8 +175,8 @@ function GridCElement({
   const handleContainerClick = (event: React.MouseEvent) => {
     event.stopPropagation(); 
 
-    // 클리핑이 활성화되어 있을 때만 툴바 표시
-    if (isClippingEnabled) {
+    // 클리핑이 활성화되어 있을 때만 툴바 표시 (개별 해제 상태 고려)
+    if (effectiveClippingEnabled) {
       // 툴바 표시 전에 현재 이미지 상태를 저장
       if (konvaCanvasRef.current) {
         const currentImageData = konvaCanvasRef.current.getImageData();
@@ -193,6 +207,63 @@ function GridCElement({
       });
     }
   };
+
+  // 더블클릭 시 해당 그리드만 클리핑 해제하고 편집 모드 진입
+  const handleDoubleClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (hasImage) {
+      setIsLocalClippingDisabled(true);
+      setToolbarState({ show: false, isExpanded: false });
+    }
+  };
+
+  // 수정 완료: 해당 그리드의 로컬 클리핑 해제 상태를 복구하여 편집 모드 종료
+  const handleFinishEdit = React.useCallback(() => {
+    setIsLocalClippingDisabled(false);
+    setOverlayRect(null);
+  }, []);
+
+  // 더블클릭 편집 진입 시 현재 캔버스 영역을 제외한 화면을 어둡게 처리하기 위한 오버레이 위치 계산
+  const outerContainerRef = React.useRef<HTMLDivElement>(null);
+
+  const updateOverlayRect = React.useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const el = outerContainerRef.current || canvasContainerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const viewportWidth = window.innerWidth || 0;
+    const viewportHeight = window.innerHeight || 0;
+    const top = Math.max(0, rect.top);
+    const left = Math.max(0, rect.left);
+    const right = Math.max(0, viewportWidth - rect.right);
+    const bottom = Math.max(0, viewportHeight - rect.bottom);
+
+    let radius = 0;
+    try {
+      const style = window.getComputedStyle(el);
+      const parsePx = (v: string) => (v && v.endsWith('px') ? parseFloat(v) : 0);
+      const rTL = parsePx(style.borderTopLeftRadius);
+      const rTR = parsePx(style.borderTopRightRadius);
+      const rBL = parsePx(style.borderBottomLeftRadius);
+      const rBR = parsePx(style.borderBottomRightRadius);
+      radius = Math.max(rTL, rTR, rBL, rBR);
+    } catch (_) {}
+
+    setOverlayRect({ top, left, right, bottom, radius });
+  }, []);
+
+  // 오버레이 위치 갱신: 편집 진입/스크롤/리사이즈 시 따라가도록 처리
+  React.useEffect(() => {
+    if (!isLocalClippingDisabled) return;
+    updateOverlayRect();
+    const handle = () => updateOverlayRect();
+    window.addEventListener('resize', handle);
+    window.addEventListener('scroll', handle, true);
+    return () => {
+      window.removeEventListener('resize', handle);
+      window.removeEventListener('scroll', handle, true);
+    };
+  }, [isLocalClippingDisabled, updateOverlayRect]);
 
   // 체크박스 변경 핸들러
   const handleCheckboxChange = (checked: boolean | "indeterminate") => {
@@ -680,10 +751,11 @@ function GridCElement({
   return (
     <div className="relative w-full h-full" style={{ zIndex: toolbarState.show ? 100 : 'auto' }}>
       <div
-        className={`relative w-full h-full ${!isClippingEnabled ? "bg-white rounded-xl" : "bg-transparent"} ${containerClass} ${isDragging ? "opacity-100" : ""} transition-all duration-200 ${!isDragging && isClippingEnabled ? "cursor-grab active:cursor-grabbing" : ""} ${borderClass}`}
+        ref={outerContainerRef}
+        className={`relative w-full h-full ${!effectiveClippingEnabled ? "bg-white rounded-xl" : "bg-transparent"} ${containerClass} ${isDragging ? "opacity-100" : ""} transition-all duration-200 ${!isDragging && effectiveClippingEnabled ? "cursor-grab active:cursor-grabbing" : ""} ${borderClass}`}
         data-grid-id={gridId}
-        {...(isDragging || !isClippingEnabled ? {} : dragAttributes)}
-        {...(isDragging || !isClippingEnabled ? {} : dragListeners)}
+        {...(isDragging || !effectiveClippingEnabled ? {} : dragAttributes)}
+        {...(isDragging || !effectiveClippingEnabled ? {} : dragListeners)}
         onClick={handleContainerClick}
       >
         {/* 체크박스 - 좌측 상단 */}
@@ -724,6 +796,7 @@ function GridCElement({
           className="relative w-full h-full canvas-container"
           onMouseEnter={() => !hasImage && setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
+          onDoubleClick={handleDoubleClick}
         >
           {/* KonvaImageCanvas - 항상 표시 */}
           <KonvaImageCanvas
@@ -731,13 +804,14 @@ function GridCElement({
             imageUrl={hasImage ? currentImageUrl : NO_IMAGE_URL}
             containerWidth={containerSize.width}
             containerHeight={containerSize.height}
-            isClippingEnabled={isClippingEnabled}
+            isClippingEnabled={effectiveClippingEnabled}
             onImageMove={handleImageMove}
             onImageTransformUpdate={handleImageTransformUpdate}
             onCroppedImageUpdate={handleCroppedImageUpdate}
-            clipPath={isClippingEnabled ? clipPathData.pathData : undefined}
+            clipPath={effectiveClippingEnabled ? clipPathData.pathData : undefined}
             gridId={gridId}
             imageTransformData={imageTransformData}
+            onFinishEdit={handleFinishEdit}
           />
 
           {/* 이미지가 있을 때 X 삭제 버튼 표시 */}
@@ -799,7 +873,7 @@ function GridCElement({
       </div>
 
       {/* GridEditToolbar - element 하단 좌측에 위치 (클리핑 활성화 시에만) */}
-      {toolbarState.show && isClippingEnabled && typeof window !== 'undefined' && ReactDOM.createPortal(
+      {toolbarState.show && effectiveClippingEnabled && typeof window !== 'undefined' && ReactDOM.createPortal(
         <div 
           className="grid-edit-toolbar fixed"
           style={{
@@ -820,8 +894,60 @@ function GridCElement({
         document.body
       )}
 
+      {/* 더블클릭 편집 진입 시(해당 그리드만 클리핑 해제) 현재 캔버스 영역을 제외한 나머지 화면 어둡게 처리 - 라운드 코너 반영 */}
+      {isLocalClippingDisabled && overlayRect && typeof window !== 'undefined' && ReactDOM.createPortal(
+        (() => {
+          const vw = window.innerWidth || 0;
+          const vh = window.innerHeight || 0;
+          const holeX = overlayRect.left;
+          const holeY = overlayRect.top;
+          const holeW = vw - overlayRect.left - overlayRect.right;
+          const holeH = vh - overlayRect.top - overlayRect.bottom;
+          const r = overlayRect.radius || 0;
+          const maskId = `dim-mask-${gridId}`;
+          return (
+            <>
+              {/* 시각적 암전 레이어 (홀 포함) - 전역 클릭 비차단 */}
+              <svg className="fixed inset-0 z-[10000] pointer-events-none" width={vw} height={vh} style={{ display: 'block' }}>
+                <defs>
+                  <mask id={maskId}>
+                    <rect x="0" y="0" width={vw} height={vh} fill="white" />
+                    <rect x={holeX} y={holeY} width={holeW} height={holeH} rx={r} ry={r} fill="black" />
+                  </mask>
+                </defs>
+                <rect x="0" y="0" width={vw} height={vh} fill="rgba(0,0,0,0.2)" mask={`url(#${maskId})`} />
+              </svg>
+              {/* 클릭 차단 레이어(보이지 않음): 홀 주변 4영역만 포인터 차단 */}
+              <div className="fixed inset-0 z-[10001]" style={{ pointerEvents: 'none' }}>
+                {/* 상단 */}
+                <div
+                  className="absolute"
+                  style={{ left: 0, right: 0, top: 0, height: overlayRect.top, pointerEvents: 'auto' }}
+                />
+                {/* 하단 */}
+                <div
+                  className="absolute"
+                  style={{ left: 0, right: 0, bottom: 0, height: overlayRect.bottom, pointerEvents: 'auto' }}
+                />
+                {/* 좌측 */}
+                <div
+                  className="absolute"
+                  style={{ left: 0, top: overlayRect.top, bottom: overlayRect.bottom, width: overlayRect.left, pointerEvents: 'auto' }}
+                />
+                {/* 우측 */}
+                <div
+                  className="absolute"
+                  style={{ right: 0, top: overlayRect.top, bottom: overlayRect.bottom, width: overlayRect.right, pointerEvents: 'auto' }}
+                />
+              </div>
+            </>
+          );
+        })(),
+        document.body
+      )}
+
       {/* Keyword Input Component at the bottom - 체크박스 선택 시 및 클리핑 활성화 시에만 표시 */}
-      {isSelected && isClippingEnabled && (
+      {isSelected && effectiveClippingEnabled && (
         <div 
           ref={photoDescriptionRef}
           className="absolute bottom-0 left-0 right-0 z-50 p-2 photo-description-input"

@@ -65,6 +65,7 @@ interface KonvaImageCanvasProps {
     width: number;
     height: number;
   } | null;
+  onFinishEdit?: () => void;
 }
 
 export interface KonvaImageCanvasRef {
@@ -77,7 +78,7 @@ export interface KonvaImageCanvasRef {
 }
 
 const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
-  ({ imageUrl, containerWidth, containerHeight, isClippingEnabled, onImageMove, onImageTransformUpdate, onCroppedImageUpdate, clipPath, gridId, imageTransformData }, ref) => {
+  ({ imageUrl, containerWidth, containerHeight, isClippingEnabled, onImageMove, onImageTransformUpdate, onCroppedImageUpdate, clipPath, gridId, imageTransformData, onFinishEdit }, ref) => {
       const stageRef = useRef<any>(null);
   const imageRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
@@ -988,6 +989,16 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
       }
     }, [isClippingMode, applyClipping, initialImageData, imageScale, imagePosition, canvasSize, isClippingApplied, clippedImage, clippedImageUrl]);
 
+    // 수정 완료 버튼 핸들러: 크롭 모드라면 해제만 하고, 부모 콜백 호출하여 편집 종료
+    const handleFinishEditClick = useCallback(() => {
+      if (isClippingMode) {
+        setIsClippingMode(false);
+      }
+      if (onFinishEdit) {
+        onFinishEdit();
+      }
+    }, [isClippingMode, onFinishEdit]);
+
     // 이미지 위치 초기화
     const resetImagePosition = useCallback(() => {
       if (initialImageData) {
@@ -1320,20 +1331,29 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
           </Layer>
         </Stage>
         
-        {/* 클리핑 모드 토글 플로팅 버튼 */}
+        {/* 클리핑 모드 토글 + 수정 완료 플로팅 버튼들 */}
         {!isPlaceholder && (
           <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 z-[10000]">
-            <Button
-              onClick={toggleClippingMode}
-              className={`h-10 px-4 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl text-lg ${
-                isClippingMode 
-                  ? 'bg-primary text-white' 
-                  : 'bg-primary text-white'
-              }`}
-              size="sm"
-            >
-              {isClippingMode ? '크롭 완료' : '크롭 시작'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={toggleClippingMode}
+                className={`h-10 px-4 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl text-lg ${
+                  isClippingMode 
+                    ? 'bg-primary text-white' 
+                    : 'bg-primary text-white'
+                }`}
+                size="sm"
+              >
+                {isClippingMode ? '크롭 완료' : '크롭 시작'}
+              </Button>
+              <Button
+                onClick={handleFinishEditClick}
+                className="h-10 px-4 rounded-full shadow-lg transition-all duration-200 hover:bg-[#E5E7EC]/80 text-lg bg-[#E5E7EC] text-black"
+                size="sm"
+              >
+                적용
+              </Button>
+            </div>
           </div>
         )}
 

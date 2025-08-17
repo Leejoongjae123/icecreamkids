@@ -108,13 +108,13 @@ function ReportCContent() {
               >
                 저장
               </Button>
-              <Button
+              {/* <Button
                 onClick={toggleClipping}
                 size="sm"
                 className="gap-1 bg-blue-500 hover:bg-blue-600 text-[14px] text-white shadow-none font-semibold h-[34px]"
               >
                 {isClippingEnabled ? "클리핑 해제(임시)" : "클리핑 적용(임시)"}
-              </Button>
+              </Button> */}
             </div>
           </div>
 
