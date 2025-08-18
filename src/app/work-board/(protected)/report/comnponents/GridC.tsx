@@ -24,6 +24,7 @@ interface GridCItem {
   index: number;
   clipPathData: ClipPathItem;
   imageUrl: string;
+  driveItemKey?: string; // 이미지의 driveItemKey 추가
 }
 
 // 그리드 위치 정보 타입
@@ -694,11 +695,13 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
   };
 
   // 이미지 업로드 핸들러
-  const handleImageUpload = (gridId: string, imageUrl: string) => {
+  const handleImageUpload = (gridId: string, imageUrl: string, driveItemKey?: string) => {
+    console.log("📥 GridC handleImageUpload:", { gridId, imageUrl: imageUrl.substring(0, 50) + "...", driveItemKey });
+    
     setItems(prevItems => 
       prevItems.map(item => 
         item.id === gridId 
-          ? { ...item, imageUrl }
+          ? { ...item, imageUrl, driveItemKey }
           : item
       )
     );
@@ -735,7 +738,7 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
         
         if (imageUrl) {
           // 기존 이미지가 있어도 새로운 이미지로 덮어쓰기
-          updatedItems[i] = { ...updatedItems[i], imageUrl };
+          updatedItems[i] = { ...updatedItems[i], imageUrl, driveItemKey };
           
           // GridCStore에 이미지 정보 저장 (optional)
           try {
@@ -1082,6 +1085,7 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
                   index={item.index}
                   clipPathData={item.clipPathData}
                   imageUrl={item.imageUrl}
+                  driveItemKey={item.driveItemKey}
                   isClippingEnabled={isClippingEnabled}
                   isSelected={selectedItems.has(item.id)}
                   onSelectChange={(isSelected) => handleSelectChange(item.id, isSelected)}

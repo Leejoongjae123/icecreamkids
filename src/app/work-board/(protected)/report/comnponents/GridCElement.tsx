@@ -8,6 +8,7 @@ import { ChevronDown } from "lucide-react";
 import AddPictureClipping from "./AddPictureClipping";
 import KonvaImageCanvas, { KonvaImageCanvasRef } from "./KonvaImageCanvas";
 import GridEditToolbar from "./GridEditToolbar";
+import { Loader } from "@/components/ui/loader";
 import { ClipPathItem } from "../dummy/types";
 import {IoClose} from "react-icons/io5";
 import useKeywordStore from "@/hooks/store/useKeywordStore";
@@ -15,12 +16,15 @@ import useUserStore from "@/hooks/store/useUserStore";
 import useGridCStore from "@/hooks/store/useGridCStore";
 import useKeywordExpansionStore from "@/hooks/store/useKeywordExpansionStore";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/store/useToastStore";
+import { useAlertStore } from "@/hooks/store/useAlertStore";
 
 interface GridCElementProps {
   index: number;
   gridId: string;
   clipPathData: ClipPathItem;
   imageUrl: string;
+  driveItemKey?: string; // driveItemKey 추가
   isClippingEnabled: boolean;
   isDragging?: boolean;
   dragAttributes?: any;
@@ -28,7 +32,7 @@ interface GridCElementProps {
   isSelected?: boolean;
   onSelectChange?: (isSelected: boolean) => void;
   onDelete?: () => void;
-  onImageUpload: (gridId: string, imageUrl: string) => void;
+  onImageUpload: (gridId: string, imageUrl: string, driveItemKey?: string) => void;
   onClipPathChange?: (gridId: string, clipPathData: ClipPathItem) => void;
   onIntegratedUpload?: () => void; // 통합 업로드 핸들러
 }
@@ -38,6 +42,7 @@ function GridCElement({
   gridId,
   clipPathData,
   imageUrl,
+  driveItemKey,
   isClippingEnabled,
   isDragging = false,
   dragAttributes,
@@ -57,6 +62,7 @@ function GridCElement({
   
   // 사용자 정보 가져오기
   const { userInfo } = useUserStore();
+  const profileId = React.useMemo(() => userInfo?.id || null, [userInfo?.id]);
   const accountId = React.useMemo(() => userInfo?.accountId || null, [userInfo?.accountId]);
   
   // 메모 상태 관리
@@ -64,6 +70,10 @@ function GridCElement({
   
   // 전역 키워드 store 사용
   const { recommendedKeywords, loadKeywords, addKeyword } = useKeywordStore();
+  
+  // Toast 및 Alert hook
+  const addToast = useToast((state) => state.add);
+  const { showAlert } = useAlertStore();
   
   // 키워드 확장 상태 전역 store 사용
   const { isExpanded, expandOnlyOne, setExpanded } = useKeywordExpansionStore();
@@ -78,6 +88,9 @@ function GridCElement({
   const [imageMetadata, setImageMetadata] = React.useState<{url: string, driveItemKey?: string}[]>([]);
   const { setImage, setKeyword, remove } = useGridCStore();
 
+  // 현재 이미지의 driveItemKey 상태를 명시적으로 관리 (prop으로 받은 값으로 초기화)
+  const [currentImageDriveItemKey, setCurrentImageDriveItemKey] = React.useState<string>(driveItemKey || "");
+
   // KonvaImageCanvas ref
   const konvaCanvasRef = React.useRef<KonvaImageCanvasRef>(null);
   
@@ -88,6 +101,9 @@ function GridCElement({
   // photo-description-input ref 및 높이 상태
   const photoDescriptionRef = React.useRef<HTMLDivElement>(null);
   const [photoDescriptionHeight, setPhotoDescriptionHeight] = React.useState<number>(0);
+
+  // 배경 제거 로딩 상태 관리
+  const [isRemoveBackgroundLoading, setIsRemoveBackgroundLoading] = React.useState(false);
 
   // 이미지 변환 정보 상태 (위치, 스케일 동기화용)
   const [imageTransformData, setImageTransformData] = React.useState<{
@@ -134,18 +150,33 @@ function GridCElement({
 
   // 현재 이미지의 driveItemKey 가져오기 (type-c create-record API 호출용)
   const getCurrentImageDataId = React.useCallback((): string | undefined => {
+    console.log("🔍 GridC getCurrentImageDataId 호출:", {
+      gridId,
+      currentImageUrl,
+      hasImage,
+      currentImageDriveItemKey,
+      imageMetadata,
+      getDriveItemKeyResult: getDriveItemKeyByImageUrl(currentImageUrl)
+    });
+    
     if (hasImage) {
+      // 우선순위 1: 명시적으로 관리하는 currentImageDriveItemKey 사용
+      if (currentImageDriveItemKey && currentImageDriveItemKey !== "") {
+        console.log("✅ GridC getCurrentImageDataId - currentImageDriveItemKey 사용:", currentImageDriveItemKey);
+        return currentImageDriveItemKey;
+      }
+      
+      // 우선순위 2: getDriveItemKeyByImageUrl 함수로 찾기
       const dataId = getDriveItemKeyByImageUrl(currentImageUrl);
-      console.log("🔍 GridC getCurrentImageDataId:", {
-        gridId,
-        currentImageUrl,
-        dataId,
-        hasImage
-      });
-      return dataId;
+      if (dataId && dataId !== "") {
+        console.log("✅ GridC getCurrentImageDataId - getDriveItemKeyByImageUrl 사용:", dataId);
+        return dataId;
+      }
+      
+      console.warn("❌ GridC getCurrentImageDataId - driveItemKey를 찾을 수 없음");
     }
     return undefined;
-  }, [hasImage, currentImageUrl, getDriveItemKeyByImageUrl, gridId]);
+  }, [hasImage, currentImageUrl, currentImageDriveItemKey, getDriveItemKeyByImageUrl, gridId, imageMetadata]);
 
   // 메모 상태 체크
   const checkMemoStatus = React.useCallback(async (driveItemKey: string) => {
@@ -296,7 +327,8 @@ function GridCElement({
     
     console.log("🗑️ GridC 이미지 삭제:", {
       gridId,
-      이전이미지: currentImageUrl
+      이전이미지: currentImageUrl,
+      이전DriveItemKey: currentImageDriveItemKey
     });
     
     // 현재 이미지 URL 초기화
@@ -304,6 +336,10 @@ function GridCElement({
     
     // 이미지 메타데이터 초기화
     setImageMetadata([]);
+    
+    // 현재 이미지의 driveItemKey 초기화
+    setCurrentImageDriveItemKey("");
+    
     try {
       remove(gridId);
     } catch (_) {}
@@ -313,14 +349,44 @@ function GridCElement({
     
     // 부모 컴포넌트에 이미지 제거 알림
     if (onImageUpload) {
-      onImageUpload(gridId, "");
+      onImageUpload(gridId, "", "");
     }
+    
+    console.log("✅ GridC 이미지 삭제 완료:", { gridId });
   };
+
+  // driveItemKey prop 변경 감지
+  React.useEffect(() => {
+    if (driveItemKey !== currentImageDriveItemKey) {
+      setCurrentImageDriveItemKey(driveItemKey || "");
+      console.log("🔄 GridC driveItemKey prop 변경으로 상태 동기화:", {
+        gridId,
+        이전: currentImageDriveItemKey,
+        새값: driveItemKey
+      });
+    }
+  }, [driveItemKey, currentImageDriveItemKey, gridId]);
 
   // 이미지 URL 변경 감지
   React.useEffect(() => {
     setCurrentImageUrl(imageUrl);
-  }, [imageUrl]);
+    
+    // imageUrl이 변경되면 해당 이미지의 driveItemKey도 찾아서 설정
+    if (imageUrl && imageUrl !== NO_IMAGE_URL) {
+      const foundMetadata = imageMetadata.find(meta => meta.url === imageUrl);
+      if (foundMetadata?.driveItemKey) {
+        setCurrentImageDriveItemKey(foundMetadata.driveItemKey);
+        console.log("🔄 GridC imageUrl 변경으로 driveItemKey 동기화:", {
+          gridId,
+          imageUrl: imageUrl.substring(0, 50) + "...",
+          driveItemKey: foundMetadata.driveItemKey
+        });
+      }
+    } else {
+      // 이미지가 없으면 driveItemKey도 초기화
+      setCurrentImageDriveItemKey("");
+    }
+  }, [imageUrl, imageMetadata, gridId]);
 
   // 이미지 메타데이터 변경 시 메모 상태 체크
   React.useEffect(() => {
@@ -400,6 +466,13 @@ function GridCElement({
   // AddPictureClipping용 이미지 추가 핸들러
   const handleImageAdded = (hasImage: boolean, imageUrl?: string, driveItemKey?: string) => {
     if (hasImage && imageUrl) {
+      console.log("🖼️ GridC handleImageAdded:", {
+        gridId,
+        imageUrl: imageUrl.substring(0, 50) + "...",
+        driveItemKey,
+        hasImage
+      });
+      
       // 이미지가 추가되면 현재 이미지 URL 업데이트
       setCurrentImageUrl(imageUrl);
       
@@ -408,9 +481,18 @@ function GridCElement({
       setImageMetadata([{ url: imageUrl, driveItemKey: resolvedKey }]);
       setImage(gridId, resolvedKey);
       
+      // 현재 이미지의 driveItemKey 명시적으로 설정
+      setCurrentImageDriveItemKey(resolvedKey);
+      
+      console.log("✅ GridC 이미지 메타데이터 업데이트 완료:", {
+        gridId,
+        resolvedKey,
+        imageUrl: imageUrl.substring(0, 50) + "..."
+      });
+      
       // 부모 컴포넌트에 이미지 업로드 알림
       if (onImageUpload) {
-        onImageUpload(gridId, imageUrl);
+        onImageUpload(gridId, imageUrl, resolvedKey);
       }
       
       // hover 상태 해제
@@ -420,6 +502,10 @@ function GridCElement({
       if (isSelected) {
         expandOnlyOne(gridId);
       }
+    } else {
+      // 이미지가 제거된 경우
+      console.log("🗑️ GridC 이미지 제거:", { gridId });
+      setCurrentImageDriveItemKey("");
     }
   };
 
@@ -470,12 +556,19 @@ function GridCElement({
     setImageMetadata([{ url: croppedImageUrl, driveItemKey: croppedKey }]);
     setImage(gridId, croppedKey);
     
+    // 현재 이미지의 driveItemKey 명시적으로 설정
+    setCurrentImageDriveItemKey(croppedKey);
+    
     // 부모 컴포넌트에 크롭된 이미지 전달
     if (onImageUpload) {
-      onImageUpload(gridId, croppedImageUrl);
+      onImageUpload(gridId, croppedImageUrl, croppedKey);
     }
     
-    console.log("✅ 크롭된 이미지 적용 완료:", gridId);
+    console.log("✅ 크롭된 이미지 적용 완료:", {
+      gridId,
+      croppedKey,
+      croppedImageUrl: croppedImageUrl.substring(0, 50) + '...'
+    });
   }, [gridId, currentImageUrl, setImage, onImageUpload]);
 
   // 이미지 위치 초기화
@@ -484,6 +577,146 @@ function GridCElement({
       konvaCanvasRef.current.resetImagePosition();
     }
   }, []);
+
+  // 배경 제거 API 호출 함수
+  const callRemoveBackgroundAPI = React.useCallback(async () => {
+    console.log("🖼️ GridC 배경 제거 API 호출 시작:", {
+      gridId,
+      profileId,
+      hasImage,
+      currentImageUrl,
+      currentImageDriveItemKey
+    });
+    
+    if (!profileId) {
+      showAlert({ message: '로그인 후 사용해주세요.' });
+      return;
+    }
+
+    // 현재 이미지에서 driveItemKey 수집 - getCurrentImageDataId 함수 사용
+    const driveItemKeys: string[] = [];
+    if (hasImage) {
+      const driveItemKey = getCurrentImageDataId();
+      console.log("🔍 GridC 배경제거용 driveItemKey 수집:", {
+        gridId,
+        driveItemKey,
+        hasImage,
+        isLocal: driveItemKey?.startsWith('local_')
+      });
+      
+      if (driveItemKey && !driveItemKey.startsWith('local_')) {
+        driveItemKeys.push(driveItemKey);
+        console.log("✅ GridC 유효한 driveItemKey 추가:", driveItemKey);
+      } else {
+        console.warn("❌ GridC 유효하지 않은 driveItemKey:", {
+          driveItemKey,
+          isLocal: driveItemKey?.startsWith('local_'),
+          isEmpty: !driveItemKey
+        });
+      }
+    }
+
+    if (driveItemKeys.length === 0) {
+      console.error("❌ GridC 배경제거에 필요한 driveItemKey가 없음:", {
+        gridId,
+        driveItemKeys,
+        hasImage,
+        currentImageUrl,
+        currentImageDriveItemKey,
+        imageMetadata
+      });
+      showAlert({ message: '배경 제거에 필요한 정보가 없습니다.' });
+      return;
+    }
+
+    console.log("🖼️ GridC 배경 제거 API 호출:", {
+      profileId,
+      driveItemKeys,
+      threshold: 0.8,
+      responseWithFolder: false
+    });
+
+    try {
+      setIsRemoveBackgroundLoading(true);
+      
+      const response = await fetch('/api/ai/v1/remove-background', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'accept': '*/*'
+        },
+        body: JSON.stringify({
+          profileId,
+          driveItemKeys,
+          threshold: 0.8,
+          responseWithFolder: false
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        showAlert({ message: '배경 제거에 실패했습니다. 다시 시도해주세요.' });
+        return;
+      }
+
+      const result = await response.json();
+      console.log("🖼️ GridC 배경 제거 API 응답:", result);
+
+      // 응답에서 새로운 이미지 정보 추출
+      if (result?.result) {
+        // 처리된 이미지 정보
+        const processedImage = Array.isArray(result.result) ? result.result[0] : result.result;
+        
+        if (processedImage?.driveItemKey && processedImage?.thumbUrl) {
+          const newDriveItemKey = processedImage.driveItemKey;
+          const newThumbUrl = processedImage.thumbUrl;
+          
+          console.log(`🖼️ GridC 배경 제거 완료:`, {
+            원본: currentImageUrl,
+            신규: newThumbUrl,
+            원본DriveItemKey: driveItemKeys[0],
+            신규DriveItemKey: newDriveItemKey
+          });
+          
+          // 현재 이미지 URL을 배경 제거된 이미지로 업데이트
+          setCurrentImageUrl(newThumbUrl);
+          
+          // 이미지 메타데이터 업데이트
+          setImageMetadata([{ url: newThumbUrl, driveItemKey: newDriveItemKey }]);
+          setImage(gridId, newDriveItemKey);
+          
+          // 현재 이미지의 driveItemKey 명시적으로 설정
+          setCurrentImageDriveItemKey(newDriveItemKey);
+          
+          // 부모 컴포넌트에 배경 제거된 이미지 전달
+          if (onImageUpload) {
+            onImageUpload(gridId, newThumbUrl, newDriveItemKey);
+          }
+          
+          // 이미지 변환 데이터 초기화 (새로운 이미지이므로)
+          setImageTransformData(null);
+          
+          console.log("✅ GridC 배경제거 이미지 상태 업데이트 완료:", {
+            gridId,
+            newDriveItemKey,
+            newThumbUrl: newThumbUrl.substring(0, 50) + "..."
+          });
+          
+          addToast({ message: '배경 제거가 완료되었습니다.' });
+        } else {
+          showAlert({ message: '배경 제거된 이미지를 찾을 수 없습니다.' });
+        }
+      } else {
+        showAlert({ message: '배경 제거 결과를 처리할 수 없습니다.' });
+      }
+
+    } catch (error) {
+      console.log('GridC 배경 제거 API 호출 오류:', error);
+      showAlert({ message: '배경 제거 중 오류가 발생했습니다.' });
+    } finally {
+      setIsRemoveBackgroundLoading(false);
+    }
+  }, [profileId, hasImage, currentImageUrl, currentImageDriveItemKey, getCurrentImageDataId, showAlert, gridId, setImage, onImageUpload, addToast]);
 
   // 툴바 숨기기 핸들러
   const handleHideToolbar = () => {
@@ -533,33 +766,13 @@ function GridCElement({
       return;
     }
 
-    // 사진 배경 제거 처리 (인덱스 3)
+    // 사진 배경 제거 처리 (인덱스 3) - 새로운 배경 제거 API 사용
     if (iconIndex === 3) {
-      console.log(`그리드 ${index}의 이미지 제거 (사진 배경 제거)`);
-      
-      // 현재 이미지 URL 초기화
-      setCurrentImageUrl("");
-      
-      // 이미지 메타데이터 초기화
-      setImageMetadata([]);
-      try { remove(gridId); } catch (_) {}
-      
-      // 이미지 변환 데이터 초기화
-      setImageTransformData(null);
-      
-      // 부모 컴포넌트에 이미지 제거 알림
-      if (onImageUpload) {
-        onImageUpload(gridId, "");
-      }
+      console.log(`GridC 그리드 ${index}의 배경 제거 API 호출`);
+      callRemoveBackgroundAPI();
       
       // 툴바 숨기기
       handleHideToolbar();
-      
-      console.log("🗑️ GridC 이미지 제거 완료:", {
-        gridId,
-        이전이미지: currentImageUrl,
-        새이미지: ""
-      });
     }
     
     // 사진 틀 삭제 처리 (인덱스 4)
@@ -802,22 +1015,33 @@ function GridCElement({
           onMouseLeave={() => setIsHovered(false)}
           onDoubleClick={handleDoubleClick}
         >
+          {/* 배경 제거 로딩 오버레이 */}
+          {isRemoveBackgroundLoading && (
+            <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50 rounded-md">
+              <div className="flex flex-col items-center gap-2">
+                <Loader size="default" />
+                <div className="text-white text-xs">배경을 제거하는 중...</div>
+              </div>
+            </div>
+          )}
           {/* KonvaImageCanvas - 항상 표시 */}
-          <KonvaImageCanvas
-            ref={konvaCanvasRef}
-            imageUrl={hasImage ? currentImageUrl : NO_IMAGE_URL}
-            containerWidth={containerSize.width}
-            containerHeight={containerSize.height}
-            isClippingEnabled={effectiveClippingEnabled}
-            onImageMove={handleImageMove}
-            onImageTransformUpdate={handleImageTransformUpdate}
-            onCroppedImageUpdate={handleCroppedImageUpdate}
-            clipPath={effectiveClippingEnabled ? clipPathData.pathData : undefined}
-            gridId={gridId}
-            imageTransformData={imageTransformData}
-            onFinishEdit={handleFinishEdit}
-            useExternalControls={isLocalClippingDisabled}
-          />
+          <div data-id={currentImageDriveItemKey}>
+            <KonvaImageCanvas
+              ref={konvaCanvasRef}
+              imageUrl={hasImage ? currentImageUrl : NO_IMAGE_URL}
+              containerWidth={containerSize.width}
+              containerHeight={containerSize.height}
+              isClippingEnabled={effectiveClippingEnabled}
+              onImageMove={handleImageMove}
+              onImageTransformUpdate={handleImageTransformUpdate}
+              onCroppedImageUpdate={handleCroppedImageUpdate}
+              clipPath={effectiveClippingEnabled ? clipPathData.pathData : undefined}
+              gridId={gridId}
+              imageTransformData={imageTransformData}
+              onFinishEdit={handleFinishEdit}
+              useExternalControls={isLocalClippingDisabled}
+            />
+          </div>
 
           {/* 이미지가 있을 때 X 삭제 버튼 표시 */}
           {hasImage && (

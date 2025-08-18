@@ -9,11 +9,12 @@ export interface DragDropGridCItemProps {
   index: number;
   clipPathData: ClipPathItem;
   imageUrl: string;
+  driveItemKey?: string; // driveItemKey 추가
   isClippingEnabled: boolean;
   isSelected?: boolean;
   onSelectChange?: (isSelected: boolean) => void;
   onDelete?: () => void;
-  onImageUpload: (gridId: string, imageUrl: string) => void;
+  onImageUpload: (gridId: string, imageUrl: string, driveItemKey?: string) => void;
   onClipPathChange?: (gridId: string, clipPathData: ClipPathItem) => void;
   onIntegratedUpload?: () => void; // 통합 업로드 핸들러
   isOverlay?: boolean;
@@ -26,6 +27,7 @@ function DragDropGridCItem({
   index,
   clipPathData,
   imageUrl,
+  driveItemKey,
   isClippingEnabled,
   isSelected = false,
   onSelectChange,
@@ -88,6 +90,7 @@ function DragDropGridCItem({
         gridId={id}
         clipPathData={clipPathData}
         imageUrl={imageUrl}
+        driveItemKey={driveItemKey}
         isClippingEnabled={isClippingEnabled}
         isDragging={isDragging}
         dragAttributes={attributes}

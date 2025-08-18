@@ -13,7 +13,7 @@ import DecorationStickerModal from "./DecorationStickerModal";
 import ImageCountModal from "./ImageCountModal";
 import { MdPhotoLibrary } from "react-icons/md";
 import { clipPathItems } from "../dummy/svgData";
-
+import  useUserStore  from "@/hooks/store/useUserStore";
 interface GridEditToolbarProps {
   show: boolean;
   isExpanded: boolean;
@@ -45,7 +45,9 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
   const [isDecorationStickerModalOpen, setIsDecorationStickerModalOpen] = useState(false);
   const [isImageCountModalOpen, setIsImageCountModalOpen] = useState(false);
   const [internalExpanded, setInternalExpanded] = useState(false);
+  const { userInfo } = useUserStore();
 
+  const profileId = userInfo?.id ?? 0;
   // 디버깅용 useEffect
   useEffect(() => {
     console.log("GridEditToolbar 렌더링됨, show:", show);

@@ -209,6 +209,9 @@ function GridBElement({
   // AI 생성 로딩 상태 관리
   const [isLoading, setIsLoading] = React.useState(false);
   
+  // 배경 제거 로딩 상태 관리
+  const [isRemoveBackgroundLoading, setIsRemoveBackgroundLoading] = React.useState(false);
+  
   // AI 생성 버튼을 클릭한 적이 있는지 추적
   const [hasClickedAIGenerate, setHasClickedAIGenerate] = React.useState(false);
   
@@ -1041,6 +1044,153 @@ function GridBElement({
     });
   };
 
+  // 배경 제거 API 호출 함수
+  const callRemoveBackgroundAPI = React.useCallback(async () => {
+    if (!profileId) {
+      addToast({ message: '로그인 후 사용해주세요.' });
+      return;
+    }
+
+    // 현재 이미지들에서 driveItemKey 수집
+    const driveItemKeys: string[] = [];
+    currentImages.forEach((imageUrl) => {
+      if (imageUrl && imageUrl !== "" && imageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
+        const driveItemKey = getDriveItemKeyByImageUrl(imageUrl);
+        if (driveItemKey && !driveItemKey.startsWith('local_')) {
+          driveItemKeys.push(driveItemKey);
+        }
+      }
+    });
+
+    if (driveItemKeys.length === 0) {
+      addToast({ message: '배경 제거에 필요한 정보가 없습니다.' });
+      return;
+    }
+
+    console.log("🖼️ GridB 배경 제거 API 호출:", {
+      profileId,
+      driveItemKeys,
+      threshold: 0.8,
+      responseWithFolder: false
+    });
+
+    try {
+      setIsRemoveBackgroundLoading(true);
+      
+      const response = await fetch('/api/ai/v1/remove-background', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'accept': '*/*'
+        },
+        body: JSON.stringify({
+          profileId,
+          driveItemKeys,
+          threshold: 0.8,
+          responseWithFolder: false
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        showAlert({ message: '배경 제거에 실패했습니다. 다시 시도해주세요.' });
+        return;
+      }
+
+      const result = await response.json();
+      console.log("🖼️ GridB 배경 제거 API 응답:", result);
+
+      // 응답에서 새로운 이미지 정보 추출
+      if (result?.result) {
+        // 여러 이미지가 처리된 경우 배열로 응답이 올 수 있음
+        const processedImages = Array.isArray(result.result) ? result.result : [result.result];
+        
+        // 현재 이미지들과 해당하는 driveItemKey 매핑 생성
+        const currentImageMap = new Map<string, number>();
+        currentImages.forEach((imageUrl, index) => {
+          if (imageUrl && imageUrl !== "" && imageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
+            const driveItemKey = getDriveItemKeyByImageUrl(imageUrl);
+            if (driveItemKey && driveItemKeys.includes(driveItemKey)) {
+              currentImageMap.set(driveItemKey, index);
+            }
+          }
+        });
+
+        // 처리된 이미지들을 매칭하여 교체
+        let updatedCount = 0;
+        
+        processedImages.forEach((processedImage: any) => {
+          if (processedImage?.driveItemKey && processedImage?.thumbUrl) {
+            const newDriveItemKey = processedImage.driveItemKey;
+            const newThumbUrl = processedImage.thumbUrl;
+            
+            // 원본 driveItemKey에서 새로운 이미지로 교체할 인덱스 찾기
+            let targetIndex = -1;
+            
+            // 요청한 driveItemKeys 중에서 매칭되는 항목 찾기
+            driveItemKeys.forEach((originalKey, reqIndex) => {
+              const imageIndex = currentImageMap.get(originalKey);
+              if (imageIndex !== undefined && targetIndex === -1) {
+                targetIndex = imageIndex;
+              }
+            });
+            
+            if (targetIndex >= 0) {
+              // 이미지 교체
+              setCurrentImages(prev => {
+                const newImages = [...prev];
+                newImages[targetIndex] = newThumbUrl;
+                console.log(`🖼️ GridB 이미지 ${targetIndex} 배경 제거 완료:`, {
+                  원본: prev[targetIndex],
+                  신규: newThumbUrl,
+                  원본DriveItemKey: driveItemKeys[0], // 첫 번째 요청한 키
+                  신규DriveItemKey: newDriveItemKey
+                });
+                return newImages;
+              });
+
+              // 이미지 메타데이터도 업데이트
+              setImageMetadata(prev => {
+                const newMetadata = [...prev];
+                // 해당 인덱스의 메타데이터 업데이트
+                const metaIndex = newMetadata.findIndex(meta => meta.url === currentImages[targetIndex]);
+                if (metaIndex >= 0) {
+                  newMetadata[metaIndex] = {
+                    url: newThumbUrl,
+                    driveItemKey: newDriveItemKey
+                  };
+                } else {
+                  // 새로운 메타데이터 추가
+                  newMetadata.push({
+                    url: newThumbUrl,
+                    driveItemKey: newDriveItemKey
+                  });
+                }
+                return newMetadata;
+              });
+              
+              updatedCount++;
+            }
+          }
+        });
+
+        if (updatedCount > 0) {
+          addToast({ message: `${updatedCount}개 이미지의 배경 제거가 완료되었습니다.` });
+        } else {
+          showAlert({ message: '배경 제거된 이미지를 찾을 수 없습니다.' });
+        }
+      } else {
+        showAlert({ message: '배경 제거 결과를 처리할 수 없습니다.' });
+      }
+
+    } catch (error) {
+      console.log('GridB 배경 제거 API 호출 오류:', error);
+      showAlert({ message: '배경 제거 중 오류가 발생했습니다.' });
+    } finally {
+      setIsRemoveBackgroundLoading(false);
+    }
+  }, [profileId, currentImages, getDriveItemKeyByImageUrl, addToast, showAlert]);
+
   // 텍스트 새로고침 핸들러 - LLM API 호출
   const handleTextRefresh = (event: React.MouseEvent) => {
     event.stopPropagation(); // 이벤트 전파 방지
@@ -1160,18 +1310,10 @@ function GridBElement({
       }
     }
     
-    // 사진 배경 제거 처리 (인덱스 3)
+    // 사진 배경 제거 처리 (인덱스 3) - 새로운 배경 제거 API 사용
     if (iconIndex === 3) {
-      console.log(`그리드 ${index}의 모든 이미지 제거 (갯수 유지)`);
-      setCurrentImages(prev => {
-        const newImages = new Array(prev.length).fill("");
-        console.log("🗑️ GridB 이미지 제거 완료:", {
-          이전이미지: prev,
-          새이미지: newImages,
-          이미지개수: newImages.length
-        });
-        return newImages;
-      });
+      console.log(`GridB 그리드 ${index}의 배경 제거 API 호출`);
+      callRemoveBackgroundAPI();
       
       // 툴바 숨기기
       handleHideToolbar();
@@ -1229,7 +1371,7 @@ function GridBElement({
         {/* 이미지 그리드 - 계산된 높이로 설정하여 공간 최적화 */}
         <div 
           ref={dropRef}
-          className={`grid gap-1 w-full ${getImageGridLayout(imageCount).className}`}
+          className={`grid gap-1 w-full relative ${getImageGridLayout(imageCount).className}`}
           style={{ 
             height: 'calc(100% - 70px)', // 전체 높이에서 하단 입력 영역(70px) 제외
             backgroundColor: canDrop && isOver ? '#f0f0f0' : 'transparent',
@@ -1237,6 +1379,15 @@ function GridBElement({
             ...getImageGridLayout(imageCount).style
           }}
         >
+          {/* 배경 제거 로딩 오버레이 */}
+          {isRemoveBackgroundLoading && (
+            <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50 rounded-md">
+              <div className="flex flex-col items-center gap-2">
+                <Loader size="default" />
+                <div className="text-white text-xs">배경을 제거하는 중...</div>
+              </div>
+            </div>
+          )}
           {currentImages.map((imageSrc, index) => {
             // 합친 경우이고 이미지가 3개일 때 각 이미지의 grid-area 지정
             let gridAreaStyle = {};
