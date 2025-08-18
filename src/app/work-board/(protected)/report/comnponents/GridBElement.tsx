@@ -209,8 +209,9 @@ function GridBElement({
   // AI 생성 로딩 상태 관리
   const [isLoading, setIsLoading] = React.useState(false);
   
-  // 배경 제거 로딩 상태 관리
+  // 배경 제거 로딩 상태 관리 - 각 이미지별로 관리
   const [isRemoveBackgroundLoading, setIsRemoveBackgroundLoading] = React.useState(false);
+  const [imageRemoveLoadingStates, setImageRemoveLoadingStates] = React.useState<{[index: number]: boolean}>({});
   
   // AI 생성 버튼을 클릭한 적이 있는지 추적
   const [hasClickedAIGenerate, setHasClickedAIGenerate] = React.useState(false);
@@ -1044,38 +1045,10 @@ function GridBElement({
     });
   };
 
-  // 배경 제거 API 호출 함수
-  const callRemoveBackgroundAPI = React.useCallback(async () => {
-    if (!profileId) {
-      addToast({ message: '로그인 후 사용해주세요.' });
-      return;
-    }
-
-    // 현재 이미지들에서 driveItemKey 수집
-    const driveItemKeys: string[] = [];
-    currentImages.forEach((imageUrl) => {
-      if (imageUrl && imageUrl !== "" && imageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
-        const driveItemKey = getDriveItemKeyByImageUrl(imageUrl);
-        if (driveItemKey && !driveItemKey.startsWith('local_')) {
-          driveItemKeys.push(driveItemKey);
-        }
-      }
-    });
-
-    if (driveItemKeys.length === 0) {
-      addToast({ message: '배경 제거에 필요한 정보가 없습니다.' });
-      return;
-    }
-
-    console.log("🖼️ GridB 배경 제거 API 호출:", {
-      profileId,
-      driveItemKeys,
-      threshold: 0.8,
-      responseWithFolder: false
-    });
-
+  // 개별 이미지의 배경 제거 API 호출 함수
+  const removeBackgroundForSingleImage = React.useCallback(async (imageIndex: number, imageUrl: string, driveItemKey: string) => {
     try {
-      setIsRemoveBackgroundLoading(true);
+      setImageRemoveLoadingStates(prev => ({ ...prev, [imageIndex]: true }));
       
       const response = await fetch('/api/ai/v1/remove-background', {
         method: 'POST',
@@ -1085,102 +1058,117 @@ function GridBElement({
         },
         body: JSON.stringify({
           profileId,
-          driveItemKeys,
+          driveItemKeys: [driveItemKey], // 단일 이미지만 처리
           threshold: 0.8,
           responseWithFolder: false
         })
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        showAlert({ message: '배경 제거에 실패했습니다. 다시 시도해주세요.' });
-        return;
+        console.log(`GridB 이미지 ${imageIndex + 1} 배경 제거 실패`);
+        return null;
       }
 
       const result = await response.json();
-      console.log("🖼️ GridB 배경 제거 API 응답:", result);
+      console.log(`🖼️ GridB 이미지 ${imageIndex + 1} 배경 제거 API 응답:`, result);
 
       // 응답에서 새로운 이미지 정보 추출
       if (result?.result) {
-        // 여러 이미지가 처리된 경우 배열로 응답이 올 수 있음
-        const processedImages = Array.isArray(result.result) ? result.result : [result.result];
+        const processedImage = Array.isArray(result.result) ? result.result[0] : result.result;
         
-        // 현재 이미지들과 해당하는 driveItemKey 매핑 생성
-        const currentImageMap = new Map<string, number>();
-        currentImages.forEach((imageUrl, index) => {
-          if (imageUrl && imageUrl !== "" && imageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
-            const driveItemKey = getDriveItemKeyByImageUrl(imageUrl);
-            if (driveItemKey && driveItemKeys.includes(driveItemKey)) {
-              currentImageMap.set(driveItemKey, index);
-            }
-          }
-        });
-
-        // 처리된 이미지들을 매칭하여 교체
-        let updatedCount = 0;
-        
-        processedImages.forEach((processedImage: any) => {
-          if (processedImage?.driveItemKey && processedImage?.thumbUrl) {
-            const newDriveItemKey = processedImage.driveItemKey;
-            const newThumbUrl = processedImage.thumbUrl;
-            
-            // 원본 driveItemKey에서 새로운 이미지로 교체할 인덱스 찾기
-            let targetIndex = -1;
-            
-            // 요청한 driveItemKeys 중에서 매칭되는 항목 찾기
-            driveItemKeys.forEach((originalKey, reqIndex) => {
-              const imageIndex = currentImageMap.get(originalKey);
-              if (imageIndex !== undefined && targetIndex === -1) {
-                targetIndex = imageIndex;
-              }
+        if (processedImage?.driveItemKey && processedImage?.thumbUrl) {
+          const newDriveItemKey = processedImage.driveItemKey;
+          const newThumbUrl = processedImage.thumbUrl;
+          
+          // 이미지 교체
+          setCurrentImages(prev => {
+            const newImages = [...prev];
+            newImages[imageIndex] = newThumbUrl;
+            console.log(`🖼️ GridB 이미지 ${imageIndex + 1} 배경 제거 완료:`, {
+              원본: prev[imageIndex],
+              신규: newThumbUrl,
+              원본DriveItemKey: driveItemKey,
+              신규DriveItemKey: newDriveItemKey
             });
-            
-            if (targetIndex >= 0) {
-              // 이미지 교체
-              setCurrentImages(prev => {
-                const newImages = [...prev];
-                newImages[targetIndex] = newThumbUrl;
-                console.log(`🖼️ GridB 이미지 ${targetIndex} 배경 제거 완료:`, {
-                  원본: prev[targetIndex],
-                  신규: newThumbUrl,
-                  원본DriveItemKey: driveItemKeys[0], // 첫 번째 요청한 키
-                  신규DriveItemKey: newDriveItemKey
-                });
-                return newImages;
-              });
+            return newImages;
+          });
 
-              // 이미지 메타데이터도 업데이트
-              setImageMetadata(prev => {
-                const newMetadata = [...prev];
-                // 해당 인덱스의 메타데이터 업데이트
-                const metaIndex = newMetadata.findIndex(meta => meta.url === currentImages[targetIndex]);
-                if (metaIndex >= 0) {
-                  newMetadata[metaIndex] = {
-                    url: newThumbUrl,
-                    driveItemKey: newDriveItemKey
-                  };
-                } else {
-                  // 새로운 메타데이터 추가
-                  newMetadata.push({
-                    url: newThumbUrl,
-                    driveItemKey: newDriveItemKey
-                  });
-                }
-                return newMetadata;
+          // 이미지 메타데이터도 업데이트
+          setImageMetadata(prev => {
+            const newMetadata = [...prev];
+            // 해당 인덱스의 메타데이터 업데이트
+            const metaIndex = newMetadata.findIndex(meta => meta.url === imageUrl);
+            if (metaIndex >= 0) {
+              newMetadata[metaIndex] = {
+                url: newThumbUrl,
+                driveItemKey: newDriveItemKey
+              };
+            } else {
+              // 새로운 메타데이터 추가
+              newMetadata.push({
+                url: newThumbUrl,
+                driveItemKey: newDriveItemKey
               });
-              
-              updatedCount++;
             }
-          }
-        });
-
-        if (updatedCount > 0) {
-          addToast({ message: `${updatedCount}개 이미지의 배경 제거가 완료되었습니다.` });
-        } else {
-          showAlert({ message: '배경 제거된 이미지를 찾을 수 없습니다.' });
+            return newMetadata;
+          });
+          
+          return true; // 성공
         }
+      }
+      
+      return false; // 실패
+    } catch (error) {
+      console.log(`GridB 이미지 ${imageIndex + 1} 배경 제거 오류:`, error);
+      return false;
+    } finally {
+      setImageRemoveLoadingStates(prev => ({ ...prev, [imageIndex]: false }));
+    }
+  }, [profileId, setCurrentImages, setImageMetadata]);
+
+  // 모든 이미지의 배경 제거 API 호출 함수 (병렬 처리)
+  const callRemoveBackgroundAPI = React.useCallback(async () => {
+    if (!profileId) {
+      addToast({ message: '로그인 후 사용해주세요.' });
+      return;
+    }
+
+    // 현재 이미지들에서 유효한 이미지와 driveItemKey 수집
+    const validImages: Array<{index: number, url: string, driveItemKey: string}> = [];
+    
+    currentImages.forEach((imageUrl, index) => {
+      if (imageUrl && imageUrl !== "" && imageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
+        const driveItemKey = getDriveItemKeyByImageUrl(imageUrl);
+        if (driveItemKey && !driveItemKey.startsWith('local_')) {
+          validImages.push({ index, url: imageUrl, driveItemKey });
+        }
+      }
+    });
+
+    if (validImages.length === 0) {
+      addToast({ message: '배경 제거에 필요한 정보가 없습니다.' });
+      return;
+    }
+
+    console.log(`🖼️ GridB ${validImages.length}개 이미지의 배경 제거 시작:`, validImages);
+
+    try {
+      setIsRemoveBackgroundLoading(true);
+      
+      // 모든 이미지에 대해 병렬로 배경 제거 처리
+      const promises = validImages.map(({index, url, driveItemKey}) => 
+        removeBackgroundForSingleImage(index, url, driveItemKey)
+      );
+      
+      const results = await Promise.all(promises);
+      
+      // 성공한 이미지 개수 계산
+      const successCount = results.filter(result => result === true).length;
+      
+      if (successCount > 0) {
+        addToast({ message: `${successCount}개 이미지의 배경 제거가 완료되었습니다.` });
       } else {
-        showAlert({ message: '배경 제거 결과를 처리할 수 없습니다.' });
+        showAlert({ message: '배경 제거된 이미지를 찾을 수 없습니다.' });
       }
 
     } catch (error) {
@@ -1189,7 +1177,7 @@ function GridBElement({
     } finally {
       setIsRemoveBackgroundLoading(false);
     }
-  }, [profileId, currentImages, getDriveItemKeyByImageUrl, addToast, showAlert]);
+  }, [profileId, currentImages, getDriveItemKeyByImageUrl, addToast, showAlert, removeBackgroundForSingleImage]);
 
   // 텍스트 새로고침 핸들러 - LLM API 호출
   const handleTextRefresh = (event: React.MouseEvent) => {
@@ -1379,15 +1367,7 @@ function GridBElement({
             ...getImageGridLayout(imageCount).style
           }}
         >
-          {/* 배경 제거 로딩 오버레이 */}
-          {isRemoveBackgroundLoading && (
-            <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50 rounded-md">
-              <div className="flex flex-col items-center gap-2">
-                <Loader size="default" />
-                <div className="text-white text-xs">배경을 제거하는 중...</div>
-              </div>
-            </div>
-          )}
+
           {currentImages.map((imageSrc, index) => {
             // 합친 경우이고 이미지가 3개일 때 각 이미지의 grid-area 지정
             let gridAreaStyle = {};
@@ -1441,6 +1421,15 @@ function GridBElement({
                         }}
                         data-id={getDriveItemKeyByImageUrl(imageSrc)}
                       />
+                      {/* 개별 이미지 배경 제거 로딩 오버레이 */}
+                      {imageRemoveLoadingStates[index] && (
+                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 rounded-md">
+                          <div className="flex flex-col items-center gap-1">
+                            <Loader size="sm" />
+                            <div className="text-white text-xs">배경 제거 중...</div>
+                          </div>
+                        </div>
+                      )}
                       {/* X 삭제 버튼 */}
                       <button
                         className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
