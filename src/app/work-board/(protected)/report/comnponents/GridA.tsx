@@ -22,6 +22,10 @@ interface GridAProps {
 
 export interface GridARef {
   checkGridValidation: () => boolean;
+  getGridData: () => {
+    gridLayout: GridItem[];
+    imagePositionsMap: Record<string, any[]>;
+  };
 }
 
 const GridA = React.forwardRef<GridARef, GridAProps>(({ subject, onDecreaseSubject }, ref) => {
@@ -140,10 +144,19 @@ const GridA = React.forwardRef<GridARef, GridAProps>(({ subject, onDecreaseSubje
     return true;
   }, [subject, gridContents]);
 
+  // 그리드 데이터 수집 함수
+  const getGridData = React.useCallback(() => {
+    return {
+      gridLayout: [...items], // 현재 그리드 레이아웃 정보
+      imagePositionsMap: { ...imagePositionsMap }, // 이미지 위치 정보
+    };
+  }, [items, imagePositionsMap]);
+
   // ref를 통해 함수 expose
   React.useImperativeHandle(ref, () => ({
-    checkGridValidation
-  }), [checkGridValidation]);
+    checkGridValidation,
+    getGridData
+  }), [checkGridValidation, getGridData]);
 
   // 레이아웃 재계산 함수 - subject에 따라 다른 레이아웃 적용
   const recalculateLayout = (items: GridItem[], targetSpanTwoIndex: number): GridItem[] => {

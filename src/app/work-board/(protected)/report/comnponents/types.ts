@@ -445,7 +445,19 @@ export interface AIGenerateRequest {
   keywords?: string;
 }
 
-// 저장 데이터 관련 타입들
+// ReportBottom 섹션 데이터 타입
+export interface ReportBottomData {
+  playActivityText?: string; // C타입에서만 사용
+  teacherSupportText?: string;
+  homeConnectionText?: string;
+  visibleGrids?: {
+    playActivity: boolean;
+    teacherSupport: boolean;
+    homeConnection: boolean;
+  };
+}
+
+// 저장 데이터 관련 타입들 - 확장됨
 export interface SavedReportData {
   id: string;
   reportType: ReportType;
@@ -455,17 +467,40 @@ export interface SavedReportData {
   savedAt: string;
   title?: string;
   description?: string;
+  // 추가된 필드들
+  searchParams?: Record<string, string>; // 모든 searchParams 값들
+  gridLayout?: GridItem[]; // 그리드 배치 정보
+  gridContents?: Record<string, any>; // 그리드 내용들 (useGridContentStore의 데이터)
+  reportBottomData?: ReportBottomData; // ReportBottomSection의 텍스트들
+  backgroundImageUrl?: string; // 배경 이미지 URL
+  imagePositionsMap?: Record<string, any[]>; // 각 그리드의 이미지 위치 정보
 }
 
 export interface SavedDataStore {
   savedReports: SavedReportData[];
   currentSavedData: SavedReportData | null;
   isSaved: boolean;
-  saveCurrentReport: (reportType: ReportType, subject: number, stickers: StickerItem[], textStickers: TextStickerItem[], title?: string, description?: string) => string;
+  saveCurrentReport: (
+    reportType: ReportType, 
+    subject: number, 
+    stickers: StickerItem[], 
+    textStickers: TextStickerItem[], 
+    title?: string, 
+    description?: string,
+    // 추가 파라미터들
+    searchParams?: Record<string, string>,
+    gridLayout?: GridItem[],
+    gridContents?: Record<string, any>,
+    reportBottomData?: ReportBottomData,
+    backgroundImageUrl?: string,
+    imagePositionsMap?: Record<string, any[]>
+  ) => string;
   loadSavedReport: (id: string) => SavedReportData | null;
   deleteSavedReport: (id: string) => void;
   updateSavedReport: (id: string, updates: Partial<SavedReportData>) => void;
   setCurrentSavedData: (data: SavedReportData | null) => void;
   getAllSavedReports: () => SavedReportData[];
   setSaved: (saved: boolean) => void;
+  // articleData.js 파일 생성 함수 추가
+  exportToArticleDataFile: (reportData: SavedReportData) => void;
 }

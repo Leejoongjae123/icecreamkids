@@ -9,6 +9,7 @@ export interface GridContentData {
   hasAiGenerated: boolean; // AI로 생성된 내용이 있는지 여부
   playSubjectText?: string; // 놀이주제 텍스트
   imageUrls?: string[]; // 이미지 URL 배열
+  driveItemKeys?: string[]; // 드라이브 아이템 키 배열
   categoryValue?: string; // 카테고리 값
 }
 
@@ -24,6 +25,9 @@ export interface GridContentStore {
   
   // 특정 Grid의 이미지 업데이트
   updateImages: (gridId: string, imageUrls: string[]) => void;
+  
+  // 특정 Grid의 드라이브 아이템 키 업데이트
+  updateDriveItemKeys: (gridId: string, driveItemKeys: string[]) => void;
   
   // 특정 Grid의 카테고리 값 업데이트
   updateCategoryValue: (gridId: string, value: string) => void;
@@ -74,6 +78,7 @@ const useGridContentStore = create<GridContentStore>((set, get) => ({
             hasAiGenerated: data.hasAiGenerated ?? existingContent.hasAiGenerated ?? false,
             playSubjectText: data.playSubjectText ?? existingContent.playSubjectText,
             imageUrls: data.imageUrls ?? existingContent.imageUrls,
+            driveItemKeys: data.driveItemKeys ?? existingContent.driveItemKeys,
             categoryValue: data.categoryValue ?? existingContent.categoryValue,
           },
         },
@@ -97,6 +102,7 @@ const useGridContentStore = create<GridContentStore>((set, get) => ({
             hasAiGenerated: (existingData.hasAiGenerated ?? false),
             hasPlaySubject: text.trim().length > 0,
             playSubjectText: text,
+            driveItemKeys: existingData.driveItemKeys,
           },
         },
       };
@@ -119,6 +125,29 @@ const useGridContentStore = create<GridContentStore>((set, get) => ({
             hasAiGenerated: (existingData.hasAiGenerated ?? false),
             hasImages: imageUrls.length > 0,
             imageUrls,
+            driveItemKeys: existingData.driveItemKeys,
+          },
+        },
+      };
+    });
+  },
+
+  updateDriveItemKeys: (gridId: string, driveItemKeys: string[]) => {
+    set((state) => {
+      const existingContent = state.gridContents[gridId] || {} as Partial<GridContentData>;
+      const { gridId: _ignored, ...existingData } = existingContent;
+
+      return {
+        gridContents: {
+          ...state.gridContents,
+          [gridId]: {
+            ...existingData,
+            gridId,
+            hasPlaySubject: (existingData.hasPlaySubject ?? false),
+            hasImages: (existingData.hasImages ?? false),
+            hasCategoryValue: (existingData.hasCategoryValue ?? false),
+            hasAiGenerated: (existingData.hasAiGenerated ?? false),
+            driveItemKeys,
           },
         },
       };
@@ -143,6 +172,7 @@ const useGridContentStore = create<GridContentStore>((set, get) => ({
             hasAiGenerated: (existingData.hasAiGenerated ?? false),
             hasCategoryValue,
             categoryValue: value,
+            driveItemKeys: existingData.driveItemKeys,
           },
         },
       };

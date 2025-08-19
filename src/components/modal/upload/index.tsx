@@ -444,6 +444,9 @@ export const UploadModal = ({
       }
 
       if (setItemData && isUploadS3) {
+        // 모달 먼저 닫기
+        onCancel?.();
+        
         // 유효성 체크 완료된 파일들을 순차적으로 S3 자료 업로드.
         const uploadedItems: (SmartFolderItemResult | null)[] = await Promise.all(
           filesArray.map(async (file: File) => {
@@ -1059,7 +1062,7 @@ export const UploadModal = ({
         )}
       </ModalBase>
       {isLoading && <Loader hasOverlay loadingMessage={loadingMessage} />}
-      {isUploading && <Loader hasOverlay loadingMessage={uploadingMessage} />}
+      {isUploading && <Loader hasOverlay loadingMessage={uploadingMessage} isDark={false} />}
       {isPhotoAiFaceModalOpen && (
         <PhotoAiFaceModal
           className=""

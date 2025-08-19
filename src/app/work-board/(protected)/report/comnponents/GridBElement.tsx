@@ -1654,15 +1654,10 @@ function GridBElement({
           onCancel={handleCloseUploadModal}
           onConfirm={handleConfirmUploadModal}
           setItemData={handleSetItemData}
-          setFileData={(files: React.SetStateAction<File[]>) => {
-            // files가 File[] 배열인 경우에만 처리
-            if (Array.isArray(files) && files.length > 0) {
-              console.log('📁 GridB 파일 선택됨:', files);
-              processUploadedFiles(files);
-            }
-          }}
           isMultiUpload
           allowsFileTypes={['IMAGE']}
+          isUploadS3
+          isReturnS3UploadedItemData
         />
       )}
 

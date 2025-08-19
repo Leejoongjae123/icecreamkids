@@ -110,7 +110,7 @@ function GridAElement({
   });
   
   // Grid content store 사용
-  const { updatePlaySubject, updateImages, updateCategoryValue, updateAiGenerated, gridContents } = useGridContentStore();
+  const { updatePlaySubject, updateImages, updateCategoryValue, updateDriveItemKeys, updateAiGenerated, gridContents } = useGridContentStore();
   
   // 현재 gridId의 AI 생성 상태 확인
   const hasAiGeneratedContent = gridId ? gridContents[gridId]?.hasAiGenerated || false : false;
@@ -473,9 +473,28 @@ function GridAElement({
         imageCount: imageCount
       });
       
+      // driveItemKeys도 함께 업데이트
+      const driveItemKeys = finalImages.map(imageUrl => {
+        if (!imageUrl || imageUrl === "" || imageUrl === "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
+          return "";
+        }
+        return getDriveItemKeyByImageUrl(imageUrl) || "";
+      }).filter(key => key !== "");
+      
+      console.log("📊 driveItemKeys 추출:", {
+        finalImages,
+        driveItemKeys,
+        imageMetadata
+      });
+      
+      // Grid content store 업데이트
+      if (gridId) {
+        updateDriveItemKeys(gridId, driveItemKeys);
+      }
+      
       return finalImages;
     });
-  }, [imageCount]);
+  }, [imageCount, getDriveItemKeyByImageUrl, updateDriveItemKeys, gridId]);
 
   // 개별 이미지 추가 핸들러
   const handleSingleImageAdded = React.useCallback((hasImage: boolean, imageIndex: number) => {
@@ -831,8 +850,15 @@ function GridAElement({
         img && img !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
       );
       updateImages(gridId, validImages);
+      
+      // driveItemKeys도 함께 업데이트
+      const driveItemKeys = validImages.map(imageUrl => {
+        return getDriveItemKeyByImageUrl(imageUrl) || "";
+      }).filter(key => key !== "");
+      
+      updateDriveItemKeys(gridId, driveItemKeys);
     }
-  }, [currentImages, gridId, updateImages]);
+  }, [currentImages, gridId, updateImages, updateDriveItemKeys, getDriveItemKeyByImageUrl]);
 
   // categoryValue가 변경될 때 store 업데이트 (무한 루프 방지를 위한 ref 사용)
   const isUpdatingFromStore = React.useRef(false);
@@ -2663,15 +2689,10 @@ function GridAElement({
           onCancel={handleCloseUploadModal}
           onConfirm={handleConfirmUploadModal}
           setItemData={handleSetItemData}
-          setFileData={(files: React.SetStateAction<File[]>) => {
-            // files가 File[] 배열인 경우에만 처리
-            if (Array.isArray(files) && files.length > 0) {
-              console.log('📁 파일 선택됨:', files);
-              processUploadedFiles(files);
-            }
-          }}
           isMultiUpload
           allowsFileTypes={['IMAGE']}
+          isUploadS3
+          isReturnS3UploadedItemData
         />
       )}
 

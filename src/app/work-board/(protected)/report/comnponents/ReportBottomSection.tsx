@@ -2,7 +2,11 @@
 import * as React from "react";
 import { IoClose } from "react-icons/io5";
 import Image from "next/image";
-import { ReportBottomSectionProps } from "./types";
+import { ReportBottomSectionProps, ReportBottomData } from "./types";
+
+export interface ReportBottomSectionRef {
+  getReportBottomData: () => ReportBottomData;
+}
 import TextStickerModal from "./TextStickerModal";
 import DecorationStickerModal from "./DecorationStickerModal";
 import TableModal from "./TableModal";
@@ -11,7 +15,7 @@ import BottomEditToolbar from "./BottomEditToolbar";
 import usePlayRecordStore from "@/hooks/store/usePlayRecordStore";
 import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
 
-const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
+const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBottomSectionProps>(({ type }, ref) => {
   const { playRecordResult } = usePlayRecordStore();
   const { isSaved } = useSavedDataStore();
   const [activeSection, setActiveSection] = React.useState<string | null>(null);
@@ -241,6 +245,21 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
     }
     return "174px";
   };
+
+  // ReportBottom 데이터 수집 함수
+  const getReportBottomData = React.useCallback((): ReportBottomData => {
+    return {
+      playActivityText,
+      teacherSupportText,
+      homeConnectionText,
+      visibleGrids: { ...visibleGrids },
+    };
+  }, [playActivityText, teacherSupportText, homeConnectionText, visibleGrids]);
+
+  // ref를 통해 함수 expose
+  React.useImperativeHandle(ref, () => ({
+    getReportBottomData
+  }), [getReportBottomData]);
 
   return (
     <div 
@@ -485,7 +504,9 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
       </ApplyModal>
     </div>
   );
-};
+});
+
+ReportBottomSection.displayName = 'ReportBottomSection';
 
 // 제한된 기능만 표시하는 툴바 컴포넌트
 const LimitedGridEditToolbar: React.FC<{

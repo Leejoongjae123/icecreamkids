@@ -19,7 +19,7 @@ import AddPicture from "./AddPicture";
 import ApplyModal from "./ApplyModal";
 import ConfirmModal from "./ConfirmModal";
 import GridEditToolbar from "./GridEditToolbar";
-import ReportBottomSection from "./ReportBottomSection";
+import ReportBottomSection, { ReportBottomSectionRef } from "./ReportBottomSection";
 import ReportTitleSection from "./ReportTitleSection";
 import GridA, { GridARef } from "./GridA";
 import Image from "next/image";
@@ -28,6 +28,7 @@ import { useTextStickerStore } from "@/hooks/store/useTextStickerStore";
 import { useReportStore } from "@/hooks/store/useReportStore";
 import { useGlobalThemeStore } from "@/hooks/store/useGlobalThemeStore";
 import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
+import useGridContentStore from "@/hooks/store/useGridContentStore";
 import DraggableSticker from "./DraggableSticker";
 import DraggableTextSticker from "./DraggableTextSticker";
 // searchParams를 사용하는 컴포넌트 분리
@@ -42,12 +43,14 @@ function ReportAContent() {
   const { textStickers } = useTextStickerStore();
   const { getDefaultSubject } = useReportStore();
   const { backgroundImageUrlByType } = useGlobalThemeStore();
-  const { saveCurrentReport, currentSavedData, isSaved, setSaved } = useSavedDataStore();
+  const { saveCurrentReport, currentSavedData, isSaved, setSaved, exportToArticleDataFile } = useSavedDataStore();
+  const { gridContents } = useGridContentStore();
   const { downloadImage } = useCaptureImage();
   const { downloadSimpleImage, previewSimpleImage, checkElement } = useSimpleCaptureImage();
   const backgroundImageUrl = backgroundImageUrlByType["A"];
   const stickerContainerRef = useRef<HTMLDivElement>(null);
   const gridARef = useRef<GridARef>(null);
+  const reportBottomRef = useRef<ReportBottomSectionRef>(null);
 
   // ApplyModal 상태
   const [isApplyModalOpen, setIsApplyModalOpen] = React.useState(false);
@@ -152,23 +155,62 @@ function ReportAContent() {
   // 실제 저장을 수행하는 함수
   const performSave = () => {
     try {
-      // 현재 상태를 zustand 스토어에 저장
+      // 모든 데이터 수집
+      const gridData = gridARef.current?.getGridData();
+      const reportBottomData = reportBottomRef.current?.getReportBottomData();
+      
+      // searchParams를 객체로 변환
+      const searchParamsObj: Record<string, string> = {};
+      searchParams.forEach((value, key) => {
+        searchParamsObj[key] = value;
+      });
+      
+      // 현재 상태를 zustand 스토어에 저장 (확장된 정보 포함)
       const savedId = saveCurrentReport(
         "A", // 리포트 타입
         subject, // 현재 subject 값
         stickers, // 현재 스티커들
         textStickers, // 현재 텍스트 스티커들
         `A형 리포트 - ${new Date().toLocaleDateString()}`, // 제목
-        "자동 저장된 리포트입니다." // 설명
+        "자동 저장된 리포트입니다.", // 설명
+        searchParamsObj, // searchParams 값들
+        gridData?.gridLayout, // 그리드 배치 정보
+        gridContents, // 그리드 내용 정보
+        reportBottomData, // ReportBottom 텍스트 정보
+        backgroundImageUrl || undefined, // 배경 이미지 URL
+        gridData?.imagePositionsMap // 이미지 위치 정보
       );
+      
+      // 저장된 데이터로 articleData.js 파일 생성
+      // saveCurrentReport가 완료된 후 최신 데이터를 다시 구성
+      const completeReportData = {
+        id: savedId,
+        reportType: "A" as const,
+        subject,
+        stickers: [...stickers],
+        textStickers: [...textStickers],
+        savedAt: new Date().toISOString(),
+        title: `A형 리포트 - ${new Date().toLocaleDateString()}`,
+        description: "자동 저장된 리포트입니다.",
+        searchParams: searchParamsObj,
+        gridLayout: gridData?.gridLayout,
+        gridContents,
+        reportBottomData,
+        backgroundImageUrl: backgroundImageUrl || undefined,
+        imagePositionsMap: gridData?.imagePositionsMap,
+      };
+      
+      exportToArticleDataFile(completeReportData);
       
       // useSavedDataStore의 isSaved 상태를 true로 설정
       setSaved(true);
       
-      // 저장 성공 알림 (선택사항)
+      // 저장 성공 알림
       console.log('리포트가 성공적으로 저장되었습니다. ID:', savedId);
+      alert('리포트가 저장되었습니다. articleData.js 파일이 다운로드됩니다.');
     } catch (error) {
       console.log('저장 중 오류가 발생했습니다:', error);
+      alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
     }
   };
 
@@ -522,7 +564,7 @@ function ReportAContent() {
             </div>
 
             {/* 하단 텍스트 부위 */}
-            <ReportBottomSection type="A" />
+            <ReportBottomSection ref={reportBottomRef} type="A" />
 
             {/* 일반 스티커 렌더링 */}
             {stickers.map((sticker) => (
