@@ -271,7 +271,10 @@ export interface ThemeItem {
   name: string;
   previewUrl?: string;
   backgroundImageUrl?: string;
-  backgroundImage?: string;
+  backgroundImage?: string | {
+    id: number;
+    imageUrl: string;
+  };
   [key: string]: any;
 }
 

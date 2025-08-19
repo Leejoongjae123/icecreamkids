@@ -52,7 +52,9 @@ function LeftSideBarContent() {
             name: firstTheme.name,
             backgroundImage: firstTheme.backgroundImage ? {
               id: 0,
-              imageUrl: firstTheme.backgroundImage
+              imageUrl: typeof firstTheme.backgroundImage === 'string' 
+                ? firstTheme.backgroundImage 
+                : firstTheme.backgroundImage.imageUrl || ''
             } : null
           }, currentType);
         }
@@ -76,7 +78,9 @@ function LeftSideBarContent() {
         name: theme.name,
         backgroundImage: theme.backgroundImage ? {
           id: 0,
-          imageUrl: theme.backgroundImage
+          imageUrl: typeof theme.backgroundImage === 'string' 
+            ? theme.backgroundImage 
+            : theme.backgroundImage.imageUrl || ''
         } : null
       }, currentType);
     }
@@ -155,7 +159,7 @@ function LeftSideBarContent() {
                     >
                       {theme?.backgroundImage ? (
                         <img
-                          src={theme?.backgroundImage}
+                          src={typeof theme.backgroundImage === 'string' ? theme.backgroundImage : theme.backgroundImage.imageUrl || ''}
                           className="w-full h-full object-cover rounded"
                           alt={theme.name}
                           data-id={theme.id}
