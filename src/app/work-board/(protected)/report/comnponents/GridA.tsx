@@ -13,16 +13,22 @@ import {
 import DragDropGridAItem from "./DragDropGridAItem";
 import { GridItem } from "./types";
 import { useImageEditModalStore } from "@/hooks/store/useImageEditModalStore";
+import useGridContentStore from "@/hooks/store/useGridContentStore";
 
 interface GridAProps {
   subject: number;
   onDecreaseSubject?: () => void;
 }
 
-function GridA({ subject, onDecreaseSubject }: GridAProps) {
+export interface GridARef {
+  checkGridValidation: () => boolean;
+}
+
+const GridA = React.forwardRef<GridARef, GridAProps>(({ subject, onDecreaseSubject }, ref) => {
   // 각 이미지 영역의 체크 상태 관리
   const [checkedItems, setCheckedItems] = React.useState<Record<string, boolean>>({});
   const { isImageEditModalOpen } = useImageEditModalStore();
+  const { gridContents } = useGridContentStore();
   
   // 그리드 아이템 데이터 관리
   const [items, setItems] = React.useState<GridItem[]>(() => {
@@ -110,6 +116,34 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
       [gridId]: imagePositions
     }));
   };
+
+  // 그리드 유효성 검사 함수
+  const checkGridValidation = React.useCallback(() => {
+    // 현재 subject 수만큼 그리드를 검사
+    for (let i = 0; i < subject; i++) {
+      const gridId = `grid-${i}`;
+      const content = gridContents[gridId];
+      
+      if (!content) continue;
+      
+      // 이미지는 있지만 카테고리나 놀이주제가 없는 경우
+      if (content.hasImages && (!content.hasCategoryValue && !content.hasPlaySubject)) {
+        return false;
+      }
+      
+      // 카테고리나 놀이주제는 있지만 이미지가 없는 경우
+      if ((content.hasCategoryValue || content.hasPlaySubject) && !content.hasImages) {
+        return false;
+      }
+    }
+    
+    return true;
+  }, [subject, gridContents]);
+
+  // ref를 통해 함수 expose
+  React.useImperativeHandle(ref, () => ({
+    checkGridValidation
+  }), [checkGridValidation]);
 
   // 레이아웃 재계산 함수 - subject에 따라 다른 레이아웃 적용
   const recalculateLayout = (items: GridItem[], targetSpanTwoIndex: number): GridItem[] => {
@@ -414,6 +448,8 @@ function GridA({ subject, onDecreaseSubject }: GridAProps) {
       {/* DragOverlay 제거됨: 중복 기울기 프리뷰 방지 */}
     </DndContext>
   );
-}
+});
+
+GridA.displayName = 'GridA';
 
 export default GridA; 

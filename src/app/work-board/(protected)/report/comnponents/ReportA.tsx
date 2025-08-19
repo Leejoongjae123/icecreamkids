@@ -21,7 +21,7 @@ import ConfirmModal from "./ConfirmModal";
 import GridEditToolbar from "./GridEditToolbar";
 import ReportBottomSection from "./ReportBottomSection";
 import ReportTitleSection from "./ReportTitleSection";
-import GridA from "./GridA";
+import GridA, { GridARef } from "./GridA";
 import Image from "next/image";
 import { useStickerStore } from "@/hooks/store/useStickerStore";
 import { useTextStickerStore } from "@/hooks/store/useTextStickerStore";
@@ -47,6 +47,10 @@ function ReportAContent() {
   const { downloadSimpleImage, previewSimpleImage, checkElement } = useSimpleCaptureImage();
   const backgroundImageUrl = backgroundImageUrlByType["A"];
   const stickerContainerRef = useRef<HTMLDivElement>(null);
+  const gridARef = useRef<GridARef>(null);
+
+  // ApplyModal 상태
+  const [isApplyModalOpen, setIsApplyModalOpen] = React.useState(false);
 
   // searchParams에서 subject 값 가져오기 (1-4 범위, 타입 A의 기본값은 4)
   const subjectParam = searchParams.get("subject");
@@ -58,6 +62,11 @@ function ReportAContent() {
 
   // 기본적으로 저장 버튼은 항상 활성화 상태로 시작
   // 저장 버튼을 클릭했을 때만 비활성화됨
+
+  // 처음 진입 시 편집 모드로 설정
+  React.useEffect(() => {
+    setSaved(false);
+  }, [setSaved]);
 
   // 배경 이미지 로드 상태
   const [imageLoadError, setImageLoadError] = React.useState(false);
@@ -140,8 +149,8 @@ function ReportAContent() {
     }
   };
 
-  // 저장 버튼 클릭 핸들러
-  const handleSave = () => {
+  // 실제 저장을 수행하는 함수
+  const performSave = () => {
     try {
       // 현재 상태를 zustand 스토어에 저장
       const savedId = saveCurrentReport(
@@ -161,6 +170,34 @@ function ReportAContent() {
     } catch (error) {
       console.log('저장 중 오류가 발생했습니다:', error);
     }
+  };
+
+  // 저장 버튼 클릭 핸들러
+  const handleSave = () => {
+    // 그리드 유효성 검사
+    if (gridARef.current) {
+      const isValid = gridARef.current.checkGridValidation();
+      
+      if (!isValid) {
+        // 유효성 검사 실패 시 ApplyModal 표시
+        setIsApplyModalOpen(true);
+        return;
+      }
+    }
+    
+    // 유효성 검사 통과 시 바로 저장
+    performSave();
+  };
+
+  // ApplyModal 확인 핸들러
+  const handleApplyModalConfirm = () => {
+    setIsApplyModalOpen(false);
+    performSave();
+  };
+
+  // ApplyModal 취소 핸들러
+  const handleApplyModalCancel = () => {
+    setIsApplyModalOpen(false);
   };
 
   // 편집 버튼 클릭 핸들러
@@ -481,7 +518,7 @@ function ReportAContent() {
 
             {/* 이미지 그리드 */}
             <div className="flex-1 w-full h-full">
-              <GridA subject={subject} onDecreaseSubject={decreaseSubject} />
+              <GridA ref={gridARef} subject={subject} onDecreaseSubject={decreaseSubject} />
             </div>
 
             {/* 하단 텍스트 부위 */}
@@ -506,6 +543,19 @@ function ReportAContent() {
             ))}
           </div>
         </div>
+
+        {/* ApplyModal */}
+        <ApplyModal
+          open={isApplyModalOpen}
+          onOpenChange={setIsApplyModalOpen}
+          description="입력하지 않은 내용이 있습니다. 그대로 저장하시겠습니까?"
+          onConfirm={handleApplyModalConfirm}
+          onCancel={handleApplyModalCancel}
+          confirmText="저장"
+          cancelText="취소"
+        >
+          <div></div>
+        </ApplyModal>
       </div>
     </TooltipProvider>
   );
