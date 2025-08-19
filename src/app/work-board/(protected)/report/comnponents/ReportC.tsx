@@ -16,6 +16,7 @@ import GridC from "./GridC";
 import { useStickerStore } from "@/hooks/store/useStickerStore";
 import { useGlobalThemeStore } from "@/hooks/store/useGlobalThemeStore";
 import DraggableSticker from "./DraggableSticker";
+import useMousePositionTracker from "@/hooks/useMousePositionTracker";
 
 // searchParams를 사용하는 컴포넌트 분리
 function ReportCContent() {
@@ -27,6 +28,13 @@ function ReportCContent() {
   const { backgroundImageUrlByType } = useGlobalThemeStore();
   const backgroundImageUrl = backgroundImageUrlByType['C'];
   const stickerContainerRef = useRef<HTMLDivElement>(null);
+
+  // 마우스 위치 추적 기능
+  const { startTracking, stopTracking, toggleTracking, isTracking } = useMousePositionTracker({
+    enabled: true,
+    throttleMs: 50, // 50ms 간격으로 출력 (더 부드러운 추적)
+    containerRef: stickerContainerRef
+  });
 
   // searchParams에서 photo 값 가져오기 (1-9 범위, 기본값 9)
   const photoParam = searchParams.get("photo");
@@ -101,6 +109,18 @@ function ReportCContent() {
                   height={16}
                 />
                 다운로드
+              </Button>
+              <Button
+                size="sm"
+                className={`gap-1 font-semibold h-[34px] ${
+                  isTracking
+                    ? "bg-red-500 hover:bg-red-600 text-white"
+                    : "bg-blue-500 hover:bg-blue-600 text-white"
+                }`}
+                onClick={toggleTracking}
+                title="마우스 위치 추적 (스티커 좌표계)"
+              >
+                🖱️ {isTracking ? '추적 중지' : '위치 추적'}
               </Button>
               <Button
                 size="sm"
