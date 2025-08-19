@@ -14,6 +14,24 @@ import { blobToFile } from '@/utils';
 export default function useCaptureImage() {
   const { showAlert } = useAlertStore();
 
+  const getBaseOptions = useCallback(
+    (overrides: Options = { backgroundColor: '#FFF' }): Options => ({
+      backgroundColor: '#FFF',
+      pixelRatio: 2,
+      cacheBust: true,
+      style: {
+        transform: 'scale(1)',
+        transformOrigin: 'top left',
+      },
+      // @ts-ignore - html-to-image accepts these at runtime
+      useCORS: true,
+      // @ts-ignore - html-to-image accepts these at runtime
+      allowTaint: true,
+      ...overrides,
+    }),
+    [],
+  );
+
   /**
    * 이미지 캡처 및 다운로드 함수
    * @param {string} elementId - 캡처할 DOM 요소의 ID
@@ -36,18 +54,18 @@ export default function useCaptureImage() {
       const node = document.getElementById(elementId);
 
       if (!node) {
-        console.error(`Element with ID "${elementId}" not found.`);
+        showAlert({ message: '캡처할 영역을 찾을 수 없습니다.' });
         return;
       }
 
       try {
-        const dataUrl = await toPng(node, options);
+        const dataUrl = await toPng(node, getBaseOptions(options));
         await download(dataUrl, fileName);
-      } catch (error) {
-        console.error('Failed to capture image:', error);
+      } catch (_err) {
+        showAlert({ message: '이미지 캡처에 실패했습니다. 다시 시도해주세요.' });
       }
     },
-    [],
+    [getBaseOptions, showAlert],
   );
 
   /**
@@ -67,29 +85,31 @@ export default function useCaptureImage() {
    *   };
    * @returns {Promise<void>}
    */
-  const previewImage = useCallback(async (elementId: string, options: Options = { backgroundColor: '#FFF' }) => {
-    const node = document.getElementById(elementId);
+  const previewImage = useCallback(
+    async (elementId: string, options: Options = { backgroundColor: '#FFF' }) => {
+      const node = document.getElementById(elementId);
 
-    if (!node) {
-      console.error(`Element with ID "${elementId}" not found.`);
-      return null;
-    }
-
-    try {
-      const dataUrl = await toPng(node, options);
-      if (dataUrl) {
-        const blob = await (await fetch(dataUrl)).blob();
-        const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank');
-        // 메모리 누수 방지: : 후 Blob URL 접근 해제
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 60 * 1000);
+      if (!node) {
+        showAlert({ message: '미리보기 할 영역을 찾을 수 없습니다.' });
+        return null;
       }
-      return dataUrl;
-    } catch (error) {
-      console.error('Failed to preview image:', error);
-      return null;
-    }
-  }, []);
+
+      try {
+        const dataUrl = await toPng(node, getBaseOptions(options));
+        if (dataUrl) {
+          const blob = await (await fetch(dataUrl)).blob();
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank');
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60 * 1000);
+        }
+        return dataUrl;
+      } catch (_err) {
+        showAlert({ message: '미리보기에 실패했습니다. 다시 시도해주세요.' });
+        return null;
+      }
+    },
+    [getBaseOptions, showAlert],
+  );
 
   /**
    * 이미지 캡처 및 URL 반환 함수
@@ -108,21 +128,24 @@ export default function useCaptureImage() {
    *   };
    * @returns {Promise<string | null>} - 이미지 URL
    */
-  const getImageURL = useCallback(async (elementId: string, options: Options = { backgroundColor: '#FFF' }) => {
-    const node = document.getElementById(elementId);
+  const getImageURL = useCallback(
+    async (elementId: string, options: Options = { backgroundColor: '#FFF' }) => {
+      const node = document.getElementById(elementId);
 
-    if (!node) {
-      console.error(`Element with ID "${elementId}" not found.`);
-      return null;
-    }
+      if (!node) {
+        showAlert({ message: '캡처할 영역을 찾을 수 없습니다.' });
+        return null;
+      }
 
-    try {
-      return await toPng(node, options);
-    } catch (error) {
-      console.error('Failed to preview image:', error);
-      return null;
-    }
-  }, []);
+      try {
+        return await toPng(node, getBaseOptions(options));
+      } catch (_err) {
+        showAlert({ message: '이미지 URL 생성에 실패했습니다.' });
+        return null;
+      }
+    },
+    [getBaseOptions, showAlert],
+  );
 
   const { postFile } = useS3FileUpload();
 
@@ -144,17 +167,16 @@ export default function useCaptureImage() {
     targetFolderId: number;
   }) => {
     try {
-      const node = document.getElementById(elementId); // elementId로 HTML 요소를 선택
+      const node = document.getElementById(elementId);
       if (!node) {
-        throw new Error(`Element with id "${elementId}" not found`);
+        showAlert({ message: '업로드할 캡처 영역을 찾을 수 없습니다.' });
+        return undefined;
       }
 
-      // HTML 요소를 Blob 형태로 변환
-      const blob = await toBlob(node, { backgroundColor: '#FFF', includeQueryParams: true });
+      const blob = await toBlob(node, getBaseOptions({ backgroundColor: '#FFF' }));
 
       if (blob) {
         const file = blobToFile(blob, fileName);
-        // File 객체를 postFile 함수에 전달
         return (await postFile({
           file,
           fileType: 'IMAGE',
@@ -166,16 +188,54 @@ export default function useCaptureImage() {
         })) as SmartFolderItemResult;
       }
       return undefined;
-    } catch (error) {
-      showAlert({ message: '이미지로 저장에 실패했습니다.' });
+    } catch (_err) {
+      showAlert({ message: '이미지 업로드에 실패했습니다. 다시 시도해주세요.' });
       return undefined;
     }
   };
+
+  const getImageBlob = useCallback(
+    async (elementId: string, options: Options = { backgroundColor: '#FFF' }): Promise<Blob | null> => {
+      const node = document.getElementById(elementId);
+      if (!node) {
+        showAlert({ message: '캡처할 영역을 찾을 수 없습니다.' });
+        return null;
+      }
+      try {
+        const blob = await toBlob(node, getBaseOptions(options));
+        return blob ?? null;
+      } catch (_err) {
+        showAlert({ message: '이미지 생성에 실패했습니다.' });
+        return null;
+      }
+    },
+    [getBaseOptions, showAlert],
+  );
+
+  const getImageFile = useCallback(
+    async (
+      elementId: string,
+      fileName = 'captured-image.png',
+      options: Options = { backgroundColor: '#FFF' },
+    ): Promise<File | null> => {
+      const blob = await getImageBlob(elementId, options);
+      if (!blob) return null;
+      try {
+        return blobToFile(blob, fileName);
+      } catch (_err) {
+        showAlert({ message: '파일 생성에 실패했습니다.' });
+        return null;
+      }
+    },
+    [getImageBlob, showAlert],
+  );
 
   return {
     downloadImage,
     previewImage,
     getImageURL,
     getImageAndUploadToS3,
+    getImageBlob,
+    getImageFile,
   };
 }

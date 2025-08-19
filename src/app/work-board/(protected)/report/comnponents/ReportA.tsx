@@ -3,6 +3,7 @@ import * as React from "react";
 import { Suspense, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import useCaptureImage from "@/hooks/useCaptureImage";
+import useSimpleCaptureImage from "@/hooks/useSimpleCaptureImage";
 
 
 import { HiOutlineViewColumns } from "react-icons/hi2";
@@ -43,6 +44,7 @@ function ReportAContent() {
   const { backgroundImageUrlByType } = useGlobalThemeStore();
   const { saveCurrentReport, currentSavedData, isSaved, setSaved } = useSavedDataStore();
   const { downloadImage } = useCaptureImage();
+  const { downloadSimpleImage, previewSimpleImage, checkElement } = useSimpleCaptureImage();
   const backgroundImageUrl = backgroundImageUrlByType["A"];
   const stickerContainerRef = useRef<HTMLDivElement>(null);
 
@@ -318,26 +320,39 @@ function ReportAContent() {
     }
   };
 
-  // 다운로드 버튼 클릭 핸들러 (이미지 다운로드)
+  // 다운로드 버튼 클릭 핸들러 (단순하고 확실한 이미지 다운로드)
   const handleDownload = async () => {
     try {
+      // 먼저 캡처할 요소가 제대로 있는지 확인
+      const elementInfo = checkElement('report-download-area');
+      
+      if (!elementInfo || !elementInfo.visible) {
+        alert('캡처할 영역이 화면에 보이지 않습니다. 페이지를 새로고침 후 다시 시도해주세요.');
+        return;
+      }
+
       // 파일명 생성
       const today = new Date();
       const dateString = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}_${today.getHours().toString().padStart(2, '0')}${today.getMinutes().toString().padStart(2, '0')}`;
       const fileName = `놀이기록_${dateString}.png`;
 
-      // 이미지 캡처 옵션
-      const options = {
-        backgroundColor: '#ffffff',
-        pixelRatio: 2,
-        cacheBust: true
-      };
+      console.log('다운로드 시작:', elementInfo);
 
-      // useCaptureImage 훅 사용해서 이미지 다운로드
-      await downloadImage('report-download-area', fileName, options);
+      // 단순하고 확실한 캡처 실행
+      await downloadSimpleImage('report-download-area', fileName);
       
     } catch (error) {
+      console.error('Download error:', error);
       alert('다운로드 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
+  };
+
+  // 테스트용 미리보기 함수 (개발 중에 확인용)
+  const handlePreview = async () => {
+    try {
+      await previewSimpleImage('report-download-area');
+    } catch (error) {
+      console.error('Preview error:', error);
     }
   };
 
@@ -414,6 +429,15 @@ function ReportAContent() {
                 />
                 다운로드
               </Button>
+              {/* 임시 테스트 버튼 */}
+              <Button
+                size="sm"
+                className="gap-1 bg-orange-100 hover:bg-orange-200 text-[14px] text-orange-700 shadow-none font-semibold h-[34px]"
+                onClick={handlePreview}
+                disabled={!isSaved}
+              >
+                미리보기
+              </Button>
               <Button
                 size="sm"
                 className={`font-semibold h-[34px] ${
@@ -441,9 +465,10 @@ function ReportAContent() {
                 src={backgroundImageUrl}
                 alt="Report background"
                 fill
-                className="object-cover rounded-br-xl rounded-bl-xl -z-10"
+                className="object-cover rounded-br-xl rounded-bl-xl -z-1"
                 priority
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 70vw"
+                unoptimized={true}
               />
             )}
             {/* 이미지 로드 실패 시 표시할 안내 */}

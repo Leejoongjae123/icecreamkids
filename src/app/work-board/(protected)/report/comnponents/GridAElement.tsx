@@ -1749,6 +1749,7 @@ function GridAElement({
                           transformOrigin: 'center'
                         }}
                         data-id={getDriveItemKeyByImageUrl(currentImages[imageIndex])}
+                        unoptimized={true}
                       />
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[imageIndex] && (
@@ -1777,6 +1778,7 @@ function GridAElement({
                         alt="No image"
                         fill
                         className="object-cover rounded-md"
+                        unoptimized={true}
                       />
                       <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
                         <Image
@@ -1785,6 +1787,7 @@ function GridAElement({
                           height={20}
                           className="object-cover mb-2"
                           alt="Upload icon"
+                          unoptimized={true}
                         />
                         <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
                           이미지를 드래그하거나<br />클릭하여 업로드
@@ -1851,6 +1854,7 @@ function GridAElement({
                           transformOrigin: 'center'
                         }}
                         data-id={getDriveItemKeyByImageUrl(currentImages[imageIndex])}
+                        unoptimized={true}
                       />
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[imageIndex] && (
@@ -1879,6 +1883,7 @@ function GridAElement({
                         alt="No image"
                         fill
                         className="object-cover rounded-md"
+                        unoptimized={true}
                       />
                       <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
                         <Image
@@ -1887,6 +1892,7 @@ function GridAElement({
                           height={20}
                           className="object-cover mb-2"
                           alt="Upload icon"
+                          unoptimized={true}
                         />
                         <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
                           이미지를 드래그하거나<br />클릭하여 업로드
@@ -1962,6 +1968,7 @@ function GridAElement({
                           transformOrigin: 'center'
                         }}
                         data-id={getDriveItemKeyByImageUrl(currentImages[0])}
+                        unoptimized={true}
                       />
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[0] && (
@@ -2001,6 +2008,7 @@ function GridAElement({
                       alt="No image"
                       fill
                       className="object-cover rounded-md"
+                      unoptimized={true}
                     />
                     {/* Black overlay - 이미지가 없을 때만 표시 */}
                     <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
@@ -2010,6 +2018,7 @@ function GridAElement({
                         height={20}
                         className="object-cover mb-2"
                         alt="Upload icon"
+                        unoptimized={true}
                       />
                       <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
                         이미지를 드래그하거나<br />클릭하여 업로드
@@ -2061,6 +2070,7 @@ function GridAElement({
                           transformOrigin: 'center'
                         }}
                         data-id={getDriveItemKeyByImageUrl(currentImages[1])}
+                        unoptimized={true}
                       />
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[1] && (
@@ -2100,6 +2110,7 @@ function GridAElement({
                         alt="No image"
                         fill
                         className="object-cover rounded-md"
+                        unoptimized={true}
                       />
                       {/* Black overlay - 이미지가 없을 때만 표시 */}
                       <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
@@ -2109,6 +2120,7 @@ function GridAElement({
                           height={20}
                           className="object-contain mb-2"
                           alt="Upload icon"
+                          unoptimized={true}
                         />
                         <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
                           이미지를 드래그하거나<br />클릭하여 업로드
@@ -2158,6 +2170,7 @@ function GridAElement({
                           transformOrigin: 'center'
                         }}
                         data-id={getDriveItemKeyByImageUrl(currentImages[2])}
+                        unoptimized={true}
                       />
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[2] && (
@@ -2197,6 +2210,7 @@ function GridAElement({
                         alt="No image"
                         fill
                         className="object-cover rounded-md"
+                        unoptimized={true}
                       />
                       {/* Black overlay - 이미지가 없을 때만 표시 */}
                       <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
@@ -2206,6 +2220,7 @@ function GridAElement({
                           height={20}
                           className="object-contain mb-2"
                           alt="Upload icon"
+                          unoptimized={true}
                         />
                         <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
                           이미지를 드래그하거나<br />클릭하여 업로드
@@ -2287,6 +2302,7 @@ function GridAElement({
                           transformOrigin: 'center'
                         }}
                         data-id={getDriveItemKeyByImageUrl(imageSrc)}
+                        unoptimized={true}
                       />
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[index] && (
@@ -2326,6 +2342,7 @@ function GridAElement({
                         alt="No image"
                         fill
                         className="object-cover rounded-md"
+                        unoptimized={true}
                       />
                       {/* Black overlay - 이미지가 없을 때만 표시 */}
                       <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
@@ -2336,6 +2353,7 @@ function GridAElement({
                           height={20}
                           className="object-contain mb-2"
                           alt="Upload icon"
+                          unoptimized={true}
                         />
                         {/* Upload text */}
                         <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
@@ -2392,6 +2410,7 @@ function GridAElement({
                     height={14}
                     alt="Refresh"
                     className="object-contain hover:opacity-80"
+                    unoptimized={true}
                   />
                 </button>
                 
@@ -2498,6 +2517,7 @@ function GridAElement({
                     width={14}
                     height={14}
                     alt="Upload icon"
+                    unoptimized={true}
                   />
                 </button>
               </div>
@@ -2553,6 +2573,7 @@ function GridAElement({
                         width={11}
                         height={11}
                         alt="AI icon"
+                        unoptimized={true}
                       />
                       <div className="text-[10px] tracking-[-0.03em]">AI 생성</div>
                     </>
