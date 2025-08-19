@@ -444,3 +444,28 @@ export interface AIGenerateRequest {
   photoDriveItemKeys: string[];
   keywords?: string;
 }
+
+// 저장 데이터 관련 타입들
+export interface SavedReportData {
+  id: string;
+  reportType: ReportType;
+  subject: number;
+  stickers: StickerItem[];
+  textStickers: TextStickerItem[];
+  savedAt: string;
+  title?: string;
+  description?: string;
+}
+
+export interface SavedDataStore {
+  savedReports: SavedReportData[];
+  currentSavedData: SavedReportData | null;
+  isSaved: boolean;
+  saveCurrentReport: (reportType: ReportType, subject: number, stickers: StickerItem[], textStickers: TextStickerItem[], title?: string, description?: string) => string;
+  loadSavedReport: (id: string) => SavedReportData | null;
+  deleteSavedReport: (id: string) => void;
+  updateSavedReport: (id: string, updates: Partial<SavedReportData>) => void;
+  setCurrentSavedData: (data: SavedReportData | null) => void;
+  getAllSavedReports: () => SavedReportData[];
+  setSaved: (saved: boolean) => void;
+}

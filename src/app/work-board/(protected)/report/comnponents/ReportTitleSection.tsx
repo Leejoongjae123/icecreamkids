@@ -8,12 +8,16 @@ import TitleEditToolbar from "./TitleEditToolbar";
 import ApplyModal from "./ApplyModal";
 import { UploadModal } from "@/components/modal";
 import { useImageUpload } from "@/hooks/useImageUpload";
+import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
 
 interface ReportTitleSectionProps {
   className?: string;
 }
 
 function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
+  // 저장 상태 가져오기
+  const { isSaved } = useSavedDataStore();
+
   // 제목 관련 상태
   const [isFocused, setIsFocused] = useState(false);
   const [isTextSelected, setIsTextSelected] = useState(false);
@@ -368,6 +372,7 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
   const handleAddDateFrame = () => {
     setIsDateContainerVisible(true);
   };
+  console.log("isSaved:", isSaved);
 
   return (
     <div
@@ -381,15 +386,21 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
           <>
             <div
               ref={dropRef}
-              className={`flex flex-col w-[132px] h-full border rounded-[15px] transition-colors cursor-pointer bg-white ${
-                hasImage && isImageSelected
-                  ? "border-primary border-solid border-2"
-                  : hasImage
-                    ? "border-transparent "
-                    : "border-dashed border-zinc-400 hover:border-gray-400"
+              className={`flex flex-col w-[132px] h-full border rounded-[15px] transition-colors cursor-pointer ${
+                isSaved ? 'bg-transparent border-transparent' : 'bg-white'
+              } ${
+                !isSaved && (
+                  hasImage && isImageSelected
+                    ? "border-primary border-solid border-2"
+                    : hasImage
+                      ? "border-transparent "
+                      : "border-dashed border-zinc-400 hover:border-gray-400"
+                )
+              } ${
+                isSaved && !hasImage ? 'opacity-0' : ''
               }`}
               style={{
-                backgroundColor: canDrop && isOver ? '#f0f0f0' : 'white',
+                backgroundColor: canDrop && isOver ? '#f0f0f0' : (isSaved ? 'transparent' : 'white'),
                 transition: 'background-color 0.2s ease'
               }}
               onClick={handleImageClick}
@@ -467,14 +478,20 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
         {isTextContainerVisible ? (
           <>
             <div
-              className={`flex flex-col w-full h-full border rounded-[15px] items-center justify-center cursor-text transition-colors p-2 bg-white ${
-                isTextSelected
-                  ? "border-primary border-solid border-2"
-                  : isFocused
+              className={`flex flex-col w-full h-full border rounded-[15px] items-center justify-center cursor-text transition-colors p-2 ${
+                isSaved ? 'bg-transparent border-transparent' : 'bg-white'
+              } ${
+                !isSaved && (
+                  isTextSelected
                     ? "border-primary border-solid border-2"
-                    : text
-                      ? "border-transparent hover:border-gray-400"
-                      : "border-zinc-400 border-dashed hover:border-gray-400"
+                    : isFocused
+                      ? "border-primary border-solid border-2"
+                      : text
+                        ? "border-transparent hover:border-gray-400"
+                        : "border-zinc-400 border-dashed hover:border-gray-400"
+                )
+              } ${
+                isSaved && !text ? 'opacity-0' : ''
               }`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -504,7 +521,7 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
                   padding: "8px",
                   overflow: "hidden"
                 }}
-                data-placeholder={text === "" ? "제목을 입력하세요" : ""}
+                data-placeholder={text === "" && !isSaved ? "제목을 입력하세요" : ""}
               />
 
               {/* 플레이스홀더 스타일 */}
@@ -578,14 +595,20 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
           <>
             {/* 상단 박스 */}
             <div
-              className={`flex flex-col w-full h-1/2 border rounded-[15px] items-center justify-center cursor-text transition-colors p-1 overflow-hidden bg-white ${
-                isDateSelected
-                  ? "border-primary border-solid border-2"
-                  : isTopFocused
+              className={`flex flex-col w-full h-1/2 border rounded-[15px] items-center justify-center cursor-text transition-colors p-1 overflow-hidden ${
+                isSaved ? 'bg-transparent border-transparent' : 'bg-white'
+              } ${
+                !isSaved && (
+                  isDateSelected
                     ? "border-primary border-solid border-2"
-                    : topText
-                      ? "border-transparent hover:border-gray-400"
-                      : "border-zinc-400 border-dashed hover:border-gray-400"
+                    : isTopFocused
+                      ? "border-primary border-solid border-2"
+                      : topText
+                        ? "border-transparent hover:border-gray-400"
+                        : "border-zinc-400 border-dashed hover:border-gray-400"
+                )
+              } ${
+                isSaved && !topText ? 'opacity-0' : ''
               }`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -607,20 +630,26 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
                   lineHeight: "1.2",
                   wordBreak: "break-all",
                 }}
-                data-placeholder={topText === "" ? "텍스트" : ""}
+                data-placeholder={topText === "" && !isSaved ? "텍스트" : ""}
               />
             </div>
 
             {/* 하단 박스 */}
             <div
-              className={`flex flex-col w-full h-1/2 border rounded-[15px] items-center justify-center cursor-text transition-colors p-1 overflow-hidden bg-white ${
-                isDateSelected
-                  ? "border-primary border-solid border-2"
-                  : isBottomFocused
+              className={`flex flex-col w-full h-1/2 border rounded-[15px] items-center justify-center cursor-text transition-colors p-1 overflow-hidden ${
+                isSaved ? 'bg-transparent border-transparent' : 'bg-white'
+              } ${
+                !isSaved && (
+                  isDateSelected
                     ? "border-primary border-solid border-2"
-                    : bottomText
-                      ? "border-transparent hover:border-gray-400"
-                      : "border-zinc-400 border-dashed hover:border-gray-400"
+                    : isBottomFocused
+                      ? "border-primary border-solid border-2"
+                      : bottomText
+                        ? "border-transparent hover:border-gray-400"
+                        : "border-zinc-400 border-dashed hover:border-gray-400"
+                )
+              } ${
+                isSaved && !bottomText ? 'opacity-0' : ''
               }`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -642,7 +671,7 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
                   lineHeight: "1.2",
                   wordBreak: "break-all",
                 }}
-                data-placeholder={bottomText === "" ? "텍스트" : ""}
+                data-placeholder={bottomText === "" && !isSaved ? "텍스트" : ""}
               />
             </div>
 

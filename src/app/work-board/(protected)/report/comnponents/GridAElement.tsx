@@ -21,6 +21,7 @@ import { useAlertStore } from "@/hooks/store/useAlertStore";
 import { DriveItemMemoUpdateRequest } from "@/service/file/schemas";
 import { IEditMemoData } from "@/components/modal/memo-edit/types";
 import { useSearchParams } from "next/navigation";
+import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
 
 
 interface GridAElementProps {
@@ -91,6 +92,9 @@ function GridAElement({
   const profileId = React.useMemo(() => userInfo?.id || null, [userInfo?.id]);
   const accountId = React.useMemo(() => userInfo?.accountId || null, [userInfo?.accountId]);
   
+  // 저장 상태 가져오기
+  const { isSaved } = useSavedDataStore();
+  
   // URL 파라미터 가져오기
   const searchParams = useSearchParams();
 
@@ -107,6 +111,12 @@ function GridAElement({
   
   // Grid content store 사용
   const { updatePlaySubject, updateImages, updateCategoryValue, updateAiGenerated, gridContents } = useGridContentStore();
+  
+  // 현재 gridId의 AI 생성 상태 확인
+  const hasAiGeneratedContent = gridId ? gridContents[gridId]?.hasAiGenerated || false : false;
+  
+  // 저장 모드에서 LLM 콘텐츠가 없는 경우 숨김 처리 여부 결정
+  const shouldHideInSavedMode = isSaved && !hasAiGeneratedContent;
   
   // Toast 및 Alert hook
   const addToast = useToast((state) => state.add);
@@ -795,6 +805,11 @@ function GridAElement({
     isExpanded: false,
   });
   
+  // hover 상태 관리
+  const [isHovered, setIsHovered] = React.useState(false);
+  const isHoveredRef = React.useRef(false);
+  const hoverTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  
   // 툴바 위치 상태
   const [toolbarPosition, setToolbarPosition] = React.useState({ left: 0, top: 0 });
   
@@ -1276,19 +1291,74 @@ function GridAElement({
     });
   };
 
+  // 툴바 표시 공통 함수 (저장 상태가 아닐 때만)
+  const showToolbar = () => {
+    if (!isSaved) {
+      setToolbarState({
+        show: true,
+        isExpanded: true,
+      });
+    }
+  };
+
   // 이미지가 아닌 영역 클릭 핸들러 - 툴바 표시
   const handleNonImageClick = (event: React.MouseEvent) => {
     event.stopPropagation(); // 이벤트 전파 방지
     
+    // 기존 hover 타이머가 있다면 제거
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    
     // 툴바 표시
-    setToolbarState({
-      show: true,
-      isExpanded: true,
-    });
+    showToolbar();
     
     if (onClick) {
       onClick();
     }
+  };
+
+  // 마우스 hover 핸들러
+  const handleMouseEnter = () => {
+    console.log("🟢 Mouse Enter - GridAElement", gridId);
+    setIsHovered(true);
+    isHoveredRef.current = true;
+    
+    // 기존 타이머가 있다면 제거
+    if (hoverTimerRef.current) {
+      console.log("⏰ Clearing existing hover timer");
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    
+    // 툴바 표시
+    showToolbar();
+  };
+
+  const handleMouseLeave = () => {
+    console.log("🔴 Mouse Leave - GridAElement", gridId);
+    setIsHovered(false);
+    isHoveredRef.current = false;
+    
+    // 3초 후 툴바 숨기기 타이머 설정
+    const timer = setTimeout(() => {
+      console.log("⏰ Timer callback - checking hover state", isHoveredRef.current);
+      // 여전히 hover 상태가 아닐 때만 숨기기
+      if (!isHoveredRef.current) {
+        console.log("✅ Hiding toolbar after 3 seconds");
+        setToolbarState({
+          show: false,
+          isExpanded: false,
+        });
+      } else {
+        console.log("❌ Still hovered, not hiding toolbar");
+      }
+      hoverTimerRef.current = null;
+    }, 3000);
+    
+    console.log("⏰ Setting 3-second timer");
+    hoverTimerRef.current = timer;
   };
 
   // 이미지 영역 클릭 핸들러 (이벤트 전파 방지)
@@ -1472,12 +1542,26 @@ function GridAElement({
     // 여기에 각 아이콘별 로직 구현
   };
 
+  // hover 타이머 정리
+  React.useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+      }
+    };
+  }, []);
+
   // 전역 클릭 이벤트로 툴바 숨기기
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
       // 현재 GridAElement 외부 클릭 시 툴바 숨기기
       if (!target.closest(`[data-grid-id="${gridId}"]`) && !target.closest('.grid-edit-toolbar')) {
+        // hover 타이머도 정리
+        if (hoverTimerRef.current) {
+          clearTimeout(hoverTimerRef.current);
+          hoverTimerRef.current = null;
+        }
         handleHideToolbar();
       }
     };
@@ -1520,7 +1604,7 @@ function GridAElement({
   // 툴바 표시 상태에 따른 border 스타일 결정
   const borderClass = toolbarState.show 
     ? "border-solid border-2 border-primary" 
-    : "border-dashed border border-zinc-400";
+    : (isSaved ? "border-none" : "border-dashed border border-zinc-400");
 
   // 드래그 상태에 따른 스타일 추가
   const containerClass = isDragging 
@@ -1556,13 +1640,19 @@ function GridAElement({
     setIsEditingCategory(false);
   };
 
+  // 저장 모드에서 LLM 콘텐츠가 없는 경우 레이아웃 영향 없이 시각적으로만 숨김 처리
+
   return (
-    <div className="relative w-full h-full flex flex-col">
+    <div className={`relative w-full h-full flex flex-col ${shouldHideInSavedMode ? 'invisible pointer-events-none' : ''}`}>
       <div
         ref={containerRef}
-        className={`drag-contents overflow-hidden px-2.5 py-2.5 bg-white rounded-2xl ${containerClass} w-full h-full flex flex-col ${className} gap-y-1.5 ${isDragging ? 'opacity-90' : ''} transition-all duration-200 cursor-grab active:cursor-grabbing`}
+        className={`drag-contents overflow-hidden px-2.5 py-2.5 ${
+          isSaved ? 'bg-white' : 'bg-white'
+        } rounded-2xl ${containerClass} w-full h-full flex flex-col ${className} gap-y-1.5 ${isDragging ? 'opacity-90' : ''} transition-all duration-200 cursor-grab active:cursor-grabbing`}
         style={style}
         onClick={handleNonImageClick}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         data-grid-id={gridId}
         {...dragAttributes}
         {...dragListeners}
@@ -1570,10 +1660,14 @@ function GridAElement({
         {/* 카테고리 섹션 - 고정 높이 */}
         <div className="flex gap-2.5 text-sm font-bold tracking-tight leading-none text-amber-400 whitespace-nowrap flex-shrink-0 mb-1">
           <div 
-            className={`flex overflow-hidden flex-col grow shrink-0 justify-center items-start px-2 py-1 rounded-md border border-solid basis-0 w-fit transition-colors cursor-text hover:bg-gray-50 ${
-              isEditingCategory ? 'border-primary' : 'border-gray-300'
+            className={`flex overflow-hidden flex-col grow shrink-0 justify-center items-start px-2 py-1 rounded-md border border-solid basis-0 w-fit transition-colors ${
+              isSaved ? 'cursor-default bg-white border-transparent' : 'cursor-text hover:bg-gray-50'
+            } ${
+              isSaved 
+                ? 'border-transparent bg-white' 
+                : isEditingCategory ? 'border-primary' : 'border-gray-300'
             }`}
-            onClick={!isEditingCategory ? handleCategoryClick : undefined}
+            onClick={!isEditingCategory && !isSaved ? handleCategoryClick : undefined}
           >
             {isEditingCategory ? (
               <Input
@@ -1614,7 +1708,7 @@ function GridAElement({
         {gridCount === 2 && imageCount === 4 ? (
           <div 
             ref={dropRef}
-            className="flex gap-1 w-full relative" 
+            className="flex gap-1 w-full relative"
             style={{ 
               height: '60%',
               backgroundColor: canDrop && isOver ? '#f0f0f0' : 'transparent',
@@ -1665,14 +1759,16 @@ function GridAElement({
                           </div>
                         </div>
                       )}
-                      {/* X 삭제 버튼 */}
-                      <button
-                        className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
-                        onClick={(e) => handleImageDelete(imageIndex, e)}
-                        title="이미지 삭제"
-                      >
-                        <IoClose className="w-4 h-4 text-black" />
-                      </button>
+                      {/* X 삭제 버튼 - isSaved가 true이면 숨김 */}
+                      {!isSaved && (
+                        <button
+                          className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
+                          onClick={(e) => handleImageDelete(imageIndex, e)}
+                          title="이미지 삭제"
+                        >
+                          <IoClose className="w-4 h-4 text-black" />
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <>
@@ -1714,7 +1810,7 @@ function GridAElement({
         gridCount === 2 && imageCount === 3 ? (
           <div 
             ref={dropRef} 
-            className="flex gap-1 w-full relative" 
+            className="flex gap-1 w-full relative"
             style={{ 
               height: '60%',
               backgroundColor: canDrop && isOver ? '#f0f0f0' : 'transparent',
@@ -1765,14 +1861,16 @@ function GridAElement({
                           </div>
                         </div>
                       )}
-                      {/* X 삭제 버튼 */}
-                      <button
-                        className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
-                        onClick={(e) => handleImageDelete(imageIndex, e)}
-                        title="이미지 삭제"
-                      >
-                        <IoClose className="w-4 h-4 text-black" />
-                      </button>
+                      {/* X 삭제 버튼 - isSaved가 true이면 숨김 */}
+                      {!isSaved && (
+                        <button
+                          className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
+                          onClick={(e) => handleImageDelete(imageIndex, e)}
+                          title="이미지 삭제"
+                        >
+                          <IoClose className="w-4 h-4 text-black" />
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <>
@@ -1814,7 +1912,7 @@ function GridAElement({
         cardType === 'small' && imageCount === 3 ? (
           <div 
             ref={dropRef} 
-            className="flex gap-1 w-full relative" 
+            className="flex gap-1 w-full relative"
             style={{ 
               height: '60%',
               backgroundColor: canDrop && isOver ? '#f0f0f0' : 'transparent',
@@ -1854,25 +1952,36 @@ function GridAElement({
                       handleImageAdjustClick(0, currentImages[0]);
                     }}
                   >
-                    <Image
-                      src={currentImages[0]}
-                      alt="Image 1"
-                      fill
-                      className="object-cover rounded-md"
-                      style={{
-                        transform: `translate(${imagePositions[0]?.x || 0}px, ${imagePositions[0]?.y || 0}px) scale(${imagePositions[0]?.scale || 1})`,
-                        transformOrigin: 'center'
-                      }}
-                      data-id={getDriveItemKeyByImageUrl(currentImages[0])}
-                    />
-                    {/* X 삭제 버튼 */}
-                    <button
-                      className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
-                      onClick={(e) => handleImageDelete(0, e)}
-                      title="이미지 삭제"
-                    >
-                      <IoClose className="w-4 h-4 text-black" />
-                    </button>
+                                          <Image
+                        src={currentImages[0]}
+                        alt="Image 1"
+                        fill
+                        className="object-cover rounded-md"
+                        style={{
+                          transform: `translate(${imagePositions[0]?.x || 0}px, ${imagePositions[0]?.y || 0}px) scale(${imagePositions[0]?.scale || 1})`,
+                          transformOrigin: 'center'
+                        }}
+                        data-id={getDriveItemKeyByImageUrl(currentImages[0])}
+                      />
+                      {/* 개별 이미지 배경 제거 로딩 오버레이 */}
+                      {imageRemoveLoadingStates[0] && (
+                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 rounded-md">
+                          <div className="flex flex-col items-center gap-1">
+                            <Loader size="sm" />
+                            <div className="text-white text-xs">배경 제거 중...</div>
+                          </div>
+                        </div>
+                      )}
+                      {/* X 삭제 버튼 - isSaved가 true이면 숨김 */}
+                      {!isSaved && (
+                        <button
+                          className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
+                          onClick={(e) => handleImageDelete(0, e)}
+                          title="이미지 삭제"
+                        >
+                          <IoClose className="w-4 h-4 text-black" />
+                        </button>
+                      )}
                     {/* 메모 인디케이터 */}
                     <MemoIndicator 
                       show={Boolean(getDriveItemKeyByImageUrl(currentImages[0]) && memoStatuses[getDriveItemKeyByImageUrl(currentImages[0]) || ''])}
@@ -1953,14 +2062,25 @@ function GridAElement({
                         }}
                         data-id={getDriveItemKeyByImageUrl(currentImages[1])}
                       />
-                      {/* X 삭제 버튼 */}
-                      <button
-                        className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
-                        onClick={(e) => handleImageDelete(1, e)}
-                        title="이미지 삭제"
-                      >
-                        <IoClose className="w-4 h-4 text-black" />
-                      </button>
+                      {/* 개별 이미지 배경 제거 로딩 오버레이 */}
+                      {imageRemoveLoadingStates[1] && (
+                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 rounded-md">
+                          <div className="flex flex-col items-center gap-1">
+                            <Loader size="sm" />
+                            <div className="text-white text-xs">배경 제거 중...</div>
+                          </div>
+                        </div>
+                      )}
+                      {/* X 삭제 버튼 - isSaved가 true이면 숨김 */}
+                      {!isSaved && (
+                        <button
+                          className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
+                          onClick={(e) => handleImageDelete(1, e)}
+                          title="이미지 삭제"
+                        >
+                          <IoClose className="w-4 h-4 text-black" />
+                        </button>
+                      )}
                       {/* 메모 인디케이터 */}
                       <MemoIndicator 
                         show={Boolean(getDriveItemKeyByImageUrl(currentImages[1]) && memoStatuses[getDriveItemKeyByImageUrl(currentImages[1]) || ''])}
@@ -2039,14 +2159,25 @@ function GridAElement({
                         }}
                         data-id={getDriveItemKeyByImageUrl(currentImages[2])}
                       />
-                      {/* X 삭제 버튼 */}
-                      <button
-                        className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
-                        onClick={(e) => handleImageDelete(2, e)}
-                        title="이미지 삭제"
-                      >
-                        <IoClose className="w-4 h-4 text-black" />
-                      </button>
+                      {/* 개별 이미지 배경 제거 로딩 오버레이 */}
+                      {imageRemoveLoadingStates[2] && (
+                        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 rounded-md">
+                          <div className="flex flex-col items-center gap-1">
+                            <Loader size="sm" />
+                            <div className="text-white text-xs">배경 제거 중...</div>
+                          </div>
+                        </div>
+                      )}
+                      {/* X 삭제 버튼 - isSaved가 true이면 숨김 */}
+                      {!isSaved && (
+                        <button
+                          className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
+                          onClick={(e) => handleImageDelete(2, e)}
+                          title="이미지 삭제"
+                        >
+                          <IoClose className="w-4 h-4 text-black" />
+                        </button>
+                      )}
                       {/* 메모 인디케이터 */}
                       <MemoIndicator 
                         show={Boolean(getDriveItemKeyByImageUrl(currentImages[2]) && memoStatuses[getDriveItemKeyByImageUrl(currentImages[2]) || ''])}
@@ -2166,14 +2297,16 @@ function GridAElement({
                           </div>
                         </div>
                       )}
-                      {/* X 삭제 버튼 */}
-                      <button
-                        className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
-                        onClick={(e) => handleImageDelete(index, e)}
-                        title="이미지 삭제"
-                      >
-                        <IoClose className="w-4 h-4 text-black" />
-                      </button>
+                      {/* X 삭제 버튼 - isSaved가 true이면 숨김 */}
+                      {!isSaved && (
+                        <button
+                          className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
+                          onClick={(e) => handleImageDelete(index, e)}
+                          title="이미지 삭제"
+                        >
+                          <IoClose className="w-4 h-4 text-black" />
+                        </button>
+                      )}
                       {/* 메모 인디케이터 */}
                       <MemoIndicator 
                         show={Boolean(getDriveItemKeyByImageUrl(imageSrc) && memoStatuses[getDriveItemKeyByImageUrl(imageSrc) || ''])}
@@ -2231,61 +2364,80 @@ function GridAElement({
         {console.log("렌더링 시점 isDescriptionExpanded:", isDescriptionExpanded)}
         {isLoading ? (
           // 로딩 중일 때
-          <div className="description-area gap-y-3 flex flex-col items-center justify-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 min-h-[90px] flex-1 mt-1">
+          <div className={`description-area gap-y-3 flex flex-col items-center justify-center px-2 py-2 w-full leading-none ${
+            isSaved && hasAiGeneratedContent ? 'bg-white' : 'bg-white'
+          } rounded-md border border-dashed border-zinc-400 min-h-[90px] flex-1 mt-1`}>
             <Loader size="default" />
             <div className="text-[#B4B4B4] text-xs">내용을 생성중입니다...</div>
           </div>
         ) : isDescriptionExpanded ? (
           // 확장된 textarea 모드
-          <div className={`description-area flex overflow-hidden flex-col px-2 py-2 w-full leading-none bg-white rounded-md min-h-[90px] flex-1 mt-1 relative transition-colors ${
-            isTextareaFocused ? 'border border-solid border-primary' : 'border border-dashed border-zinc-400'
+          <div className={`description-area flex overflow-hidden flex-col px-2 py-2 w-full leading-none ${
+            isSaved ? 'bg-white' : 'bg-white'
+          } rounded-md min-h-[90px] flex-1 mt-1 relative transition-colors ${
+            isSaved ? 'border-none' : (isTextareaFocused ? 'border border-solid border-primary' : 'border border-dashed border-zinc-400')
           }`}>
-            {/* 상단 버튼들 - 우측 상단 */}
-            <div className="absolute top-2 right-3 flex items-center gap-1 z-20">
-              {/* 새로고침 버튼 */}
-              <button
-                onClick={handleTextRefresh}
-                className="w-7 h-7 bg-white border border-[#F0F0F0] rounded-md flex items-center justify-center hover:bg-gray-50 transition-colors"
-                title="텍스트 새로고침"
+            {/* 상단 버튼들 - 우측 상단 (저장 상태가 아닐 때만 표시) */}
+            {!isSaved && (
+              <div className="absolute top-2 right-3 flex items-center gap-1 z-20">
+                {/* 새로고침 버튼 */}
+                <button
+                  onClick={handleTextRefresh}
+                  className="w-7 h-7 bg-white border border-[#F0F0F0] rounded-md flex items-center justify-center hover:bg-gray-50 transition-colors"
+                  title="텍스트 새로고침"
+                >
+                  <Image
+                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/refresh.svg"
+                    width={14}
+                    height={14}
+                    alt="Refresh"
+                    className="object-contain hover:opacity-80"
+                  />
+                </button>
+                
+                
+              </div>
+            )}
+            
+            {/* 저장 상태일 때는 읽기 전용 텍스트, 편집 상태일 때는 textarea */}
+            {isSaved ? (
+              <div className="w-full h-full px-2 py-1 text-xs tracking-tight text-zinc-600 flex-1 overflow-auto"
+                style={{ 
+                  fontSize: '12px', 
+                  lineHeight: '1.4', 
+                  minHeight: '74px'
+                }}
               >
-                <Image
-                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/refresh.svg"
-                  width={14}
-                  height={14}
-                  alt="Refresh"
-                  className="object-contain hover:opacity-80"
-                />
-              </button>
-              
-              
-            </div>
+                {inputValue || ''}
+              </div>
+            ) : (
+              <textarea
+                value={inputValue}
+                onChange={handleInputChange}
+                onFocus={() => setIsTextareaFocused(true)}
+                onBlur={() => setIsTextareaFocused(false)}
+                onMouseDown={(e) => e.stopPropagation()} // 드래그 이벤트 방지
+                onDragStart={(e) => e.preventDefault()} // 드래그 시작 방지
+                onKeyDown={(e) => e.stopPropagation()} // 키보드 이벤트 전파 방지 (스페이스바 포함)
+                onKeyUp={(e) => e.stopPropagation()} // 키업 이벤트 전파 방지
+                onKeyPress={(e) => e.stopPropagation()} // 키프레스 이벤트 전파 방지
+                placeholder={placeholderText}
+                className="w-full h-full px-2 py-1 pr-8 text-xs tracking-tight bg-white border-0 text-zinc-600 placeholder-zinc-400 shadow-none rounded-md focus:ring-0 focus:outline-none resize-none flex-1 scrollbar-hide"
+                style={{ 
+                  borderRadius: '6px', 
+                  fontSize: '12px', 
+                  lineHeight: '1.4', 
+                  minHeight: '74px',
+                  scrollbarWidth: 'none', /* Firefox */
+                  msOverflowStyle: 'none' /* IE and Edge */
+                }}
+                onClick={handleImageClick}
+                draggable={false} // 드래그 완전 비활성화
+              />
+            )}
             
-            <textarea
-              value={inputValue}
-              onChange={handleInputChange}
-              onFocus={() => setIsTextareaFocused(true)}
-              onBlur={() => setIsTextareaFocused(false)}
-              onMouseDown={(e) => e.stopPropagation()} // 드래그 이벤트 방지
-              onDragStart={(e) => e.preventDefault()} // 드래그 시작 방지
-              onKeyDown={(e) => e.stopPropagation()} // 키보드 이벤트 전파 방지 (스페이스바 포함)
-              onKeyUp={(e) => e.stopPropagation()} // 키업 이벤트 전파 방지
-              onKeyPress={(e) => e.stopPropagation()} // 키프레스 이벤트 전파 방지
-              placeholder={placeholderText}
-              className="w-full h-full px-2 py-1 pr-8 text-xs tracking-tight bg-white border-0 text-zinc-600 placeholder-zinc-400 shadow-none rounded-md focus:ring-0 focus:outline-none resize-none flex-1 scrollbar-hide"
-              style={{ 
-                borderRadius: '6px', 
-                fontSize: '12px', 
-                lineHeight: '1.4', 
-                minHeight: '74px',
-                scrollbarWidth: 'none', /* Firefox */
-                msOverflowStyle: 'none' /* IE and Edge */
-              }}
-              onClick={handleImageClick}
-              draggable={false} // 드래그 완전 비활성화
-            />
-            
-            {/* 글자수 카운팅 - 우측하단 */}
-            {hasClickedAIGenerate && (
+            {/* 글자수 카운팅 - 우측하단 (저장 상태가 아닐 때만 표시) */}
+            {!isSaved && hasClickedAIGenerate && (
               <div className="absolute bottom-2 right-3 text-[9px] font-medium text-primary">
                 ({inputValue.length}/200)
               </div>
@@ -2293,9 +2445,13 @@ function GridAElement({
           </div>
         ) : (
           // 기본 모드
-          <div className="description-area flex overflow-hidden flex-col px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 min-h-[90px] flex-1 mt-1 relative">
-            {/* 삭제 버튼 - 우측 상단 */}
-            {onDelete && (
+          <div className={`description-area flex overflow-hidden flex-col px-2 py-2 w-full leading-none ${
+            isSaved ? 'bg-white' : 'bg-white'
+          } rounded-md ${
+            isSaved ? 'border-none' : 'border border-dashed border-zinc-400'
+          } min-h-[90px] flex-1 mt-1 relative`}>
+            {/* 삭제 버튼 - 우측 상단 (저장 상태가 아닐 때만 표시) */}
+            {onDelete && !isSaved && (
               <button
                 onClick={handleDelete}
                 className="absolute top-2 right-2 w-5 h-5  bg-white border border-[#F0F0F0] rounded-full flex items-center justify-center z-20 hover:bg-red-50 transition-colors"
@@ -2305,97 +2461,108 @@ function GridAElement({
               </button>
             )}
             
-            <div className="flex gap-1.5 w-full mb-1.5"> 
-              <Input
-                value={inputValue}
-                onChange={handleInputChange}
-                onMouseDown={(e) => e.stopPropagation()} // 드래그 이벤트 방지
-                onDragStart={(e) => e.preventDefault()} // 드래그 시작 방지
-                onKeyDown={(e) => e.stopPropagation()} // 키보드 이벤트 전파 방지 (스페이스바 포함)
-                onKeyUp={(e) => e.stopPropagation()} // 키업 이벤트 전파 방지
-                onKeyPress={(e) => e.stopPropagation()} // 키프레스 이벤트 전파 방지
-                placeholder={placeholderText}
-                className="h-[26px] min-h-[26px] max-h-[26px] px-2 py-1 text-xs tracking-tight bg-white border border-dashed border-zinc-400 text-zinc-600 placeholder-zinc-400 flex-1 shadow-none rounded-md focus:ring-0 focus:outline-none focus:border-primary resize-none"
-                style={{ borderRadius: '6px', fontSize: '10px', lineHeight: '1.2' }}
-                onClick={handleImageClick}
-                draggable={false} // 드래그 완전 비활성화
-              />
-              <button
-                onClick={(e) => {
-                  e.stopPropagation(); // 이벤트 전파 방지
-                  handleTextFileUpload();
-                }}
-                className="flex overflow-hidden justify-center items-center w-[26px] h-[26px] bg-[#979797] border border-dashed border-zinc-400 rounded-md hover:bg-[#979797]/80 transition-colors"
-                title="텍스트 파일 업로드"
-              >
-                <Image
-                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload.svg"
-                  className="object-contain"
-                  width={14}
-                  height={14}
-                  alt="Upload icon"
+            {/* 저장 상태일 때는 읽기 전용 텍스트 표시, 편집 상태일 때는 입력 영역 표시 */}
+            {isSaved ? (
+              inputValue && (
+                <div className="w-full mb-1.5 px-2 py-1 text-xs tracking-tight text-zinc-600 min-h-[26px]">
+                  {inputValue}
+                </div>
+              )
+            ) : (
+              <div className="flex gap-1.5 w-full mb-1.5"> 
+                <Input
+                  value={inputValue}
+                  onChange={handleInputChange}
+                  onMouseDown={(e) => e.stopPropagation()} // 드래그 이벤트 방지
+                  onDragStart={(e) => e.preventDefault()} // 드래그 시작 방지
+                  onKeyDown={(e) => e.stopPropagation()} // 키보드 이벤트 전파 방지 (스페이스바 포함)
+                  onKeyUp={(e) => e.stopPropagation()} // 키업 이벤트 전파 방지
+                  onKeyPress={(e) => e.stopPropagation()} // 키프레스 이벤트 전파 방지
+                  placeholder={placeholderText}
+                  className="h-[26px] min-h-[26px] max-h-[26px] px-2 py-1 text-xs tracking-tight bg-white border border-dashed border-zinc-400 text-zinc-600 placeholder-zinc-400 flex-1 shadow-none rounded-md focus:ring-0 focus:outline-none focus:border-primary resize-none"
+                  style={{ borderRadius: '6px', fontSize: '10px', lineHeight: '1.2' }}
+                  onClick={handleImageClick}
+                  draggable={false} // 드래그 완전 비활성화
                 />
-              </button>
-            </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // 이벤트 전파 방지
+                    handleTextFileUpload();
+                  }}
+                  className="flex overflow-hidden justify-center items-center w-[26px] h-[26px] bg-[#979797] border border-dashed border-zinc-400 rounded-md hover:bg-[#979797]/80 transition-colors"
+                  title="텍스트 파일 업로드"
+                >
+                  <Image
+                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload.svg"
+                    className="object-contain"
+                    width={14}
+                    height={14}
+                    alt="Upload icon"
+                  />
+                </button>
+              </div>
+            )}
             
-            {/* AI 생성 버튼 - 별도 줄에 배치 */}
-            <div className="flex w-full mb-1.5 justify-center">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation(); // 이벤트 전파 방지
-                  handleAIGenerate();
-                }}
-                disabled={(() => {
-                  const hasValidCategory = categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요";
-                  const hasImages = getCurrentImageCount() > 0;
-                  const isNotLoading = !isLoading;
-                  const disabled = !hasValidCategory || !hasImages || !isNotLoading;
-                  
-                  console.log("🔘 AI 생성 버튼 상태:", {
-                    hasValidCategory,
-                    hasImages,
-                    isNotLoading,
-                    disabled,
-                    categoryValue,
-                    imageCount: getCurrentImageCount()
-                  });
-                  
-                  return disabled;
-                })()}
-                className={`flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight rounded-md flex justify-center items-center w-[54px] h-[26px] self-start transition-all ${
-                  (() => {
+            {/* AI 생성 버튼 - 별도 줄에 배치 (저장 상태가 아닐 때만 표시) */}
+            {!isSaved && (
+              <div className="flex w-full mb-1.5 justify-center">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // 이벤트 전파 방지
+                    handleAIGenerate();
+                  }}
+                  disabled={(() => {
                     const hasValidCategory = categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요";
                     const hasImages = getCurrentImageCount() > 0;
                     const isNotLoading = !isLoading;
-                    return (!hasValidCategory || !hasImages || !isNotLoading)
-                      ? 'cursor-not-allowed bg-gray-400 text-gray-300' 
-                      : 'text-white bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90';
-                  })()
-                }`}
-              >
-                {isLoading ? (
-                  <Loader size="sm" className="text-white" />
-                ) : (
-                  <>
-                    <Image
-                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/leaf.svg"
-                      className={`object-contain ${(() => {
-                        const hasValidCategory = categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요";
-                        const hasImages = getCurrentImageCount() > 0;
-                        return (!hasValidCategory || !hasImages) ? 'opacity-50' : '';
-                      })()}`}
-                      width={11}
-                      height={11}
-                      alt="AI icon"
-                    />
-                    <div className="text-[10px] tracking-[-0.03em]">AI 생성</div>
-                  </>
-                )}
-              </button>
-            </div>
+                    const disabled = !hasValidCategory || !hasImages || !isNotLoading;
+                    
+                    console.log("🔘 AI 생성 버튼 상태:", {
+                      hasValidCategory,
+                      hasImages,
+                      isNotLoading,
+                      disabled,
+                      categoryValue,
+                      imageCount: getCurrentImageCount()
+                    });
+                    
+                    return disabled;
+                  })()}
+                  className={`flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight rounded-md flex justify-center items-center w-[54px] h-[26px] self-start transition-all ${
+                    (() => {
+                      const hasValidCategory = categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요";
+                      const hasImages = getCurrentImageCount() > 0;
+                      const isNotLoading = !isLoading;
+                      return (!hasValidCategory || !hasImages || !isNotLoading)
+                        ? 'cursor-not-allowed bg-gray-400 text-gray-300' 
+                        : 'text-white bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90';
+                    })()
+                  }`}
+                >
+                  {isLoading ? (
+                    <Loader size="sm" className="text-white" />
+                  ) : (
+                    <>
+                      <Image
+                        src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/leaf.svg"
+                        className={`object-contain ${(() => {
+                          const hasValidCategory = categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요";
+                          const hasImages = getCurrentImageCount() > 0;
+                          return (!hasValidCategory || !hasImages) ? 'opacity-50' : '';
+                        })()}`}
+                        width={11}
+                        height={11}
+                        alt="AI icon"
+                      />
+                      <div className="text-[10px] tracking-[-0.03em]">AI 생성</div>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
 
-            {/* 글자수 카운팅 - 우측하단 */}
-            {hasClickedAIGenerate && (
+            {/* 글자수 카운팅 - 우측하단 (저장 상태가 아닐 때만 표시) */}
+            {!isSaved && hasClickedAIGenerate && (
               <div className="absolute bottom-2 right-3 text-[9px] font-medium text-primary">
                 ({inputValue.length}/200)
               </div>
@@ -2419,6 +2586,31 @@ function GridAElement({
             pointerEvents: 'auto',
             left: toolbarPosition.left,
             top: toolbarPosition.top,
+          }}
+          onMouseEnter={() => {
+            console.log("🟡 Toolbar Mouse Enter");
+            // 툴바에 hover하면 타이머 취소하고 hover 상태 유지
+            if (hoverTimerRef.current) {
+              clearTimeout(hoverTimerRef.current);
+              hoverTimerRef.current = null;
+            }
+            isHoveredRef.current = true;
+          }}
+          onMouseLeave={() => {
+            console.log("🟠 Toolbar Mouse Leave");
+            // 툴바에서 벗어나면 다시 타이머 시작
+            isHoveredRef.current = false;
+            const timer = setTimeout(() => {
+              if (!isHoveredRef.current) {
+                console.log("✅ Hiding toolbar after leaving toolbar");
+                setToolbarState({
+                  show: false,
+                  isExpanded: false,
+                });
+              }
+              hoverTimerRef.current = null;
+            }, 3000);
+            hoverTimerRef.current = timer;
           }}
         >
           <GridEditToolbar

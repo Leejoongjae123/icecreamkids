@@ -9,9 +9,11 @@ import TableModal from "./TableModal";
 import ApplyModal from "./ApplyModal";
 import BottomEditToolbar from "./BottomEditToolbar";
 import usePlayRecordStore from "@/hooks/store/usePlayRecordStore";
+import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
 
 const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
   const { playRecordResult } = usePlayRecordStore();
+  const { isSaved } = useSavedDataStore();
   const [activeSection, setActiveSection] = React.useState<string | null>(null);
   const [playActivityText, setPlayActivityText] = React.useState("");
   const [teacherSupportText, setTeacherSupportText] = React.useState("");
@@ -283,9 +285,11 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
           )}
           {/* 그리드 삭제 버튼 */}
 
-          <div className="absolute bottom-2 right-2 text-xs font-bold text-primary">
-            ({playActivityText.length}/{maxLength})
-          </div>
+          {!isSaved && (
+            <div className="absolute bottom-2 right-2 text-xs font-bold text-primary">
+              ({playActivityText.length}/{maxLength})
+            </div>
+          )}
 
           {/* 툴바 표시 */}
           {showToolbar && activeSection === "playActivity" && (
@@ -343,9 +347,11 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
             )}
             {/* 그리드 삭제 버튼 */}
 
-            <div className="absolute bottom-2 right-2 text-xs font-bold text-primary">
-              ({teacherSupportText.length}/{maxLength})
-            </div>
+            {!isSaved && (
+              <div className="absolute bottom-2 right-2 text-xs font-bold text-primary">
+                ({teacherSupportText.length}/{maxLength})
+              </div>
+            )}
 
             {/* 툴바 표시 */}
             {showToolbar && activeSection === "teacherSupport" && (
@@ -397,9 +403,11 @@ const ReportBottomSection: React.FC<ReportBottomSectionProps> = ({ type }) => {
             )}
             {/* 그리드 삭제 버튼 */}
 
-            <div className="absolute bottom-2 right-2 text-xs font-bold text-primary">
-              ({homeConnectionText.length}/{maxLength})
-            </div>
+            {!isSaved && (
+              <div className="absolute bottom-2 right-2 text-xs font-bold text-primary">
+                ({homeConnectionText.length}/{maxLength})
+              </div>
+            )}
 
             {/* 툴바 표시 */}
             {showToolbar && activeSection === "homeConnection" && (
