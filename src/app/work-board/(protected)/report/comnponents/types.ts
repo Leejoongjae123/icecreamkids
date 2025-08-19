@@ -1,4 +1,5 @@
 // Article 데이터 관련 타입 정의
+import type React from 'react';
 
 export interface Position {
   x: number;
@@ -41,11 +42,16 @@ export interface TextSticker {
   fontSize: number;
   fontColor: string;
   fontFamily: string;
+  type?: 'basic' | 'bubble';
+  backgroundUrl?: string;
+  textType?: 'title' | 'subtitle' | 'body';
+  bubbleIndex?: number;
 }
 
 export interface SearchParams {
   type: string;
   subject: string;
+  articleId?: string;
 }
 
 export interface GridLayoutItem {
@@ -57,6 +63,9 @@ export interface GridLayoutItem {
   cardType: string;
   colSpan: number;
   imageCount: number;
+  isSelected?: boolean;
+  isExpanded?: boolean;
+  isHidden?: boolean;
 }
 
 export interface GridContent {
@@ -128,6 +137,7 @@ export interface StickerItem extends Omit<Sticker, 'meta'> {
 export interface TextStickerItem extends TextSticker {}
 
 export type GridItem = GridLayoutItem;
+export type GridBItem = GridLayoutItem;
 
 export interface SavedReportData {
   id: string;
@@ -230,4 +240,91 @@ export interface DecorationItemRemote {
 export interface ReportBottomSectionProps {
   type: ReportType;
   initialData?: ReportBottomData;
+}
+
+// ===== 이미지 편집 모달 Props =====
+export interface ImageEditModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  imageUrls: string[];
+  selectedImageIndex?: number;
+  onApply?: (processedImages: { imageUrls: string[]; imagePositions: any[] }) => void;
+  onImageOrderChange?: (newOrder: string[]) => void;
+  targetFrame?: { width: number; height: number; x: number; y: number };
+}
+
+export interface ImageThumbnailProps {
+  imageUrl: string;
+  index: number;
+  isActive: boolean;
+  onSelect: (index: number) => void;
+  onMoveLeft: () => void;
+  onMoveRight: () => void;
+  canMoveLeft: boolean;
+  canMoveRight: boolean;
+  totalCount: number;
+}
+
+// ===== 테마 관련 타입 =====
+export interface ThemeItem {
+  id: string | number;
+  name: string;
+  previewUrl?: string;
+  backgroundImageUrl?: string;
+  backgroundImage?: string;
+  [key: string]: any;
+}
+
+// ===== 타입 선택 모달 =====
+export interface TypeOption {
+  type: ReportType;
+  name?: string;
+  description: string;
+  icon?: string;
+  imageUrl?: string;
+  buttonText?: string;
+}
+
+export interface ITypeSelectionModal {
+  isOpen: boolean;
+  onClose?: () => void;
+  onCancel?: () => void;
+  onSelect: (type: ReportType) => void;
+}
+
+export interface ThemeItemListResponse {
+  result: ThemeItem[];
+  [key: string]: any;
+}
+
+// ===== 업로드/이미지 선택 관련 타입 =====
+export interface UploadedFile {
+  id: number;
+  file: File;
+  preview: string;
+  name: string;
+}
+
+export interface FileUploadProps {
+  onFilesChange: (files: UploadedFile[]) => void;
+  selectedFiles: Set<number>;
+  onFileSelect: (index: number) => void;
+}
+
+// ===== AddPicture / AddPictureClipping 컴포넌트 공용 Props =====
+export interface AddPictureProps {
+  children: React.ReactNode;
+  targetImageRatio?: number;
+  targetFrame?: { width: number; height: number; aspectRatio?: number };
+  onImageAdded?: (isAdded: boolean, imageUrl?: string) => void;
+  onImagesAdded?: (imageUrls: string[]) => void;
+  imageIndex?: number;
+  mode?: 'single' | 'multiple';
+  hasImage?: boolean;
+  maxImageCount?: number;
+  // 클리핑/그리드 확장 관련 (선택적)
+  clipPathData?: { id: string; pathData: string };
+  gridId?: string;
+  isClippingEnabled?: boolean;
+  imageTransformData?: { x: number; y: number; width: number; height: number; scale: number } | null;
 }

@@ -257,7 +257,9 @@ export default function ImageEditModal({
       setImageEditModalOpen(false);
       
       // 변환 데이터와 함께 전달
-      onApply(extractedImageData, transformData || undefined);
+      if (onApply) {
+        onApply({ imageUrls: [extractedImageData], imagePositions: transformData ? [transformData] : [] });
+      }
       console.log("✅ onApply 호출 완료 - 모달 닫기는 부모에서 처리됨");
       
       // onApply에서 모든 모달 닫기 처리를 하므로 onClose()는 호출하지 않음

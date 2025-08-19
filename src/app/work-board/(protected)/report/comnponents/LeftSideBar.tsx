@@ -48,9 +48,12 @@ function LeftSideBarContent() {
         if (themeList.length > 0) {
           const firstTheme = themeList[0];
           setTheme({
-            id: firstTheme.id,
+            id: typeof firstTheme.id === 'string' ? parseInt(firstTheme.id) : firstTheme.id,
             name: firstTheme.name,
-            backgroundImage: firstTheme.backgroundImage
+            backgroundImage: firstTheme.backgroundImage ? {
+              id: 0,
+              imageUrl: firstTheme.backgroundImage
+            } : null
           }, currentType);
         }
       } catch (e) {
@@ -69,9 +72,12 @@ function LeftSideBarContent() {
     const theme = themes[index];
     if (theme) {
       setTheme({
-        id: theme.id,
+        id: typeof theme.id === 'string' ? parseInt(theme.id) : theme.id,
         name: theme.name,
-        backgroundImage: theme.backgroundImage
+        backgroundImage: theme.backgroundImage ? {
+          id: 0,
+          imageUrl: theme.backgroundImage
+        } : null
       }, currentType);
     }
   };
@@ -147,12 +153,12 @@ function LeftSideBarContent() {
                           : "p-2 border border-gray-200 hover:bg-gray-100"
                       }`}
                     >
-                      {theme?.backgroundImage?.imageUrl ? (
+                      {theme?.backgroundImage ? (
                         <img
-                          src={theme?.backgroundImage?.imageUrl}
+                          src={theme?.backgroundImage}
                           className="w-full h-full object-cover rounded"
                           alt={theme.name}
-                          data-id={typeof theme?.backgroundImage?.id === 'number' ? theme.backgroundImage.id : undefined}
+                          data-id={theme.id}
                         />
                       ) : (
                         <img

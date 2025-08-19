@@ -12,6 +12,7 @@ import TextStickerModal from "./TextStickerModal";
 import DecorationStickerModal from "./DecorationStickerModal";
 import ImageCountModal from "./ImageCountModal";
 import { MdPhotoLibrary } from "react-icons/md";
+import { DecorationItemRemote } from "./types";
 
 interface GridEditToolbarProps {
   show: boolean;
@@ -148,7 +149,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
     setIsDecorationStickerModalOpen(false);
   };
 
-  const handleDecorationStickerApply = (selectedSticker: number) => {
+  const handleDecorationStickerApply = (selectedSticker: DecorationItemRemote) => {
     console.log("Selected decoration sticker:", selectedSticker);
     // 여기서 선택된 꾸미기 스티커를 적용하는 로직을 구현할 수 있습니다
     onIconClick(2); // 기존 로직도 호출

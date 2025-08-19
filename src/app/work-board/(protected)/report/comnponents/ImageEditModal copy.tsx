@@ -150,7 +150,9 @@ export default function ImageEditModal({
     }
 
     // 현재 이미지 URL을 그대로 적용 (추후 변형 적용된 이미지로 변경 가능)
-    onApply(imageUrls[activeImageIndex]);
+    if (onApply) {
+      onApply({ imageUrls: [imageUrls[activeImageIndex]], imagePositions: [] });
+    }
     onClose();
   }, [activeImageIndex, imageUrls, onApply, onClose]);
 

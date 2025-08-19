@@ -40,11 +40,14 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
       initialItems.push({
         id: `grid-b-${i}`,
         index: i,
+        category: "",
         isSelected: false,
         isExpanded: false,
         isHidden: false,
         images: [],
         inputValue: "",
+        cardType: "small",
+        colSpan: 1,
         imageCount: 1 // 기본 이미지 개수 1로 설정
       });
     }

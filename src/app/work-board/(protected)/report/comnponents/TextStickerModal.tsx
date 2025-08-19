@@ -48,6 +48,9 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
         position: { x: 50, y: 50 },
         size: { width: 150, height: 50 },
         rotation: 0,
+        fontSize: 16,
+        fontColor: '#000000',
+        fontFamily: 'Arial',
       });
     } else {
       // 말풍선 텍스트 스티커 추가
@@ -61,6 +64,9 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
           size: { width: 120, height: 120 },
           rotation: 0,
           backgroundUrl: bubbleUrl.url,
+          fontSize: 16,
+          fontColor: '#000000',
+          fontFamily: 'Arial',
         });
       }
     }

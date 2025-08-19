@@ -66,7 +66,9 @@ export function TypeSelectionModal({
   };
 
   const handleCancel = () => {
-    onCancel();
+    if (onCancel) {
+      onCancel();
+    }
   };
 
   return (
@@ -115,7 +117,7 @@ export function TypeSelectionModal({
                 >
                   <CardContent className="p-0 h-full">
                     <Image
-                      src={option.imageUrl}
+                      src={option.imageUrl || ''}
                       alt={`${option.type}타입 미리보기`}
                       width={205}
                       height={266}

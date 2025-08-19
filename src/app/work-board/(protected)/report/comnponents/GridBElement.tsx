@@ -755,6 +755,8 @@ function GridBElement({
         if (typeof storePlaySubjectText === 'string' && storePlaySubjectText.trim() !== '') {
           setHasClickedAIGenerate(true);
           setIsDescriptionExpanded(true);
+          // 스토어의 AI 생성 플래그도 업데이트
+          updateAiGenerated(gridId, true);
         }
       }
     }
@@ -1018,23 +1020,22 @@ function GridBElement({
   };
 
   // ImageEditModal에서 편집된 이미지 적용 핸들러
-  const handleImageEditApply = (editedImageData: string) => {
-    console.log("📸 GridB 편집된 이미지 데이터 받음:", editedImageData.substring(0, 50) + "...");
+  const handleImageEditApply = (processedImages: { imageUrls: string[]; imagePositions: any[] }) => {
+    console.log("📸 GridB 편집된 이미지 데이터 받음:", processedImages.imageUrls);
+    console.log("📸 GridB 편집된 이미지 위치 데이터:", processedImages.imagePositions);
     
-    // 편집된 이미지로 원래 위치의 이미지 교체
-    // selectedImageIndex는 필터링된 배열에서의 인덱스이므로
-    // 실제 원래 이미지 URL을 찾아서 교체해야 함
-    const selectedImageUrl = imageEditModal.imageUrls[imageEditModal.selectedImageIndex];
-    
-    setCurrentImages(prev => {
-      const newImages = [...prev];
-      // 원래 이미지 배열에서 해당 URL의 인덱스를 찾아서 교체
-      const originalIndex = newImages.findIndex(img => img === selectedImageUrl);
-      if (originalIndex >= 0) {
-        newImages[originalIndex] = editedImageData;
-      }
-      return newImages;
-    });
+    // 편집된 이미지들로 교체
+    if (processedImages.imageUrls && processedImages.imageUrls.length > 0) {
+      setCurrentImages(prev => {
+        const newImages = [...prev];
+        processedImages.imageUrls.forEach((editedUrl, index) => {
+          if (index < newImages.length) {
+            newImages[index] = editedUrl;
+          }
+        });
+        return newImages;
+      });
+    }
 
     // 모달 닫기
     setImageEditModal(prev => ({ ...prev, isOpen: false }));
