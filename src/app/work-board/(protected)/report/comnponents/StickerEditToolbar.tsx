@@ -79,43 +79,33 @@ const StickerEditToolbar: React.FC<StickerEditToolbarProps> = ({
     setIsDecorationStickerModalOpen(false);
   };
 
-  const handleDecorationStickerApply = (selectedStickerIndex: number) => {
-    console.log("선택된 스티커:", selectedStickerIndex);
-    
-    if (selectedStickerId) {
-      // 기존 스티커 정보 가져오기
-      const currentSticker = stickers.find(s => s.id === selectedStickerId);
-      if (currentSticker) {
-        // 기존 스티커의 위치, 크기, 회전 정보 저장
-        const { position, size, rotation, zIndex } = currentSticker;
-        
-        // 기존 스티커 삭제
-        removeSticker(selectedStickerId);
-        
-        // 새로운 스티커 URL 생성 (DecorationStickerModal과 동일한 로직)
-        const newStickerUrl = `https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker${selectedStickerIndex + 1}.svg`;
-        
-        // 새로운 스티커를 기존 위치에 추가
-        addSticker(selectedStickerIndex, newStickerUrl);
-        
-        // 새로운 스티커의 속성을 기존 스티커와 동일하게 설정
-        setTimeout(() => {
-          // Store가 업데이트된 후 새로 추가된 스티커 찾기
-          const updatedStickers = useStickerStore.getState().stickers;
-          const newSticker = updatedStickers[updatedStickers.length - 1];
-          
-          if (newSticker) {
-            // 위치, 크기, 회전을 기존 스티커와 동일하게 설정
-            updateStickerPosition(newSticker.id, position);
-            useStickerStore.getState().updateStickerSize(newSticker.id, size);
-            useStickerStore.getState().updateStickerRotation(newSticker.id, rotation);
-          }
-        }, 0);
-      }
-      
-      onStickerChange?.();
+  const handleDecorationStickerApply = (selectedSticker: any) => {
+    if (!selectedStickerId) {
+      setIsDecorationStickerModalOpen(false);
+      return;
     }
-    
+
+    const currentSticker = stickers.find(s => s.id === selectedStickerId);
+    if (!currentSticker) {
+      setIsDecorationStickerModalOpen(false);
+      return;
+    }
+
+    const { position, size, rotation, zIndex } = currentSticker;
+    removeSticker(selectedStickerId);
+
+    addSticker({
+      stickerIndex: 0,
+      url: selectedSticker.imageUrl || selectedSticker.thumbUrl,
+      meta: selectedSticker,
+      position,
+      size,
+      rotation,
+      zIndex,
+    });
+
+    // 방금 추가한 스티커는 같은 위치/크기로 들어가므로 추가 이동 불필요
+    onStickerChange?.();
     setIsDecorationStickerModalOpen(false);
   };
 

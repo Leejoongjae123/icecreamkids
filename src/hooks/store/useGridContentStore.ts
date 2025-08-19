@@ -16,6 +16,7 @@ export interface GridContentData {
 // Store 타입 정의
 export interface GridContentStore {
   gridContents: Record<string, GridContentData>; // gridId를 key로 하는 Grid 컨텐츠 맵
+  setAllGridContents: (all: Record<string, any>) => void;
   
   // Grid 컨텐츠 상태 업데이트
   updateGridContent: (gridId: string, data: Partial<Omit<GridContentData, 'gridId'>>) => void;
@@ -62,21 +63,55 @@ export interface GridContentStore {
 
 const useGridContentStore = create<GridContentStore>((set, get) => ({
   gridContents: {},
+  setAllGridContents: (all) => {
+    // 입력값을 맵으로 교체하되, 플래그들을 실제 데이터 기반으로 정규화
+    const normalized: Record<string, GridContentData> = {} as Record<string, GridContentData>;
+    Object.entries(all || {}).forEach(([gridId, raw]) => {
+      const content = (raw || {}) as Partial<GridContentData> & {
+        playSubjectText?: string;
+        imageUrls?: string[];
+        categoryValue?: string;
+        hasPlaySubject?: boolean;
+        hasImages?: boolean;
+        hasCategoryValue?: boolean;
+        hasAiGenerated?: boolean;
+      };
+      const text = typeof content.playSubjectText === 'string' ? content.playSubjectText.trim() : '';
+      const images = Array.isArray(content.imageUrls) ? content.imageUrls.filter((u) => !!u && u !== '') : [];
+      const categoryValue = typeof content.categoryValue === 'string' ? content.categoryValue : '';
+      const hasCategoryValue = categoryValue.trim().length > 0 && categoryValue !== '타이틀을 입력해주세요';
+      const normalizedEntry: GridContentData = {
+        gridId,
+        hasPlaySubject: text.length > 0,
+        hasImages: images.length > 0,
+        hasCategoryValue,
+        hasAiGenerated: (content.hasAiGenerated ?? false) || text.length > 0,
+        playSubjectText: content.playSubjectText,
+        imageUrls: images,
+        driveItemKeys: content.driveItemKeys || [],
+        categoryValue,
+      };
+      normalized[gridId] = normalizedEntry;
+    });
+    set({ gridContents: normalized });
+  },
 
   updateGridContent: (gridId: string, data: Partial<Omit<GridContentData, 'gridId'>>) => {
     set((state) => {
       const existingContent = state.gridContents[gridId] || {};
+      const providedText = typeof data.playSubjectText === 'string' ? data.playSubjectText : undefined;
+      const hasText = typeof providedText === 'string' ? providedText.trim().length > 0 : undefined;
       
       return {
         gridContents: {
           ...state.gridContents,
           [gridId]: {
             gridId,
-            hasPlaySubject: data.hasPlaySubject ?? existingContent.hasPlaySubject ?? false,
+            hasPlaySubject: hasText !== undefined ? hasText : (data.hasPlaySubject ?? existingContent.hasPlaySubject ?? false),
             hasImages: data.hasImages ?? existingContent.hasImages ?? false,
             hasCategoryValue: data.hasCategoryValue ?? existingContent.hasCategoryValue ?? false,
-            hasAiGenerated: data.hasAiGenerated ?? existingContent.hasAiGenerated ?? false,
-            playSubjectText: data.playSubjectText ?? existingContent.playSubjectText,
+            hasAiGenerated: hasText !== undefined ? hasText : (data.hasAiGenerated ?? existingContent.hasAiGenerated ?? false),
+            playSubjectText: (providedText !== undefined ? providedText : existingContent.playSubjectText),
             imageUrls: data.imageUrls ?? existingContent.imageUrls,
             driveItemKeys: data.driveItemKeys ?? existingContent.driveItemKeys,
             categoryValue: data.categoryValue ?? existingContent.categoryValue,
@@ -99,7 +134,7 @@ const useGridContentStore = create<GridContentStore>((set, get) => ({
             gridId,
             hasImages: (existingData.hasImages ?? false),
             hasCategoryValue: (existingData.hasCategoryValue ?? false),
-            hasAiGenerated: (existingData.hasAiGenerated ?? false),
+            hasAiGenerated: text.trim().length > 0,
             hasPlaySubject: text.trim().length > 0,
             playSubjectText: text,
             driveItemKeys: existingData.driveItemKeys,

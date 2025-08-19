@@ -244,9 +244,21 @@ function GridAElement({
   // 이미지 개수 상태 관리
   const [imageCount, setImageCount] = React.useState(propsImageCount);
   
+  // 부모에서 전달한 이미지 개수(props)가 변경되면 내부 상태 동기화
+  React.useEffect(() => {
+    setImageCount(propsImageCount);
+  }, [propsImageCount]);
+  
   // 카테고리 편집 상태 관리
   const [isEditingCategory, setIsEditingCategory] = React.useState(false);
   const [categoryValue, setCategoryValue] = React.useState(category);
+
+  // props.category 변경 시 카테고리 동기화 (API 주입 반영)
+  React.useEffect(() => {
+    if (typeof category === 'string' && category !== categoryValue) {
+      setCategoryValue(category);
+    }
+  }, [category]);
   
   // description-area 확장 상태 관리
   const [isDescriptionExpanded, setIsDescriptionExpanded] = React.useState(false);
@@ -282,6 +294,21 @@ function GridAElement({
     });
     return initialImages;
   });
+
+  // props.images 변경 시 currentImages 동기화 (API 주입 반영)
+  React.useEffect(() => {
+    if (!Array.isArray(images)) {
+      return;
+    }
+    const desired = [...images].slice(0, imageCount);
+    while (desired.length < imageCount) {
+      desired.push("");
+    }
+    const isDifferent = desired.length !== currentImages.length || desired.some((v, i) => v !== currentImages[i]);
+    if (isDifferent) {
+      setCurrentImages(desired);
+    }
+  }, [images, imageCount]);
 
   // 현재 선택된 이미지 개수 계산 함수
   const getCurrentImageCount = React.useCallback((): number => {
@@ -381,56 +408,67 @@ function GridAElement({
     return metadata?.driveItemKey;
   }, [imageMetadata]);
 
-  // 이미지 메타데이터가 변경될 때마다 메모 상태 체크
+  // 이미지 메타데이터가 변경될 때마다 메모 상태 체크 (동일 키 세트는 스킵)
+  const lastMemoKeysRef = React.useRef<string>("");
   React.useEffect(() => {
+    const keys = imageMetadata
+      .map(m => m.driveItemKey)
+      .filter((k): k is string => typeof k === 'string' && k.length > 0 && !k.startsWith('local_'))
+      .sort();
+
+    if (!userInfo?.accountId || keys.length === 0) {
+      return;
+    }
+
+    const signature = keys.join(',');
+    if (signature === lastMemoKeysRef.current) {
+      return;
+    }
+    lastMemoKeysRef.current = signature;
+
+    let aborted = false;
+    const controller = new AbortController();
+
     const checkMemosForImages = async () => {
-      if (!userInfo?.accountId) {
-        return;
-      }
-
-      const memoCheckPromises = imageMetadata.map(async (metadata) => {
-        if (metadata.driveItemKey && metadata.driveItemKey.startsWith('local_')) {
-          // 로컬 이미지(직접 업로드)는 메모 체크하지 않음
-          return null;
-        }
-
-        if (metadata.driveItemKey) {
+      try {
+        const promises = keys.map(async (driveItemKey) => {
           try {
             const response = await fetch(
-              `/api/file/v1/drive-items/${metadata.driveItemKey}/memos?owner_account_id=${userInfo.accountId}`,
-              {
-                method: 'GET',
-                headers: {
-                  'accept': '*/*',
-                },
-              }
+              `/api/file/v1/drive-items/${driveItemKey}/memos?owner_account_id=${userInfo.accountId}`,
+              { method: 'GET', headers: { accept: '*/*' }, signal: controller.signal }
             );
-
-            if (response.ok) {
-              const data = await response.json();
-              const memoExists = Array.isArray(data.result) ? data.result.length > 0 : false;
-              return { driveItemKey: metadata.driveItemKey, hasMemo: memoExists };
-            }
-          } catch (error) {
-            console.log('메모 체크 실패:', error);
+            if (!response.ok) return null;
+            const data = await response.json();
+            const memoExists = Array.isArray(data.result) ? data.result.length > 0 : false;
+            return { driveItemKey, hasMemo: memoExists } as { driveItemKey: string; hasMemo: boolean } | null;
+          } catch {
+            return null;
           }
-        }
-        return null;
-      });
+        });
 
-      const results = await Promise.all(memoCheckPromises);
-      const newMemoStatuses: {[key: string]: boolean} = {};
-      
-      results.forEach((result) => {
-        if (result) {
-          newMemoStatuses[result.driveItemKey] = result.hasMemo;
-        }
-      });
+        const results = await Promise.all(promises);
+        if (aborted) return;
 
-      setMemoStatuses(newMemoStatuses);
+        setMemoStatuses(prev => {
+          let changed = false;
+          const next = { ...prev } as { [key: string]: boolean };
+          results.forEach(r => {
+            if (!r) return;
+            if (next[r.driveItemKey] !== r.hasMemo) {
+              next[r.driveItemKey] = r.hasMemo;
+              changed = true;
+            }
+          });
+          return changed ? next : prev;
+        });
+      } catch {}
     };
-
     checkMemosForImages();
+
+    return () => {
+      aborted = true;
+      controller.abort();
+    };
   }, [imageMetadata, userInfo?.accountId]);
 
   // 여러 이미지 추가 핸들러
@@ -816,7 +854,23 @@ function GridAElement({
     };
   }, [measureImageCellSize, cardType, isWideCard, imageCount]);
 
-  const [inputValue, setInputValue] = React.useState("");
+  // 키워드 입력 (소형 Input)
+  const [keywords, setKeywords] = React.useState("");
+  // LLM 생성/설명 텍스트 (description-area textarea)
+  const [descriptionText, setDescriptionText] = React.useState("");
+
+  // store의 playSubjectText 변화 시 descriptionText 동기화 (API 주입 반영)
+  React.useEffect(() => {
+    if (!gridId) return;
+    const storeText = gridContents[gridId]?.playSubjectText ?? "";
+    if (storeText !== descriptionText) {
+      setDescriptionText(storeText);
+      if (typeof storeText === 'string' && storeText.trim() !== '') {
+        setHasClickedAIGenerate(true);
+        setIsDescriptionExpanded(true);
+      }
+    }
+  }, [gridId, gridContents]);
   
   // 툴바 상태 관리
   const [toolbarState, setToolbarState] = React.useState({
@@ -842,23 +896,92 @@ function GridAElement({
 
   const displayImages = images.length > 0 ? images : defaultImages;
 
-  // currentImages가 변경될 때 store 업데이트
+  // currentImages가 변경될 때에만 store 업데이트 (gridContents 변경으로 인한 재호출 방지)
   React.useEffect(() => {
-    if (gridId && currentImages.length > 0) {
-      // 기본 이미지가 아닌 실제 업로드된 이미지들만 필터링
-      const validImages = currentImages.filter(img => 
-        img && img !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
-      );
-      updateImages(gridId, validImages);
-      
-      // driveItemKeys도 함께 업데이트
-      const driveItemKeys = validImages.map(imageUrl => {
-        return getDriveItemKeyByImageUrl(imageUrl) || "";
-      }).filter(key => key !== "");
-      
-      updateDriveItemKeys(gridId, driveItemKeys);
+    if (!gridId) return;
+    const validImages = currentImages.filter((img) => img && img !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg");
+
+    // API에서 주입된 이미지가 이미 store에 존재하는 경우, 빈 값으로 덮어쓰지 않음 (API 우선)
+    if (validImages.length === 0) {
+      const existingStoreImages = gridContents[gridId]?.imageUrls || [];
+      if (existingStoreImages.length > 0) {
+        return;
+      }
+      // store에도 아무 이미지가 없으면 굳이 업데이트하지 않음
+      return;
     }
-  }, [currentImages, gridId, updateImages, updateDriveItemKeys, getDriveItemKeyByImageUrl]);
+
+    const storeImages = gridContents[gridId]?.imageUrls || [];
+    // 스토어(=API 주입)의 이미지 개수보다 적은 수로는 덮어쓰지 않음 (다운사이즈 방지)
+    if (storeImages.length > validImages.length) {
+      return;
+    }
+    const imagesEqual = storeImages.length === validImages.length && storeImages.every((v, i) => v === validImages[i]);
+    if (!imagesEqual) {
+      updateImages(gridId, validImages);
+    }
+
+    const driveItemKeys = validImages
+      .map((imageUrl) => getDriveItemKeyByImageUrl(imageUrl) || "")
+      .filter((key) => key !== "");
+    if (driveItemKeys.length > 0) {
+      const storeKeys = gridContents[gridId]?.driveItemKeys || [];
+      const keysEqual = storeKeys.length === driveItemKeys.length && storeKeys.every((v, i) => v === driveItemKeys[i]);
+      if (!keysEqual) {
+        updateDriveItemKeys(gridId, driveItemKeys);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentImages]);
+
+  // 스토어(API 주입)의 이미지 개수가 현재 imageCount보다 많으면 imageCount를 올려 동기화 (최대 3)
+  React.useEffect(() => {
+    if (!gridId) return;
+    const storeCount = (gridContents[gridId]?.imageUrls || []).length;
+    if (storeCount > 0) {
+      const desired = Math.min(3, storeCount);
+      if (desired !== imageCount) {
+        setImageCount(desired);
+      }
+    }
+  }, [gridId, gridContents, imageCount]);
+
+  // store의 driveItemKeys와 imageUrls를 imageMetadata에 주입 (API 초기값 반영)
+  React.useEffect(() => {
+    if (!gridId) return;
+    const content = gridContents[gridId];
+    // imageCount를 초과하는 항목은 주입하지 않음 (무한 루프 방지)
+    const urls = (content?.imageUrls || []).slice(0, imageCount);
+    const keys = (content?.driveItemKeys || []).slice(0, imageCount);
+    if (urls.length === 0 || keys.length === 0) {
+      return;
+    }
+    // 현재 imageMetadata와 비교하여 필요한 경우에만 업데이트
+    let needUpdate = false;
+    for (let i = 0; i < Math.min(urls.length, keys.length); i++) {
+      const u = urls[i];
+      const k = keys[i];
+      if (!u || !k || k.startsWith('local_')) continue;
+      const existing = imageMetadata.find(m => m.url === u);
+      if (!existing || existing.driveItemKey !== k) {
+        needUpdate = true;
+        break;
+      }
+    }
+    if (!needUpdate) return;
+    setImageMetadata((prev) => {
+      const map = new Map<string, {url: string, driveItemKey?: string}>();
+      prev.forEach((m) => map.set(m.url, m));
+      for (let i = 0; i < Math.min(urls.length, keys.length); i++) {
+        const u = urls[i];
+        const k = keys[i];
+        if (u && k && !k.startsWith('local_')) {
+          map.set(u, { url: u, driveItemKey: k });
+        }
+      }
+      return Array.from(map.values());
+    });
+  }, [gridContents, gridId, imageCount, imageMetadata]);
 
   // categoryValue가 변경될 때 store 업데이트 (무한 루프 방지를 위한 ref 사용)
   const isUpdatingFromStore = React.useRef(false);
@@ -895,7 +1018,8 @@ function GridAElement({
     if (gridId && !gridContents[gridId]) {
       // store에서 해당 gridId가 삭제되었으면 로컬 상태 초기화
       setCategoryValue("");
-      setInputValue("");
+      setKeywords("");
+      setDescriptionText("");
       setCurrentImages(Array(imageCount).fill(""));
       setImagePositions(Array(imageCount).fill({ x: 0, y: 0, scale: 1 }));
       setImageMetadata([]);
@@ -907,11 +1031,16 @@ function GridAElement({
     }
   }, [gridContents, gridId, imageCount]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+  // 키워드 입력 변경 (store에 반영하지 않음)
+  const handleKeywordChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     const newValue = e.target.value;
-    setInputValue(newValue);
-    
-    // Grid content store 업데이트 (gridId가 있을 때만)
+    setKeywords(newValue);
+  };
+
+  // description textarea 변경 (store에 반영)
+  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setDescriptionText(newValue);
     if (gridId) {
       updatePlaySubject(gridId, newValue);
     }
@@ -968,7 +1097,7 @@ function GridAElement({
       startsAt: new Date().toISOString().split('T')[0], // 오늘 날짜
       endsAt: new Date().toISOString().split('T')[0], // 오늘 날짜
       photoDriveItemKeys,
-      keywords: inputValue.trim() || "" // 현재 입력된 키워드 사용
+      keywords: keywords.trim() || "" // 현재 입력된 키워드 사용
     };
 
     console.log("LLM API 호출 데이터:", requestData);
@@ -1025,8 +1154,8 @@ function GridAElement({
         generatedText = "AI 텍스트 생성에 성공했지만 내용을 추출할 수 없습니다."; // 기본값
       }
 
-      // 생성된 텍스트로 input 값 업데이트
-      setInputValue(generatedText);
+      // 생성된 텍스트를 description으로 업데이트
+      setDescriptionText(generatedText);
       
       // Grid content store에도 업데이트 (gridId가 있을 때만)
       if (gridId) {
@@ -1041,7 +1170,7 @@ function GridAElement({
 
       showAlert({ message: 'AI 생성 중 오류가 발생했습니다.' });
     }
-  }, [profileId, categoryValue, currentImages, getDriveItemKeyByImageUrl, searchParams, inputValue, gridId, updatePlaySubject, showAlert, addToast]);
+  }, [profileId, categoryValue, currentImages, getDriveItemKeyByImageUrl, searchParams, keywords, gridId, updatePlaySubject, showAlert, addToast]);
 
   const handleAIGenerate = () => {
     console.log("🎯 AI 생성 버튼 클릭됨");
@@ -1113,13 +1242,8 @@ function GridAElement({
         reader.onload = (e) => {
           const content = e.target?.result as string;
           if (content) {
-            // 읽은 텍스트 내용을 input에 설정
-            setInputValue(content);
-            
-            // Grid content store에도 업데이트 (gridId가 있을 때만)
-            if (gridId) {
-              updatePlaySubject(gridId, content);
-            }
+            // 읽은 텍스트를 키워드 입력으로 설정 (store에는 반영하지 않음)
+            setKeywords(content);
           }
         };
         
@@ -2453,12 +2577,12 @@ function GridAElement({
                   minHeight: '74px'
                 }}
               >
-                {inputValue || ''}
+                {descriptionText || ''}
               </div>
             ) : (
               <textarea
-                value={inputValue}
-                onChange={handleInputChange}
+                value={descriptionText}
+                onChange={handleDescriptionChange}
                 onFocus={() => setIsTextareaFocused(true)}
                 onBlur={() => setIsTextareaFocused(false)}
                 onMouseDown={(e) => e.stopPropagation()} // 드래그 이벤트 방지
@@ -2484,7 +2608,7 @@ function GridAElement({
             {/* 글자수 카운팅 - 우측하단 (저장 상태가 아닐 때만 표시) */}
             {!isSaved && hasClickedAIGenerate && (
               <div className="absolute bottom-2 right-3 text-[9px] font-medium text-primary">
-                ({inputValue.length}/200)
+                ({descriptionText.length}/200)
               </div>
             )}
           </div>
@@ -2508,16 +2632,16 @@ function GridAElement({
             
             {/* 저장 상태일 때는 읽기 전용 텍스트 표시, 편집 상태일 때는 입력 영역 표시 */}
             {isSaved ? (
-              inputValue && (
+              descriptionText && (
                 <div className="w-full mb-1.5 px-2 py-1 text-xs tracking-tight text-zinc-600 min-h-[26px]">
-                  {inputValue}
+                  {descriptionText}
                 </div>
               )
             ) : (
               <div className="flex gap-1.5 w-full mb-1.5"> 
                 <Input
-                  value={inputValue}
-                  onChange={handleInputChange}
+                  value={keywords}
+                  onChange={handleKeywordChange}
                   onMouseDown={(e) => e.stopPropagation()} // 드래그 이벤트 방지
                   onDragStart={(e) => e.preventDefault()} // 드래그 시작 방지
                   onKeyDown={(e) => e.stopPropagation()} // 키보드 이벤트 전파 방지 (스페이스바 포함)
@@ -2611,7 +2735,7 @@ function GridAElement({
             {/* 글자수 카운팅 - 우측하단 (저장 상태가 아닐 때만 표시) */}
             {!isSaved && hasClickedAIGenerate && (
               <div className="absolute bottom-2 right-3 text-[9px] font-medium text-primary">
-                ({inputValue.length}/200)
+                ({descriptionText.length}/200)
               </div>
             )}
 

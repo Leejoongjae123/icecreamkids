@@ -3,19 +3,32 @@ import { StickerItem, StickerStore } from '@/app/work-board/(protected)/report/c
 
 export const useStickerStore = create<StickerStore>((set, get) => ({
   stickers: [],
+  setStickers: (stickers) => set(() => ({ stickers: [...stickers] })),
 
-  addSticker: (stickerIndex: number, url: string) =>
+  addSticker: (payload) =>
     set((state) => {
+      const {
+        stickerIndex,
+        url,
+        meta,
+        position,
+        size,
+        rotation,
+        zIndex,
+      } = payload;
+
       const newSticker: StickerItem = {
         id: `sticker_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         stickerIndex,
         url,
-        position: { x: 50, y: 50 }, // 좌상단 근처에 배치
-        size: { width: 120, height: 120 },
-        rotation: 0,
-        zIndex: 100000 + state.stickers.length,
-      };
-      
+        position: position || { x: 50, y: 50 },
+        size: size || { width: 120, height: 120 },
+        rotation: typeof rotation === 'number' ? rotation : 0,
+        zIndex: typeof zIndex === 'number' ? zIndex : 100000 + state.stickers.length,
+        // 메타데이터(원격 스티커 정보)는 선택적으로 포함
+        ...(meta ? { meta } : ({} as any)),
+      } as StickerItem;
+
       return {
         stickers: [...state.stickers, newSticker],
       };

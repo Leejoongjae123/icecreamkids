@@ -1,13 +1,19 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useStickerStore } from "@/hooks/store/useStickerStore";
+import {
+  DecorationCategoryRemote,
+  DecorationItemRemote,
+  RemoteResponse,
+  StickerMeta,
+} from "./types";
 
 interface DecorationStickerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApply?: (selectedSticker: number) => void; // 선택 사항으로 변경
+  onApply?: (selectedSticker: DecorationItemRemote) => void;
 }
 
 const DecorationStickerModal: React.FC<DecorationStickerModalProps> = ({
@@ -15,77 +21,99 @@ const DecorationStickerModal: React.FC<DecorationStickerModalProps> = ({
   onClose,
   onApply,
 }) => {
-  const [activeTab, setActiveTab] = useState<"category1" | "category2">(
-    "category2"
-  );
-  const [selectedSticker, setSelectedSticker] = useState<number>(3); // Default to sticker 3
+  const [categories, setCategories] = useState<DecorationCategoryRemote[]>([]);
+  const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
+  const [items, setItems] = useState<DecorationItemRemote[]>([]);
+  const [selectedStickerIndex, setSelectedStickerIndex] = useState<number>(0);
+  const [loadingCategories, setLoadingCategories] = useState<boolean>(false);
+  const [loadingItems, setLoadingItems] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   const { addSticker } = useStickerStore();
 
   const handleApply = () => {
-    const sticker = stickerUrls[selectedSticker];
+    const sticker = items[selectedStickerIndex];
     if (sticker) {
-      // 스토어에 스티커 추가
-      addSticker(selectedSticker, sticker.url);
-      
-      // 기존 onApply 콜백도 호출 (있을 경우)
+      const url: string = sticker.imageUrl ?? sticker.thumbUrl ?? "";
+      const meta: StickerMeta = {
+        id: Number(sticker.id),
+        categoryId: (sticker as any).decorationCategoryId ?? (sticker as any).categoryId ?? 0,
+        type: "DecorationItem",
+        name: sticker.name ?? "",
+        thumbUrl: sticker.thumbUrl ?? url,
+        imageUrl: sticker.imageUrl ?? url,
+        createdAt: (sticker as any).createdAt ?? new Date().toISOString(),
+      };
+      addSticker({
+        stickerIndex: selectedStickerIndex,
+        url,
+        meta,
+      });
       if (onApply) {
-        onApply(selectedSticker);
+        onApply(sticker);
       }
     }
-    
-    // 약간의 지연 후 모달 닫기 (스티커가 추가되는 것을 확인할 수 있도록)
     setTimeout(() => {
       onClose();
     }, 100);
   };
 
   const handleStickerSelect = (stickerIndex: number) => {
-    setSelectedSticker(stickerIndex);
+    setSelectedStickerIndex(stickerIndex);
   };
 
-  const stickerUrls = [
-    {
-      url: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker1_1.png",
-      isImage: true,
-    },
-    {
-      url: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker1_2.png",
-      isImage: true,
-    },
-    {
-      url: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker1_3.png",
-      isImage: true,
-    },
-    {
-      url: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker1_4.png",
-      isImage: true,
-    },
-    {
-      url: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker1_5.png",
-      isImage: true,
-    },
-    {
-      url: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker1_6.png",
-      isImage: true,
-    },
-    {
-      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker2_1.png",
-      isImage:true
-    },
-    {
-      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker2_2.png",
-      isImage:true
-    },
-    {
-      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker2_3.png",
-      isImage:true
-    },
-    {
-      url:"https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sticker2_4.png",
-      isImage:true
-    }
-  ];
+  // 카테고리 불러오기
+  useEffect(() => {
+    if (!isOpen) return;
+    let mounted = true;
+    const fetchCategories = async () => {
+      setLoadingCategories(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/decoration-categories", { method: "GET" });
+        const json: RemoteResponse<DecorationCategoryRemote[]> = await res.json();
+        if (mounted && Array.isArray(json.result)) {
+          setCategories(json.result);
+          setActiveCategoryId((prev) => prev ?? (json.result[0]?.id ?? null));
+        }
+      } catch (e) {
+        setError("카테고리를 불러오지 못했습니다.");
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+    fetchCategories();
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen]);
+
+  // 아이템 불러오기
+  useEffect(() => {
+    if (!isOpen || !activeCategoryId) return;
+    let mounted = true;
+    const fetchItems = async () => {
+      setLoadingItems(true);
+      setError(null);
+      try {
+        const url = `/api/decoration-items/${activeCategoryId}?offsetWithLimit=0,20&sorts=createdAt.desc,name.asc`;
+        const res = await fetch(url, { method: "GET" });
+        const json: RemoteResponse<DecorationItemRemote[]> = await res.json();
+        if (mounted && Array.isArray(json.result)) {
+          setItems(json.result);
+          setSelectedStickerIndex(0);
+        }
+      } catch (e) {
+        setError("스티커 목록을 불러오지 못했습니다.");
+      } finally {
+        setLoadingItems(false);
+      }
+    };
+    fetchItems();
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen, activeCategoryId]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -134,72 +162,62 @@ const DecorationStickerModal: React.FC<DecorationStickerModalProps> = ({
 
         {/* Tabs */}
         <div className="px-10 max-md:px-5 max-sm:px-4 flex-shrink-0">
-          <div className="flex space-x-8 border-b border-gray-200">
-            <button
-              className={cn(
-                "relative pb-2 text-base tracking-tight transition-colors",
-                activeTab === "category1"
-                  ? "text-gray-700 font-medium"
-                  : "text-zinc-400"
-              )}
-              onClick={() => setActiveTab("category1")}
-            >
-              카테고리1
-              {activeTab === "category1" && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-700" />
-              )}
-            </button>
-            <button
-              className={cn(
-                "relative pb-2 text-base tracking-tight transition-colors",
-                activeTab === "category2"
-                  ? "text-gray-700 font-medium"
-                  : "text-zinc-400"
-              )}
-              onClick={() => setActiveTab("category2")}
-            >
-              카테고리2
-              {activeTab === "category2" && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-700" />
-              )}
-            </button>
+          <div className="flex space-x-8 border-b border-gray-200 overflow-x-auto no-scrollbar">
+            {loadingCategories && (
+              <div className="py-2 text-sm text-zinc-400">카테고리 불러오는 중…</div>
+            )}
+            {!loadingCategories && categories.map((cat) => (
+              <button
+                key={cat.id}
+                className={cn(
+                  "relative pb-2 text-base tracking-tight transition-colors whitespace-nowrap",
+                  activeCategoryId === cat.id ? "text-gray-700 font-medium" : "text-zinc-400"
+                )}
+                onClick={() => setActiveCategoryId(cat.id)}
+              >
+                {cat.name}
+                {activeCategoryId === cat.id && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-700" />
+                )}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Sticker Grid */}
         <div className="flex-1 px-10 py-6 max-md:px-5 max-sm:px-4 overflow-y-auto min-h-0">
-          <div className="grid grid-cols-4 gap-3 min-h-[400px]">
-            {Array.from({ length: 16 }, (_, index) => {
-              const sticker = stickerUrls[index];
-              
-              return (
+          {error && (
+            <div className="text-sm text-red-500 mb-2">{error}</div>
+          )}
+          {loadingItems ? (
+            <div className="py-20 text-center text-zinc-400">스티커 불러오는 중…</div>
+          ) : (
+            <div className="grid grid-cols-4 gap-3 min-h-[400px]">
+              {items.map((item, index) => (
                 <div
-                  key={index}
+                  key={item.id}
                   className={cn(
                     "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors flex items-center justify-center overflow-hidden",
-                    selectedSticker === index &&
-                      "border-2 border-amber-400 border-solid",
-                    !sticker && "opacity-50"
+                    selectedStickerIndex === index && "border-2 border-amber-400 border-solid"
                   )}
-                  onClick={() => sticker && handleStickerSelect(index)}
+                  onClick={() => handleStickerSelect(index)}
+                  title={item.name}
                 >
-                  {sticker ? (
-                    <img
-                      src={sticker.url}
-                      alt={`스티커 ${index + 1}`}
-                      className="w-full h-full object-cover rounded-lg"
-                      onError={(e) => {
-                        // 이미지 로드 실패시 처리
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gray-100 rounded-lg" />
-                  )}
+                  <img
+                    src={item.thumbUrl || item.imageUrl}
+                    alt={item.name}
+                    className="w-full h-full object-cover rounded-lg"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
                 </div>
-              );
-            })}
-          </div>
+              ))}
+              {items.length === 0 && (
+                <div className="col-span-4 text-center text-zinc-400 py-10">아이템이 없습니다.</div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}

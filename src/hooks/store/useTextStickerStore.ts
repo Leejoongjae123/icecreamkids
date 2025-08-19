@@ -3,6 +3,7 @@ import { TextStickerItem, TextStickerStore } from '@/app/work-board/(protected)/
 
 export const useTextStickerStore = create<TextStickerStore>((set, get) => ({
   textStickers: [],
+  setTextStickers: (stickers) => set(() => ({ textStickers: [...stickers] })),
 
   addTextSticker: (stickerData) =>
     set((state) => {

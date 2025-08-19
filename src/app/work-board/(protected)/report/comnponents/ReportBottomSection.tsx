@@ -2,7 +2,7 @@
 import * as React from "react";
 import { IoClose } from "react-icons/io5";
 import Image from "next/image";
-import { ReportBottomSectionProps, ReportBottomData } from "./types";
+import { ReportBottomSectionProps, ReportBottomData, DecorationItemRemote } from "./types";
 
 export interface ReportBottomSectionRef {
   getReportBottomData: () => ReportBottomData;
@@ -15,13 +15,13 @@ import BottomEditToolbar from "./BottomEditToolbar";
 import usePlayRecordStore from "@/hooks/store/usePlayRecordStore";
 import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
 
-const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBottomSectionProps>(({ type }, ref) => {
+const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBottomSectionProps>(({ type, initialData }, ref) => {
   const { playRecordResult } = usePlayRecordStore();
   const { isSaved } = useSavedDataStore();
   const [activeSection, setActiveSection] = React.useState<string | null>(null);
-  const [playActivityText, setPlayActivityText] = React.useState("");
-  const [teacherSupportText, setTeacherSupportText] = React.useState("");
-  const [homeConnectionText, setHomeConnectionText] = React.useState("");
+  const [playActivityText, setPlayActivityText] = React.useState(initialData?.playActivityText || "");
+  const [teacherSupportText, setTeacherSupportText] = React.useState(initialData?.teacherSupportText || "");
+  const [homeConnectionText, setHomeConnectionText] = React.useState(initialData?.homeConnectionText || "");
   const [showToolbar, setShowToolbar] = React.useState(false);
   const [toolbarPosition, setToolbarPosition] = React.useState({
     left: "8px",
@@ -38,9 +38,9 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
 
   // 그리드 표시 상태 관리
   const [visibleGrids, setVisibleGrids] = React.useState({
-    playActivity: type === "C",
-    teacherSupport: true,
-    homeConnection: true,
+    playActivity: initialData?.visibleGrids?.playActivity ?? (type === "C"),
+    teacherSupport: initialData?.visibleGrids?.teacherSupport ?? true,
+    homeConnection: initialData?.visibleGrids?.homeConnection ?? true,
   });
 
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -63,6 +63,23 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  // API로부터 initialData가 갱신되면 내부 상태 동기화
+  React.useEffect(() => {
+    if (!initialData) {
+      return;
+    }
+    try {
+      setPlayActivityText(initialData.playActivityText || "");
+      setTeacherSupportText(initialData.teacherSupportText || "");
+      setHomeConnectionText(initialData.homeConnectionText || "");
+      setVisibleGrids({
+        playActivity: initialData.visibleGrids?.playActivity ?? (type === "C"),
+        teacherSupport: initialData.visibleGrids?.teacherSupport ?? true,
+        homeConnection: initialData.visibleGrids?.homeConnection ?? true,
+      });
+    } catch {}
+  }, [initialData, type]);
 
   // 놀이기록 결과가 변경될 때마다 텍스트 필드에 반영
   React.useEffect(() => {
@@ -154,7 +171,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
   };
 
   // 꾸미기 스티커 적용
-  const handleDecorationStickerApply = (selectedSticker: number) => {
+  const handleDecorationStickerApply = (selectedSticker: DecorationItemRemote) => {
     // 꾸미기 스티커 적용 로직 구현
   };
 

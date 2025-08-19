@@ -733,25 +733,32 @@ function GridBElement({
     };
   }, [measureImageCellSize, isExpanded, imageCount]);
 
-  const [inputValue, setInputValue] = React.useState("");
+  // 키워드 입력 (소형 Input)
+  const [keywords, setKeywords] = React.useState("");
+  // LLM 생성/설명 텍스트 (description-area textarea)
+  const [descriptionText, setDescriptionText] = React.useState("");
   
-  // Grid content store에서 해당 그리드의 playSubjectText 값 변경 시 inputValue 업데이트 (초기화 반영)
+  // Grid content store에서 해당 그리드의 playSubjectText 값 변경 시 descriptionText 업데이트 (초기화 반영)
   React.useEffect(() => {
     if (gridId && gridContents[gridId]) {
       const storePlaySubjectText = gridContents[gridId].playSubjectText || "";
       console.log(`🔄 GridBElement ${gridId} store playSubjectText 변경됨:`, {
         storeValue: storePlaySubjectText,
-        currentInputValue: inputValue
+        currentDescription: descriptionText
       });
       
-      // store에서 값이 초기화된 경우 inputValue도 초기화
-      if (storePlaySubjectText === "" && inputValue !== "") {
-        setInputValue("");
-      } else if (storePlaySubjectText !== inputValue) {
-        setInputValue(storePlaySubjectText);
+      // store에서 값이 초기화된 경우 descriptionText도 초기화
+      if (storePlaySubjectText === "" && descriptionText !== "") {
+        setDescriptionText("");
+      } else if (storePlaySubjectText !== descriptionText) {
+        setDescriptionText(storePlaySubjectText);
+        if (typeof storePlaySubjectText === 'string' && storePlaySubjectText.trim() !== '') {
+          setHasClickedAIGenerate(true);
+          setIsDescriptionExpanded(true);
+        }
       }
     }
-  }, [gridContents, gridId, inputValue]);
+  }, [gridContents, gridId, descriptionText]);
   
   // 툴바 상태 관리
   const [toolbarState, setToolbarState] = React.useState({
@@ -777,11 +784,16 @@ function GridBElement({
     }
   }, [currentImages, gridId, updateImages]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  // 키워드 입력 변경 (store에 반영하지 않음)
+  const handleKeywordChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const newValue = e.target.value;
-    setInputValue(newValue);
-    
-    // Grid content store 업데이트 (gridId가 있을 때만)
+    setKeywords(newValue);
+  };
+
+  // description textarea 변경 (store에 반영)
+  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setDescriptionText(newValue);
     if (gridId) {
       updatePlaySubject(gridId, newValue);
     }
@@ -792,7 +804,7 @@ function GridBElement({
     console.log("🤖 GridB AI 생성 조건 체크:", {
       profileId,
       이미지개수: getCurrentImageCount(),
-      키워드: inputValue?.trim()
+      키워드: keywords?.trim()
     });
     
     // profileId 체크 - 로그인 상태 확인
@@ -830,7 +842,7 @@ function GridBElement({
       startsAt: new Date().toISOString().split('T')[0], // 오늘 날짜
       endsAt: new Date().toISOString().split('T')[0], // 오늘 날짜
       photoDriveItemKeys,
-      keywords: inputValue.trim() || "" // 현재 입력된 키워드 사용
+      keywords: keywords.trim() || "" // 현재 입력된 키워드 사용
     };
 
     console.log("GridB LLM API 호출 데이터:", requestData);
@@ -886,8 +898,8 @@ function GridBElement({
         generatedText = "AI 텍스트 생성에 성공했지만 내용을 추출할 수 없습니다."; // 기본값
       }
 
-      // 생성된 텍스트로 input 값 업데이트
-      setInputValue(generatedText);
+      // 생성된 텍스트를 description으로 업데이트
+      setDescriptionText(generatedText);
       
       // Grid content store에도 업데이트 (gridId가 있을 때만)
       if (gridId) {
@@ -902,7 +914,7 @@ function GridBElement({
       console.log("API 호출 오류:", error);
       showAlert({ message: 'AI 생성 중 오류가 발생했습니다.' });
     }
-  }, [profileId, currentImages, getDriveItemKeyByImageUrl, searchParams, inputValue, gridId, updatePlaySubject, updateAiGenerated, getCurrentImageCount, showAlert, addToast]);
+  }, [profileId, currentImages, getDriveItemKeyByImageUrl, searchParams, keywords, gridId, updatePlaySubject, updateAiGenerated, getCurrentImageCount, showAlert, addToast]);
 
   const handleAIGenerate = () => {
     console.log("🎯 GridB AI 생성 버튼 클릭됨");
@@ -965,10 +977,8 @@ function GridBElement({
         reader.onload = (e) => {
           const content = e.target?.result as string;
           if (content) {
-            setInputValue(content);
-            if (gridId) {
-              updatePlaySubject(gridId, content);
-            }
+            // 텍스트 파일은 키워드 입력으로 설정 (store 미반영)
+            setKeywords(content);
           }
         };
         
@@ -1186,7 +1196,7 @@ function GridBElement({
     console.log("🔄 GridB 텍스트 새로고침 조건 체크:", {
       profileId,
       currentImageCount: getCurrentImageCount(),
-      키워드: inputValue?.trim()
+      키워드: keywords?.trim()
     });
     
     // LLM 호출 조건 확인
@@ -1519,8 +1529,8 @@ function GridBElement({
             </button>
             
             <textarea
-              value={inputValue}
-              onChange={handleInputChange}
+              value={descriptionText}
+              onChange={handleDescriptionChange}
               onFocus={() => setIsTextareaFocused(true)}
               onBlur={() => setIsTextareaFocused(false)}
               placeholder={placeholderText}
@@ -1538,7 +1548,7 @@ function GridBElement({
             {/* 글자수 카운팅 - 우측하단 */}
             {hasClickedAIGenerate && (
               <div className="absolute bottom-2 right-3 text-[9px] font-medium text-primary">
-                ({inputValue.length}/200)
+                ({descriptionText.length}/200)
               </div>
             )}
           </div>
@@ -1548,8 +1558,8 @@ function GridBElement({
             <div className="flex gap-1.5 w-full mb-1.5"> 
               <Input
                 type="text"
-                value={inputValue}
-                onChange={handleInputChange}
+                value={keywords}
+                onChange={handleKeywordChange}
                 placeholder={placeholderText}
                 className="h-[26px] min-h-[26px] max-h-[26px] px-2 py-1 text-xs tracking-tight bg-white border border-dashed border-zinc-400 text-zinc-600 placeholder-zinc-400 flex-1 shadow-none rounded-md focus:ring-0 focus:outline-none focus:border-primary resize-none"
                 style={{ borderRadius: '6px', fontSize: '10px', lineHeight: '1.2' }}
@@ -1609,7 +1619,7 @@ function GridBElement({
             {/* 글자수 카운팅 - 우측하단 */}
             {hasClickedAIGenerate && (
               <div className="absolute bottom-2 right-3 text-[9px] font-medium text-primary">
-                ({inputValue.length}/200)
+                ({descriptionText.length}/200)
               </div>
             )}
 

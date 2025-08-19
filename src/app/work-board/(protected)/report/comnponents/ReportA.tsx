@@ -20,7 +20,7 @@ import ApplyModal from "./ApplyModal";
 import ConfirmModal from "./ConfirmModal";
 import GridEditToolbar from "./GridEditToolbar";
 import ReportBottomSection, { ReportBottomSectionRef } from "./ReportBottomSection";
-import ReportTitleSection from "./ReportTitleSection";
+import ReportTitleSection, { ReportTitleSectionRef } from "./ReportTitleSection";
 import GridA, { GridARef } from "./GridA";
 import Image from "next/image";
 import { useStickerStore } from "@/hooks/store/useStickerStore";
@@ -32,6 +32,7 @@ import useGridContentStore from "@/hooks/store/useGridContentStore";
 import DraggableSticker from "./DraggableSticker";
 import DraggableTextSticker from "./DraggableTextSticker";
 import useMousePositionTracker from "@/hooks/useMousePositionTracker";
+import { StickerItem, TextStickerItem } from "./types";
 // searchParams를 사용하는 컴포넌트 분리
 function ReportAContent() {
   const searchParams = useSearchParams();
@@ -40,18 +41,19 @@ function ReportAContent() {
   const [isAnimating, setIsAnimating] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);
   // 스티커 관련
-  const { stickers } = useStickerStore();
-  const { textStickers } = useTextStickerStore();
+  const { stickers, setStickers } = useStickerStore();
+  const { textStickers, setTextStickers } = useTextStickerStore();
   const { getDefaultSubject } = useReportStore();
   const { backgroundImageUrlByType } = useGlobalThemeStore();
   const { saveCurrentReport, currentSavedData, isSaved, setSaved, exportToArticleDataFile } = useSavedDataStore();
-  const { gridContents } = useGridContentStore();
+  const { gridContents, setAllGridContents } = useGridContentStore();
   const { downloadImage } = useCaptureImage();
   const { downloadSimpleImage, previewSimpleImage, checkElement } = useSimpleCaptureImage();
   const backgroundImageUrl = backgroundImageUrlByType["A"];
   const stickerContainerRef = useRef<HTMLDivElement>(null);
   const gridARef = useRef<GridARef>(null);
   const reportBottomRef = useRef<ReportBottomSectionRef>(null);
+  const reportTitleRef = useRef<ReportTitleSectionRef>(null);
 
   // 마우스 위치 추적 기능
   const { startTracking, stopTracking, toggleTracking, isTracking } = useMousePositionTracker({
@@ -81,6 +83,62 @@ function ReportAContent() {
 
   // 배경 이미지 로드 상태
   const [imageLoadError, setImageLoadError] = React.useState(false);
+  // articleId가 있으면 API에서 취득한 데이터로 상태 초기화
+  React.useEffect(() => {
+    const articleId = searchParams.get('articleId');
+    if (!articleId) {
+      return;
+    }
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const url = `/api/report/article?articleId=${encodeURIComponent(articleId)}`;
+        const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+        const json = await res.json();
+        if (json && json.success && json.data) {
+          const data = json.data as any;
+          // 스티커/텍스트 스티커
+          if (Array.isArray(data.stickers)) {
+            setStickers(data.stickers);
+          }
+          if (Array.isArray(data.textStickers)) {
+            setTextStickers(data.textStickers);
+          }
+          // 배경 이미지
+          if (data.backgroundImageUrl) {
+            // A타입 기준으로 저장
+            // 별도 스토어에 setter가 있으나 현재 사용 중 API 없음. 필요 시 추가 가능
+          }
+          // ReportBottomSection 초기 데이터 저장
+          setInitialReportBottomData(data.reportBottomData || undefined);
+          // ReportTitleSection 초기 데이터 저장
+          setInitialReportTitleData(data.reportTitleData || undefined);
+          // Grid 레이아웃/이미지 포지션 먼저 설정
+          setInitialGridLayout(data.gridLayout || undefined);
+          setInitialImagePositionsMap(data.imagePositionsMap || undefined);
+          // 그리드 컨텐츠는 마지막에 설정 (API 이미지 데이터 우선 적용을 위해)
+          if (data.gridContents && typeof data.gridContents === 'object') {
+            setAllGridContents(data.gridContents);
+          }
+          // subject 덮어쓰기: URL subject 우선, 없으면 데이터 subject 사용
+          if (!searchParams.get('subject') && typeof data.subject === 'number') {
+            const currentParams = new URLSearchParams(searchParams.toString());
+            currentParams.set('subject', String(data.subject));
+            router.replace(`?${currentParams.toString()}`);
+          }
+        }
+      } catch {}
+    };
+    load();
+    return () => controller.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [initialReportBottomData, setInitialReportBottomData] = React.useState<any | undefined>(undefined);
+  const [initialGridLayout, setInitialGridLayout] = React.useState<any[] | undefined>(undefined);
+  const [initialImagePositionsMap, setInitialImagePositionsMap] = React.useState<Record<string, any[]> | undefined>(undefined);
+  const [initialReportTitleData, setInitialReportTitleData] = React.useState<any | undefined>(undefined);
+
 
   // 배경 이미지 URL 유효성 검증
   React.useEffect(() => {
@@ -166,6 +224,7 @@ function ReportAContent() {
       // 모든 데이터 수집
       const gridData = gridARef.current?.getGridData();
       const reportBottomData = reportBottomRef.current?.getReportBottomData();
+      const reportTitleData = reportTitleRef.current?.getReportTitleData();
       
       // searchParams를 객체로 변환
       const searchParamsObj: Record<string, string> = {};
@@ -186,7 +245,8 @@ function ReportAContent() {
         gridContents, // 그리드 내용 정보
         reportBottomData, // ReportBottom 텍스트 정보
         backgroundImageUrl || undefined, // 배경 이미지 URL
-        gridData?.imagePositionsMap // 이미지 위치 정보
+        gridData?.imagePositionsMap, // 이미지 위치 정보
+        reportTitleData // 제목 영역 데이터
       );
       
       // 저장된 데이터로 articleData.js 파일 생성
@@ -206,6 +266,7 @@ function ReportAContent() {
         reportBottomData,
         backgroundImageUrl: backgroundImageUrl || undefined,
         imagePositionsMap: gridData?.imagePositionsMap,
+        reportTitleData,
       };
       
       exportToArticleDataFile(completeReportData);
@@ -215,7 +276,7 @@ function ReportAContent() {
       
       // 저장 성공 알림
       console.log('리포트가 성공적으로 저장되었습니다. ID:', savedId);
-      alert('리포트가 저장되었습니다. articleData.js 파일이 다운로드됩니다.');
+      alert('리포트가 저장되었습니다. articleData.ts 파일이 다운로드됩니다.');
     } catch (error) {
       console.log('저장 중 오류가 발생했습니다:', error);
       alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
@@ -576,18 +637,24 @@ function ReportAContent() {
                 배경 이미지를 불러올 수 없습니다
               </div>
             )}
-            <ReportTitleSection />
+            <ReportTitleSection ref={reportTitleRef} initialData={initialReportTitleData} />
 
             {/* 이미지 그리드 */}
             <div className="flex-1 w-full h-full">
-              <GridA ref={gridARef} subject={subject} onDecreaseSubject={decreaseSubject} />
+              <GridA
+                ref={gridARef}
+                subject={subject}
+                onDecreaseSubject={decreaseSubject}
+                initialGridLayout={initialGridLayout}
+                initialImagePositionsMap={initialImagePositionsMap}
+              />
             </div>
 
             {/* 하단 텍스트 부위 */}
-            <ReportBottomSection ref={reportBottomRef} type="A" />
+            <ReportBottomSection ref={reportBottomRef} type="A" initialData={initialReportBottomData} />
 
             {/* 일반 스티커 렌더링 */}
-            {stickers.map((sticker) => (
+            {stickers.map((sticker: StickerItem) => (
               <DraggableSticker
                 key={sticker.id}
                 sticker={sticker}
@@ -596,7 +663,7 @@ function ReportAContent() {
             ))}
 
             {/* 텍스트 스티커 렌더링 */}
-            {textStickers.map((textSticker) => (
+            {textStickers.map((textSticker: TextStickerItem) => (
               <DraggableTextSticker
                 key={textSticker.id}
                 sticker={textSticker}

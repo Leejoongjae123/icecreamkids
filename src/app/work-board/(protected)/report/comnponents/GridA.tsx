@@ -18,6 +18,8 @@ import useGridContentStore from "@/hooks/store/useGridContentStore";
 interface GridAProps {
   subject: number;
   onDecreaseSubject?: () => void;
+  initialGridLayout?: GridItem[];
+  initialImagePositionsMap?: Record<string, any[]>;
 }
 
 export interface GridARef {
@@ -28,7 +30,7 @@ export interface GridARef {
   };
 }
 
-const GridA = React.forwardRef<GridARef, GridAProps>(({ subject, onDecreaseSubject }, ref) => {
+const GridA = React.forwardRef<GridARef, GridAProps>(({ subject, onDecreaseSubject, initialGridLayout, initialImagePositionsMap }, ref) => {
   // 각 이미지 영역의 체크 상태 관리
   const [checkedItems, setCheckedItems] = React.useState<Record<string, boolean>>({});
   const { isImageEditModalOpen } = useImageEditModalStore();
@@ -54,6 +56,111 @@ const GridA = React.forwardRef<GridARef, GridAProps>(({ subject, onDecreaseSubje
 
   // 각 그리드 아이템의 이미지 위치 정보 관리 (DnD 시에도 유지됨)
   const [imagePositionsMap, setImagePositionsMap] = React.useState<Record<string, any[]>>({});
+
+  // 초기 데이터 주입 (최초 마운트 시 한 번만)
+  const didInitFromPropsRef = React.useRef(false);
+  React.useEffect(() => {
+    if (didInitFromPropsRef.current) {
+      return;
+    }
+    
+    // initialGridLayout이 있고, gridContents에 데이터가 있을 때만 초기화
+    if (initialGridLayout && initialGridLayout.length > 0 && Object.keys(gridContents).length > 0) {
+      const normalized = initialGridLayout.map((it, i) => {
+        const gridId = it.id || `grid-${i}`;
+        const content = gridContents[gridId];
+        
+        // gridContents에 이미지 데이터가 있으면 우선 사용
+        let images = it.images || [];
+        let imageCount = it.imageCount || 1;
+        
+        if (content && Array.isArray(content.imageUrls) && content.imageUrls.length > 0) {
+          // API에서 받아온 이미지 데이터를 우선시
+          images = [...content.imageUrls];
+          imageCount = Math.max(1, Math.min(content.imageUrls.length, 3));
+        }
+        
+        return {
+          ...it,
+          id: gridId,
+          index: typeof it.index === 'number' ? it.index : i,
+          cardType: subject === 3 ? (i === 0 ? 'large' : 'small') : 'small',
+          colSpan: subject === 3 ? (i === 0 ? 2 : 1) : 1,
+          images,
+          imageCount,
+        };
+      });
+      setItems(normalized);
+      didInitFromPropsRef.current = true;
+    }
+    
+    if (initialImagePositionsMap) {
+      setImagePositionsMap({ ...initialImagePositionsMap });
+    }
+  }, [initialGridLayout, initialImagePositionsMap, subject, gridContents]);
+
+  // gridContents에 저장된 이미지 URL들을 items.images에 반영
+  React.useEffect(() => {
+    // 초기 데이터 주입이 완료되지 않았으면 건너뛰기
+    if (!didInitFromPropsRef.current) {
+      return;
+    }
+    
+    setItems((prevItems) => {
+      let hasDifference = false;
+      const next = prevItems.map((it) => {
+        const content = gridContents[it.id];
+        if (content && Array.isArray(content.imageUrls)) {
+          const desiredCount = content.imageUrls.length > 0
+            ? Math.max(1, Math.min(content.imageUrls.length, 3))
+            : (it.imageCount || 1);
+          const urls = [...content.imageUrls].slice(0, desiredCount);
+          while (urls.length < desiredCount) {
+            urls.push("");
+          }
+          const isImageCountChanged = (it.imageCount || 1) !== desiredCount;
+          const areImagesChanged = it.images.length !== urls.length || it.images.some((v, i) => v !== urls[i]);
+          if (isImageCountChanged || areImagesChanged) {
+            hasDifference = true;
+            return { ...it, images: urls, imageCount: desiredCount };
+          }
+          return it;
+        }
+        return it;
+      });
+      return hasDifference ? next : prevItems;
+    });
+  }, [gridContents]);
+
+  // gridContents의 categoryValue → items.category, playSubjectText → items.inputValue 반영
+  React.useEffect(() => {
+    // 초기 데이터 주입이 완료되지 않았으면 건너뛰기
+    if (!didInitFromPropsRef.current) {
+      return;
+    }
+    
+    setItems((prevItems) => {
+      let hasDifference = false;
+      const next = prevItems.map((it) => {
+        const content = gridContents[it.id];
+        if (!content) return it;
+        const nextCategory = typeof content.categoryValue === 'string' ? content.categoryValue : it.category;
+        const nextInput = typeof content.playSubjectText === 'string' ? content.playSubjectText : it.inputValue;
+        const isCategoryChanged = it.category !== nextCategory;
+        const isInputChanged = it.inputValue !== nextInput;
+        if (isCategoryChanged || isInputChanged) {
+          hasDifference = true;
+          return {
+            ...it,
+            category: nextCategory,
+            inputValue: nextInput,
+          };
+        }
+        return it;
+      });
+      return hasDifference ? next : prevItems;
+    });
+  }, [gridContents]);
 
   // 현재 드래그 중인 아이템
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -165,7 +272,7 @@ const GridA = React.forwardRef<GridARef, GridAProps>(({ subject, onDecreaseSubje
       return items.map((item, index) => ({
         ...item,
         index,
-        cardType: undefined,
+        cardType: 'small',
         colSpan: 1
       }));
     }
@@ -426,8 +533,9 @@ const GridA = React.forwardRef<GridARef, GridAProps>(({ subject, onDecreaseSubje
         onCheckedChange={(checked: boolean) => handleCheckedChange(item.id, checked)}
         category={item.category}
         images={item.images}
+        // 입력값은 zustand의 gridContents로 관리
         placeholderText={`(선택)놀이 키워드를 입력하거나 메모파일을 업로드해주세요`}
-        cardType={item.cardType}
+        cardType={item.cardType as 'large' | 'small' | undefined}
         isExpanded={item.colSpan === 2}
         onDecreaseSubject={onDecreaseSubject}
         imagePositions={imagePositionsMap[item.id] || []}

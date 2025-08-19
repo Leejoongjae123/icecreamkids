@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import AddPicture from "./AddPicture";
@@ -9,12 +9,19 @@ import ApplyModal from "./ApplyModal";
 import { UploadModal } from "@/components/modal";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
+import { ReportTitleData } from "./types";
+
+export type ReportTitleSectionRef = {
+  getReportTitleData: () => ReportTitleData;
+  setInitial: (data: ReportTitleData) => void;
+};
 
 interface ReportTitleSectionProps {
   className?: string;
+  initialData?: ReportTitleData;
 }
 
-function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
+function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSectionProps, ref: React.Ref<ReportTitleSectionRef>) {
   // 저장 상태 가져오기
   const { isSaved } = useSavedDataStore();
 
@@ -93,13 +100,104 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
     }
   }, [drop]);
 
-  // 날짜 컨테이너 선택 상태
-  const [isDateSelected, setIsDateSelected] = useState(false);
-
-  // 각 컨테이너의 표시 상태를 독립적으로 관리
+  // 각 컨테이너의 표시 상태를 독립적으로 관리 (초기화 순서 중요)
   const [isImageContainerVisible, setIsImageContainerVisible] = useState(true);
   const [isTextContainerVisible, setIsTextContainerVisible] = useState(true);
   const [isDateContainerVisible, setIsDateContainerVisible] = useState(true);
+
+  // 초기 데이터 주입
+  useEffect(() => {
+    if (!initialData) {
+      return;
+    }
+    try {
+      setIsImageContainerVisible(initialData.visible?.image ?? true);
+      setIsTextContainerVisible(initialData.visible?.text ?? true);
+      setIsDateContainerVisible(initialData.visible?.date ?? true);
+
+      const nextTitle = initialData.titleText || "";
+      const nextTop = initialData.topText || "";
+      const nextBottom = initialData.bottomText || "";
+
+      setText(nextTitle);
+      setTopText(nextTop);
+      setBottomText(nextBottom);
+
+      // contentEditable 영역 DOM 동기화
+      if (contentRef.current) {
+        contentRef.current.textContent = nextTitle;
+      }
+      if (topContentRef.current) {
+        topContentRef.current.textContent = nextTop;
+      }
+      if (bottomContentRef.current) {
+        bottomContentRef.current.textContent = nextBottom;
+      }
+
+      if (initialData.image && initialData.image.url) {
+        setCurrentImageUrl(initialData.image.url);
+        setImageMetadata([{ url: initialData.image.url, driveItemKey: initialData.image.driveItemKey }]);
+        setHasImage(true);
+      } else {
+        setCurrentImageUrl("");
+        setImageMetadata([]);
+        setHasImage(false);
+      }
+    } catch {}
+  }, [initialData]);
+
+  useImperativeHandle(ref, () => ({
+    getReportTitleData: () => ({
+      image: hasImage && currentImageUrl ? { url: currentImageUrl, driveItemKey: imageMetadata?.[0]?.driveItemKey } : null,
+      titleText: text,
+      topText,
+      bottomText,
+      visible: {
+        image: isImageContainerVisible,
+        text: isTextContainerVisible,
+        date: isDateContainerVisible,
+      },
+    }),
+    setInitial: (data: ReportTitleData) => {
+      try {
+        setIsImageContainerVisible(data.visible?.image ?? true);
+        setIsTextContainerVisible(data.visible?.text ?? true);
+        setIsDateContainerVisible(data.visible?.date ?? true);
+
+        const nextTitle = data.titleText || "";
+        const nextTop = data.topText || "";
+        const nextBottom = data.bottomText || "";
+
+        setText(nextTitle);
+        setTopText(nextTop);
+        setBottomText(nextBottom);
+
+        // contentEditable 영역 DOM 동기화
+        if (contentRef.current) {
+          contentRef.current.textContent = nextTitle;
+        }
+        if (topContentRef.current) {
+          topContentRef.current.textContent = nextTop;
+        }
+        if (bottomContentRef.current) {
+          bottomContentRef.current.textContent = nextBottom;
+        }
+
+        if (data.image && data.image.url) {
+          setCurrentImageUrl(data.image.url);
+          setImageMetadata([{ url: data.image.url, driveItemKey: data.image.driveItemKey }]);
+          setHasImage(true);
+        } else {
+          setCurrentImageUrl("");
+          setImageMetadata([]);
+          setHasImage(false);
+        }
+      } catch {}
+    },
+  }), [hasImage, currentImageUrl, imageMetadata, text, topText, bottomText, isImageContainerVisible, isTextContainerVisible, isDateContainerVisible]);
+
+  // 날짜 컨테이너 선택 상태
+  const [isDateSelected, setIsDateSelected] = useState(false);
 
   // 외부 클릭 감지를 위한 ref
   const imageContainerRef = useRef<HTMLDivElement>(null);
@@ -777,4 +875,5 @@ function ReportTitleSection({ className = "" }: ReportTitleSectionProps) {
   );
 }
 
+const ReportTitleSection = forwardRef<ReportTitleSectionRef, ReportTitleSectionProps>(ReportTitleSectionImpl);
 export default ReportTitleSection;
