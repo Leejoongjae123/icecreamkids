@@ -59,6 +59,8 @@ function GridCElement({
   const [selectedKeywords, setSelectedKeywords] = React.useState<string[]>([]);
   const [currentImageUrl, setCurrentImageUrl] = React.useState<string>(imageUrl);
   const [isHovered, setIsHovered] = React.useState(false);
+  const isHoveredRef = React.useRef(false);
+  const hoverTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   
   // 사용자 정보 가져오기
   const { userInfo } = useUserStore();
@@ -240,6 +242,35 @@ function GridCElement({
         isExpanded: true,
       });
     }
+  };
+
+  // hover 진입/이탈 핸들러 (GridBElement 참고)
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    isHoveredRef.current = true;
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    if (effectiveClippingEnabled) {
+      setToolbarState({ show: true, isExpanded: true });
+      if (canvasContainerRef.current) {
+        const rect = canvasContainerRef.current.getBoundingClientRect();
+        setToolbarPosition({ left: rect.left + 8, top: rect.bottom + 8 });
+      }
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    isHoveredRef.current = false;
+    const timer = setTimeout(() => {
+      if (!isHoveredRef.current) {
+        setToolbarState({ show: false, isExpanded: false });
+      }
+      hoverTimerRef.current = null;
+    }, 3000);
+    hoverTimerRef.current = timer;
   };
 
   // 더블클릭 시 해당 그리드만 클리핑 해제하고 편집 모드 진입
@@ -834,6 +865,15 @@ function GridCElement({
     };
   }, [toolbarState.show]);
 
+  // 언마운트 시 hover 타이머 정리
+  React.useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+      }
+    };
+  }, []);
+
   // 드래그 상태에 따른 스타일
   const containerClass = isDragging
     ? "" // DragOverlay에서는 별도 스타일 적용하지 않음
@@ -974,6 +1014,8 @@ function GridCElement({
         {...(isDragging || !effectiveClippingEnabled ? {} : dragAttributes)}
         {...(isDragging || !effectiveClippingEnabled ? {} : dragListeners)}
         onClick={handleContainerClick}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
         {/* 체크박스 - 좌측 상단 */}
         <div
@@ -1017,7 +1059,13 @@ function GridCElement({
         >
           {/* 배경 제거 로딩 오버레이 */}
           {isRemoveBackgroundLoading && (
-            <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50 rounded-md">
+            <div
+              className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50 rounded-md"
+              style={{
+                WebkitClipPath: effectiveClippingEnabled ? `url(#clip-${clipPathData.id}-${gridId})` : undefined,
+                clipPath: effectiveClippingEnabled ? `url(#clip-${clipPathData.id}-${gridId})` : undefined,
+              }}
+            >
               <div className="flex flex-col items-center gap-2">
                 <Loader size="default" />
                 <div className="text-white text-xs">배경을 제거하는 중...</div>
@@ -1057,8 +1105,12 @@ function GridCElement({
           {/* 이미지가 없을 때 hover시 업로드 UI 표시 */}
           {!hasImage && isHovered && (
             <div className="absolute inset-0 z-20">
-                              <div 
+              <div 
                 className="absolute inset-0 cursor-pointer"
+                style={{
+                  WebkitClipPath: effectiveClippingEnabled ? `url(#clip-${clipPathData.id}-${gridId})` : undefined,
+                  clipPath: effectiveClippingEnabled ? `url(#clip-${clipPathData.id}-${gridId})` : undefined,
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (onIntegratedUpload) {
@@ -1110,6 +1162,26 @@ function GridCElement({
             pointerEvents: 'auto',
             left: toolbarPosition.left,
             top: toolbarPosition.top,
+          }}
+          onMouseEnter={() => {
+            if (hoverTimerRef.current) {
+              clearTimeout(hoverTimerRef.current);
+              hoverTimerRef.current = null;
+            }
+            isHoveredRef.current = true;
+          }}
+          onMouseLeave={() => {
+            isHoveredRef.current = false;
+            const timer = setTimeout(() => {
+              if (!isHoveredRef.current) {
+                setToolbarState({
+                  show: false,
+                  isExpanded: false,
+                });
+              }
+              hoverTimerRef.current = null;
+            }, 3000);
+            hoverTimerRef.current = timer;
           }}
         >
           <GridEditToolbar
