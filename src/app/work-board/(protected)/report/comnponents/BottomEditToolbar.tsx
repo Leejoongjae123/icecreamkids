@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import {
   Tooltip,
@@ -15,6 +16,9 @@ interface BottomEditToolbarProps {
     top: string;
   };
   onIconClick: (action: string) => void;
+  usePortal?: boolean;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 const BottomEditToolbar: React.FC<BottomEditToolbarProps> = ({
@@ -22,6 +26,9 @@ const BottomEditToolbar: React.FC<BottomEditToolbarProps> = ({
   isExpanded,
   position = { left: "8px", top: "calc(100% + 8px)" },
   onIconClick,
+  usePortal = true,
+  onMouseEnter,
+  onMouseLeave,
 }) => {
   const [internalExpanded, setInternalExpanded] = useState(false);
 
@@ -71,56 +78,58 @@ const BottomEditToolbar: React.FC<BottomEditToolbarProps> = ({
     return null;
   }
 
-  return (
-    <>
+  const toolbarNode = (
+    <div
+      className="bottom-edit-toolbar z-50"
+      style={{
+        position: usePortal ? "fixed" : "absolute",
+        left: position.left,
+        top: position.top,
+      }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
       <div
-        className="absolute z-50"
-        style={{
-          left: position.left,
-          top: position.top,
-        }}
+        className="relative flex items-center justify-center"
+        style={{ width: containerWidth, height: "38px" }}
       >
-        <div
-          className="relative flex items-center justify-center"
-          style={{ width: containerWidth, height: "38px" }}
-        >
-          {[...Array(iconCount)].map((_, index) => (
-            <Tooltip key={index}>
-              <TooltipTrigger asChild>
-                <div
-                  className="w-[38px] h-[38px] bg-primary hover:opacity-80 rounded-full absolute flex items-center justify-center cursor-pointer hover:-translate-y-1"
-                  style={{
-                    left: `${index * (38 + 12)}px`,
-                    opacity: internalExpanded ? 1 : 0,
-                    transform: internalExpanded ? "scale(1) translateY(0)" : "scale(0.3) translateY(10px)",
-                    transition: "opacity 0.4s ease-out, transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s ease-in-out",
-                    transitionDelay: internalExpanded ? `${index * 100}ms` : "0ms",
-                    zIndex: 6 - index,
-                  }}
-                  onClick={() => handleIconClick(index)}
-                >
-                  <Image
-                    src={iconUrls[index]}
-                    alt={`icon-${index}`}
-                    width={18}
-                    height={18}
-                    className="object-contain"
-                  />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent
-                side="bottom"
-                className="bg-primary text-white text-sm px-2 py-1"
+        {[...Array(iconCount)].map((_, index) => (
+          <Tooltip key={index}>
+            <TooltipTrigger asChild>
+              <div
+                className="w-[38px] h-[38px] bg-primary hover:opacity-80 rounded-full absolute flex items-center justify-center cursor-pointer hover:-translate-y-1"
+                style={{
+                  left: `${index * (38 + 12)}px`,
+                  opacity: internalExpanded ? 1 : 0,
+                  transform: internalExpanded ? "scale(1) translateY(0)" : "scale(0.3) translateY(10px)",
+                  transition: "opacity 0.4s ease-out, transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s ease-in-out",
+                  transitionDelay: internalExpanded ? `${index * 100}ms` : "0ms",
+                  zIndex: 6 - index,
+                }}
+                onClick={() => handleIconClick(index)}
               >
-                {tooltipTexts[index]}
-              </TooltipContent>
-            </Tooltip>
-          ))}
-        </div>
+                <Image
+                  src={iconUrls[index]}
+                  alt={`icon-${index}`}
+                  width={18}
+                  height={18}
+                  className="object-contain"
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              className="bg-primary text-white text-sm px-2 py-1"
+            >
+              {tooltipTexts[index]}
+            </TooltipContent>
+          </Tooltip>
+        ))}
       </div>
-
-    </>
+    </div>
   );
+
+  return usePortal ? createPortal(toolbarNode, document.body) : toolbarNode;
 };
 
 export default BottomEditToolbar; 

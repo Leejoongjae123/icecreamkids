@@ -27,6 +27,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
     left: "8px",
     top: "calc(100% + 8px)",
   });
+  const hoverHideTimerRef = React.useRef<number | null>(null);
   const [isTextStickerModalOpen, setIsTextStickerModalOpen] =
     React.useState(false);
   const [isDecorationStickerModalOpen, setIsDecorationStickerModalOpen] =
@@ -48,6 +49,10 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const targetEl = event.target as Element;
+      if (targetEl && targetEl.closest && targetEl.closest('.bottom-edit-toolbar')) {
+        return;
+      }
       if (
         containerRef.current &&
         !containerRef.current.contains(event.target as Node)
@@ -61,6 +66,15 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      if (hoverHideTimerRef.current) {
+        window.clearTimeout(hoverHideTimerRef.current);
+        hoverHideTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -111,12 +125,36 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
     setActiveSection(section);
     setShowToolbar(true);
 
-    // 툴바 위치 계산
+    // 포털 기준 고정 좌표로 툴바 위치 계산
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     setToolbarPosition({
-      left: "8px",
-      top: "calc(100% + 8px)",
+      left: `${rect.left + 8}px`,
+      top: `${rect.bottom + 8}px`,
     });
+  };
+
+  const showToolbarForSection = (section: string, targetEl: HTMLElement) => {
+    if (hoverHideTimerRef.current) {
+      window.clearTimeout(hoverHideTimerRef.current);
+      hoverHideTimerRef.current = null;
+    }
+    setActiveSection(section);
+    setShowToolbar(true);
+    const rect = targetEl.getBoundingClientRect();
+    setToolbarPosition({
+      left: `${rect.left + 8}px`,
+      top: `${rect.bottom + 8}px`,
+    });
+  };
+
+  const scheduleHideToolbar = () => {
+    if (hoverHideTimerRef.current) {
+      window.clearTimeout(hoverHideTimerRef.current);
+    }
+    hoverHideTimerRef.current = window.setTimeout(() => {
+      setShowToolbar(false);
+      setActiveSection(null);
+    }, 2000);
   };
 
   const handleTextChange = (section: string, value: string) => {
@@ -297,8 +335,10 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
             borderColor: activeSection === "playActivity" ? "#FAB83D" : "rgb(161 161 170)"
           }}
           onClick={(e) => handleSectionClick("playActivity", e)}
+          onMouseEnter={(e) => showToolbarForSection("playActivity", e.currentTarget)}
+          onMouseLeave={() => scheduleHideToolbar()}
         >
-          <h3 className="text-[12px] font-semibold p-3 text-primary flex items-center gap-1">
+            <h3 className="text-[11px] font-semibold p-2 text-primary flex items-center gap-1">
             <div className="flex items-center gap-2">
               <Image
                 src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/play.svg"
@@ -314,7 +354,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
               value={playActivityText}
               onChange={(e) => handleTextChange("playActivity", e.target.value)}
               placeholder="놀이 내용을 입력해주세요..."
-              className="flex-1 mx-3 mb-8 p-2 border-none outline-none resize-none text-sm"
+              className="flex-1 mx-2 mb-1 px-1 py-0.5 border-none outline-none resize-none text-[12px] leading-[1.1]"
               autoFocus={activeSection === "playActivity"}
               maxLength={maxLength}
             />
@@ -322,7 +362,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
           {/* 그리드 삭제 버튼 */}
 
           {!isSaved && (
-            <div className="absolute bottom-2 right-2 text-xs font-bold text-primary">
+            <div className="absolute bottom-1 right-2 text-[10px] font-bold text-primary">
               ({playActivityText.length}/{maxLength})
             </div>
           )}
@@ -334,6 +374,14 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
               isExpanded={true}
               position={toolbarPosition}
               onIconClick={handleToolbarIconClick}
+              usePortal={true}
+              onMouseEnter={() => {
+                if (hoverHideTimerRef.current) {
+                  window.clearTimeout(hoverHideTimerRef.current);
+                  hoverHideTimerRef.current = null;
+                }
+              }}
+              onMouseLeave={() => scheduleHideToolbar()}
             />
           )}
         </div>
@@ -357,8 +405,10 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
               height: "100%", // 전체 높이 차지
             }}
             onClick={(e) => handleSectionClick("teacherSupport", e)}
+            onMouseEnter={(e) => showToolbarForSection("teacherSupport", e.currentTarget)}
+            onMouseLeave={() => scheduleHideToolbar()}
           >
-            <h3 className="text-[12px] font-semibold p-3 text-primary flex items-center gap-1">
+            <h3 className="text-[11px] font-semibold p-2 text-primary flex items-center gap-1">
               <div className="flex items-center gap-2">
                 <Image
                   src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/bulb.svg"
@@ -376,7 +426,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
                   handleTextChange("teacherSupport", e.target.value)
                 }
                 placeholder="교사지원 내용을 입력해주세요..."
-                className="flex-1 mx-3 mb-8 p-2 border-none outline-none resize-none text-sm"
+                className="flex-1 mx-2 mb-1 px-1 py-0.5 border-none outline-none resize-none text-[12px] leading-[1.1]"
                 autoFocus={activeSection === "teacherSupport"}
                 maxLength={maxLength}
               />
@@ -384,7 +434,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
             {/* 그리드 삭제 버튼 */}
 
             {!isSaved && (
-              <div className="absolute bottom-2 right-2 text-xs font-bold text-primary">
+              <div className="absolute bottom-1 right-2 text-[10px] font-bold text-primary">
                 ({teacherSupportText.length}/{maxLength})
               </div>
             )}
@@ -396,6 +446,14 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
                 isExpanded={true}
                 position={toolbarPosition}
                 onIconClick={handleToolbarIconClick}
+                usePortal={true}
+                onMouseEnter={() => {
+                  if (hoverHideTimerRef.current) {
+                    window.clearTimeout(hoverHideTimerRef.current);
+                    hoverHideTimerRef.current = null;
+                  }
+                }}
+                onMouseLeave={() => scheduleHideToolbar()}
               />
             )}
           </div>
@@ -413,9 +471,11 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
               height: "100%", // 전체 높이 차지
             }}
             onClick={(e) => handleSectionClick("homeConnection", e)}
+            onMouseEnter={(e) => showToolbarForSection("homeConnection", e.currentTarget)}
+            onMouseLeave={() => scheduleHideToolbar()}
           >
-            <h3 className="text-[12px] font-semibold p-3 text-primary flex items-center gap-1">
-              <div className="flex items-center gap-2">
+            <h3 className="text-[11px] font-semibold p-2 text-primary flex items-center gap-1">
+            <div className="flex items-center gap-2">
                 <Image
                   src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/home.svg"
                   alt="home"
@@ -432,7 +492,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
                   handleTextChange("homeConnection", e.target.value)
                 }
                 placeholder="가정연계 내용을 입력해주세요..."
-                className="flex-1 mx-3 mb-8 p-2 border-none outline-none resize-none text-sm"
+                className="flex-1 mx-2 mb-1 px-1 py-0.5 border-none outline-none resize-none text-[12px] leading-[1.1]"
                 autoFocus={activeSection === "homeConnection"}
                 maxLength={maxLength}
               />
@@ -452,6 +512,14 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
                 isExpanded={true}
                 position={toolbarPosition}
                 onIconClick={handleToolbarIconClick}
+                usePortal={true}
+                onMouseEnter={() => {
+                  if (hoverHideTimerRef.current) {
+                    window.clearTimeout(hoverHideTimerRef.current);
+                    hoverHideTimerRef.current = null;
+                  }
+                }}
+                onMouseLeave={() => scheduleHideToolbar()}
               />
             )}
           </div>

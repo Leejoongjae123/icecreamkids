@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import * as ReactDOM from "react-dom";
 import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import GridEditToolbar from "./GridEditToolbar";
@@ -767,6 +768,12 @@ function GridBElement({
     show: false,
     isExpanded: false,
   });
+  // hover 및 포털 위치 상태 (GridAElement와 동일 패턴)
+  const [isHovered, setIsHovered] = React.useState(false);
+  const isHoveredRef = React.useRef(false);
+  const hoverTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const [toolbarPosition, setToolbarPosition] = React.useState({ left: 0, top: 0 });
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
 
   // Default images if none provided - imageCount에 맞게 동적으로 생성
   const defaultImages = React.useMemo(() => {
@@ -1272,6 +1279,11 @@ function GridBElement({
       show: true,
       isExpanded: true,
     });
+    // 위치 갱신
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setToolbarPosition({ left: rect.left + 8, top: rect.bottom + 8 });
+    }
     
     // 기존 선택 로직 유지
     if (onSelectChange) {
@@ -1293,6 +1305,34 @@ function GridBElement({
       show: false,
       isExpanded: false,
     });
+  };
+
+  // hover 진입/이탈 핸들러 (GridAElement 참고)
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    isHoveredRef.current = true;
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    // 툴바 표시 및 위치 업데이트
+    setToolbarState({ show: true, isExpanded: true });
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setToolbarPosition({ left: rect.left + 8, top: rect.bottom + 8 });
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    isHoveredRef.current = false;
+    const timer = setTimeout(() => {
+      if (!isHoveredRef.current) {
+        setToolbarState({ show: false, isExpanded: false });
+      }
+      hoverTimerRef.current = null;
+    }, 3000);
+    hoverTimerRef.current = timer;
   };
 
   // 툴바 아이콘 클릭 핸들러
@@ -1352,6 +1392,36 @@ function GridBElement({
     };
   }, [toolbarState.show, gridId]);
 
+  // 언마운트 시 hover 타이머 정리
+  React.useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+      }
+    };
+  }, []);
+
+  // 스크롤/리사이즈 시 포지션 업데이트
+  React.useEffect(() => {
+    const updateToolbarPosition = () => {
+      if (toolbarState.show && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        setToolbarPosition({ left: rect.left + 8, top: rect.bottom + 8 });
+      }
+    };
+
+    if (toolbarState.show) {
+      updateToolbarPosition();
+      window.addEventListener('scroll', updateToolbarPosition, true);
+      window.addEventListener('resize', updateToolbarPosition);
+    }
+
+    return () => {
+      window.removeEventListener('scroll', updateToolbarPosition, true);
+      window.removeEventListener('resize', updateToolbarPosition);
+    };
+  }, [toolbarState.show]);
+
   // 툴바 표시 상태 또는 기존 선택 상태에 따른 border 스타일 결정
   const borderClass = (toolbarState.show || isSelected)
     ? 'border-solid border-primary border-2' 
@@ -1360,9 +1430,12 @@ function GridBElement({
   return (
     <div className="relative w-full h-full">
       <div
+        ref={containerRef}
         className={`relative overflow-hidden px-2.5 py-2.5 bg-white rounded-2xl border ${borderClass} w-full h-full flex flex-col ${className} gap-y-1.5 cursor-pointer`}
         style={style}
         onClick={handleNonImageClick}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         data-grid-id={gridId}
       >
         
@@ -1372,7 +1445,7 @@ function GridBElement({
           ref={dropRef}
           className={`grid gap-1 w-full relative ${getImageGridLayout(imageCount).className}`}
           style={{ 
-            height: 'calc(100% - 70px)', // 전체 높이에서 하단 입력 영역(70px) 제외
+            height: 'calc(100% - 100px)', // 전체 높이에서 하단 입력 영역(100px) 제외
             backgroundColor: canDrop && isOver ? '#f0f0f0' : 'transparent',
             transition: 'background-color 0.2s ease',
             ...getImageGridLayout(imageCount).style
@@ -1505,13 +1578,13 @@ function GridBElement({
         {/* 하단 입력 영역 - 고정 높이 70px로 최적화 */}
         {isLoading ? (
           // 로딩 중일 때
-          <div className="flex flex-col gap-y-2 items-center justify-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 h-[70px] flex-shrink-0">
+          <div className="flex flex-col gap-y-2 items-center justify-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 h-[100px] flex-shrink-0">
             <Loader size="default" />
             <div className="text-[#B4B4B4] text-xs">내용을 생성중입니다...</div>
           </div>
         ) : isDescriptionExpanded ? (
           // 확장된 textarea 모드
-          <div className={`flex overflow-hidden flex-col px-2 py-2 w-full leading-none bg-white rounded-md h-[70px] justify-center flex-shrink-0 relative transition-colors ${
+          <div className={`flex overflow-hidden flex-col px-1 py-1 w-full leading-none bg-white rounded-md h-[100px] justify-center flex-shrink-0 relative transition-colors ${
             isTextareaFocused ? 'border border-solid border-primary' : 'border border-dashed border-zinc-400'
           }`}>
             {/* 새로고침 버튼 - 우측 상단 */}
@@ -1535,11 +1608,11 @@ function GridBElement({
               onFocus={() => setIsTextareaFocused(true)}
               onBlur={() => setIsTextareaFocused(false)}
               placeholder={placeholderText}
-              className="w-full h-full px-2 py-1 pr-8 text-xs tracking-tight bg-white border-0 text-zinc-600 placeholder-zinc-400 shadow-none rounded-md focus:ring-0 focus:outline-none resize-none flex-1 scrollbar-hide"
+              className="w-full h-full px-1 py-0.5  text-xs tracking-tight bg-white border-0 text-zinc-600 placeholder-zinc-400 shadow-none rounded-md focus:ring-0 focus:outline-none resize-none flex-1 scrollbar-hide description-area"
               style={{ 
                 borderRadius: '6px', 
                 fontSize: '12px', 
-                lineHeight: '1.4', 
+                lineHeight: '1.2', 
                 scrollbarWidth: 'none', /* Firefox */
                 msOverflowStyle: 'none' /* IE and Edge */
               }}
@@ -1555,7 +1628,7 @@ function GridBElement({
           </div>
         ) : (
           // 기본 모드
-          <div className="flex overflow-hidden flex-col items-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 h-[70px] justify-center flex-shrink-0 relative">
+          <div className="flex overflow-hidden flex-col items-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 h-[100px] justify-center flex-shrink-0 relative">
             <div className="flex gap-1.5 w-full mb-1.5"> 
               <Input
                 type="text"
@@ -1633,18 +1706,47 @@ function GridBElement({
         {children && <div className="mt-1 flex-shrink-0">{children}</div>}
       </div>
       
-      {/* GridEditToolbar - element 하단 좌측에 위치 */}
-      {toolbarState.show && (
-        <div className="grid-edit-toolbar">
+      {/* GridEditToolbar - Portal로 렌더링하여 최상위에 위치 (GridAElement 참고) */}
+      {toolbarState.show && typeof window !== 'undefined' && ReactDOM.createPortal(
+        <div 
+          className="grid-edit-toolbar fixed"
+          style={{
+            zIndex: 9999,
+            pointerEvents: 'auto',
+            left: toolbarPosition.left,
+            top: toolbarPosition.top,
+          }}
+          onMouseEnter={() => {
+            if (hoverTimerRef.current) {
+              clearTimeout(hoverTimerRef.current);
+              hoverTimerRef.current = null;
+            }
+            isHoveredRef.current = true;
+          }}
+          onMouseLeave={() => {
+            isHoveredRef.current = false;
+            const timer = setTimeout(() => {
+              if (!isHoveredRef.current) {
+                setToolbarState({
+                  show: false,
+                  isExpanded: false,
+                });
+              }
+              hoverTimerRef.current = null;
+            }, 3000);
+            hoverTimerRef.current = timer;
+          }}
+        >
           <GridEditToolbar
             show={toolbarState.show}
             isExpanded={toolbarState.isExpanded}
-            position={{ left: "8px", top: "calc(100% + 8px)" }}
+            position={{ left: "0", top: "0" }}
             onIconClick={handleToolbarIconClick}
             targetGridId={gridId}
             targetIsExpanded={isExpanded}
           />
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 이미지 편집 모달 */}

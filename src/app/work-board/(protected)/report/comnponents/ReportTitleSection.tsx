@@ -199,6 +199,39 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
   // 날짜 컨테이너 선택 상태
   const [isDateSelected, setIsDateSelected] = useState(false);
 
+  // Hover 기반 툴바/하이라이트 상태
+  const [hoveredSection, setHoveredSection] = useState<"image" | "text" | "date" | null>(null);
+  const [showToolbar, setShowToolbar] = useState(false);
+  const hoverHideTimerRef = useRef<number | null>(null);
+
+  const showToolbarFor = (section: "image" | "text" | "date") => {
+    if (hoverHideTimerRef.current) {
+      window.clearTimeout(hoverHideTimerRef.current);
+      hoverHideTimerRef.current = null;
+    }
+    setHoveredSection(section);
+    setShowToolbar(true);
+  };
+
+  const scheduleHideToolbar = () => {
+    if (hoverHideTimerRef.current) {
+      window.clearTimeout(hoverHideTimerRef.current);
+    }
+    hoverHideTimerRef.current = window.setTimeout(() => {
+      setShowToolbar(false);
+      setHoveredSection(null);
+    }, 2000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverHideTimerRef.current) {
+        window.clearTimeout(hoverHideTimerRef.current);
+        hoverHideTimerRef.current = null;
+      }
+    };
+  }, []);
+
   // 외부 클릭 감지를 위한 ref
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const textContainerRef = useRef<HTMLDivElement>(null);
@@ -496,12 +529,14 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                 )
               } ${
                 isSaved && !hasImage ? 'opacity-0' : ''
-              }`}
+              } ${!isSaved && hoveredSection === 'image' ? 'border-primary border-solid border-2' : ''}`}
               style={{
                 backgroundColor: canDrop && isOver ? '#f0f0f0' : (isSaved ? 'transparent' : 'white'),
                 transition: 'background-color 0.2s ease'
               }}
               onClick={handleImageClick}
+              onMouseEnter={() => showToolbarFor('image')}
+              onMouseLeave={scheduleHideToolbar}
             >
               {hasImage && currentImageUrl ? (
                 <div className="w-full h-full relative overflow-hidden rounded-[15px]">
@@ -525,25 +560,34 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
               )}
             </div>
 
-            {/* 이미지 편집 툴바 */}
-            {hasImage && isImageSelected && (
-              <TitleEditToolbar
-                show={true}
-                isExpanded={true}
-                position={{ left: "0px", top: "calc(100% + 8px)" }}
-                onIconClick={(index, data) => {
-                  switch (index) {
-                    case 4:
-                      // 이미지 컨테이너 틀 삭제 요청
-                      handleImageDeleteRequest();
-                      break;
-                    default:
-                      break;
+            {/* 이미지 편집 툴바 - hover 시 노출 및 2초 유지 */}
+            {hasImage && (isImageSelected || (!isSaved && showToolbar && hoveredSection === 'image')) && (
+              <div
+                onMouseEnter={() => {
+                  if (hoverHideTimerRef.current) {
+                    window.clearTimeout(hoverHideTimerRef.current);
+                    hoverHideTimerRef.current = null;
                   }
                 }}
-                limitedMode={true}
-                allowedIcons={[4]} // 틀삭제 아이콘만 표시 (인덱스 4)
-              />
+                onMouseLeave={scheduleHideToolbar}
+              >
+                <TitleEditToolbar
+                  show={true}
+                  isExpanded={true}
+                  position={{ left: "0px", top: "calc(100% + 8px)" }}
+                  onIconClick={(index, data) => {
+                    switch (index) {
+                      case 4:
+                        handleImageDeleteRequest();
+                        break;
+                      default:
+                        break;
+                    }
+                  }}
+                  limitedMode={true}
+                  allowedIcons={[4]}
+                />
+              </div>
             )}
           </>
         ) : (
@@ -590,7 +634,7 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                 )
               } ${
                 isSaved && !text ? 'opacity-0' : ''
-              }`}
+              } ${!isSaved && hoveredSection === 'text' ? 'border-primary border-solid border-2' : ''}`}
               onClick={(e) => {
                 e.stopPropagation();
                 if (!isFocused) {
@@ -598,6 +642,8 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                 }
                 handleTextClick();
               }}
+              onMouseEnter={() => showToolbarFor('text')}
+              onMouseLeave={scheduleHideToolbar}
             >
               <div
                 ref={contentRef}
@@ -632,8 +678,8 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
               `}</style>
             </div>
 
-            {/* 제목 편집 툴바 */}
-            {(isFocused || isTextSelected) && (
+            {/* 제목 편집 툴바 - hover 시 노출 및 2초 유지 */}
+            {(isFocused || isTextSelected || (!isSaved && showToolbar && hoveredSection === 'text')) && (
               <div
                 className="absolute z-50"
                 style={{
@@ -641,6 +687,13 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                   top: "calc(100% + 8px)",
                   transform: "translateX(-50%)",
                 }}
+                onMouseEnter={() => {
+                  if (hoverHideTimerRef.current) {
+                    window.clearTimeout(hoverHideTimerRef.current);
+                    hoverHideTimerRef.current = null;
+                  }
+                }}
+                onMouseLeave={scheduleHideToolbar}
               >
                 <TitleEditToolbar
                   show={true}
@@ -649,7 +702,6 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                   onIconClick={(index, data) => {
                     switch (index) {
                       case 4:
-                        // 텍스트 컨테이너 틀 삭제 요청
                         handleTextDeleteRequest();
                         break;
                       default:
@@ -657,7 +709,7 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                     }
                   }}
                   limitedMode={true}
-                  allowedIcons={[4]} // 틀삭제 아이콘만 표시 (인덱스 4)
+                  allowedIcons={[4]}
                 />
               </div>
             )}
@@ -707,12 +759,14 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                 )
               } ${
                 isSaved && !topText ? 'opacity-0' : ''
-              }`}
+              } ${!isSaved && hoveredSection === 'date' ? 'border-primary border-solid border-2' : ''}`}
               onClick={(e) => {
                 e.stopPropagation();
                 topContentRef.current?.focus();
                 handleDateClick();
               }}
+              onMouseEnter={() => showToolbarFor('date')}
+              onMouseLeave={scheduleHideToolbar}
             >
               <div
                 ref={topContentRef}
@@ -748,12 +802,14 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                 )
               } ${
                 isSaved && !bottomText ? 'opacity-0' : ''
-              }`}
+              } ${!isSaved && hoveredSection === 'date' ? 'border-primary border-solid border-2' : ''}`}
               onClick={(e) => {
                 e.stopPropagation();
                 bottomContentRef.current?.focus();
                 handleDateClick();
               }}
+              onMouseEnter={() => showToolbarFor('date')}
+              onMouseLeave={scheduleHideToolbar}
             >
               <div
                 ref={bottomContentRef}
@@ -782,25 +838,34 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
               }
             `}</style>
 
-            {/* 날짜 편집 툴바 */}
-            {(isTopFocused || isBottomFocused || isDateSelected) && (
-              <TitleEditToolbar
-                show={true}
-                isExpanded={true}
-                position={{ left: "0px", top: "calc(100% + 8px)" }}
-                onIconClick={(index, data) => {
-                  switch (index) {
-                    case 4:
-                      // 날짜 컨테이너 틀 삭제 요청
-                      handleDateDeleteRequest();
-                      break;
-                    default:
-                      break;
+            {/* 날짜 편집 툴바 - hover 시 노출 및 2초 유지 */}
+            {(isTopFocused || isBottomFocused || isDateSelected || (!isSaved && showToolbar && hoveredSection === 'date')) && (
+              <div
+                onMouseEnter={() => {
+                  if (hoverHideTimerRef.current) {
+                    window.clearTimeout(hoverHideTimerRef.current);
+                    hoverHideTimerRef.current = null;
                   }
                 }}
-                limitedMode={true}
-                allowedIcons={[4]} // 틀삭제 아이콘만 표시 (인덱스 4)
-              />
+                onMouseLeave={scheduleHideToolbar}
+              >
+                <TitleEditToolbar
+                  show={true}
+                  isExpanded={true}
+                  position={{ left: "0px", top: "calc(100% + 8px)" }}
+                  onIconClick={(index, data) => {
+                    switch (index) {
+                      case 4:
+                        handleDateDeleteRequest();
+                        break;
+                      default:
+                        break;
+                    }
+                  }}
+                  limitedMode={true}
+                  allowedIcons={[4]}
+                />
+              </div>
             )}
           </>
         ) : (
