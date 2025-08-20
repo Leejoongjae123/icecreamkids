@@ -266,7 +266,7 @@ const DraggableSticker: React.FC<DraggableStickerProps> = ({ sticker, containerR
     return handles.map((handle) => (
       <div
         key={handle.position}
-        className="absolute bg-white border-2 border-blue-500 rounded-full z-10"
+        className="absolute bg-white border-2 border-[#3D8BFF] rounded-full z-10"
         style={{
           left: `${handle.x}px`,
           top: `${handle.y}px`,

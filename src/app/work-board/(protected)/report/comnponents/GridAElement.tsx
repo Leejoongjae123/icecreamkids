@@ -8,6 +8,7 @@ import { Loader } from "@/components/ui/loader";
 import ImageEditModal from "./ImageEditModal";
 import { ImagePosition } from "../types";
 import {IoClose} from "react-icons/io5";
+import { Button } from "@/components/common/Button";
 import useUserStore from "@/hooks/store/useUserStore";
 import useGridContentStore from "@/hooks/store/useGridContentStore";
 import { useImageUpload } from "@/hooks/useImageUpload";
@@ -15,6 +16,7 @@ import { useMemoCheck } from "@/hooks/useMemoCheck";
 import MemoIndicator from "../components/MemoIndicator";
 import { MemoEditModal } from "@/components/modal/memo-edit";
 import { UploadModal } from "@/components/modal";
+import useS3FileUpload from "@/hooks/useS3FileUpload";
 import { useGetDriveItemMemos, useUpdateDriveItemMemo } from "@/service/file/fileStore";
 import { useToast } from "@/hooks/store/useToastStore";
 import { useAlertStore } from "@/hooks/store/useAlertStore";
@@ -344,6 +346,547 @@ function GridAElement({
     originalImageIndex: 0
   });
 
+  // 인라인 편집 상태
+  const [inlineEditState, setInlineEditState] = React.useState<{
+    active: boolean;
+    imageIndex: number | null;
+    tempPosition: { x: number; y: number; scale: number };
+    startPointer: { x: number; y: number } | null;
+    mode: 'drag' | 'resize' | null;
+    cropActive: boolean;
+    cropRect?: { left: number; top: number; right: number; bottom: number } | null;
+    cropDraggingEdge?: 'left' | 'right' | 'top' | 'bottom' | null;
+    cropStartPointer?: { x: number; y: number } | null;
+    cropBounds?: { left: number; top: number; right: number; bottom: number } | null;
+  }>({
+    active: false,
+    imageIndex: null,
+    tempPosition: { x: 0, y: 0, scale: 1 },
+    startPointer: null,
+    mode: null,
+    cropActive: false,
+    cropRect: null,
+    cropDraggingEdge: null,
+    cropStartPointer: null,
+    cropBounds: null,
+  });
+
+  const imageContainerRefs = React.useRef<Record<number, HTMLDivElement | null>>({});
+  const suppressClickRef = React.useRef<boolean>(false);
+
+  const isEditingIndex = React.useCallback((idx: number) => inlineEditState.active && inlineEditState.imageIndex === idx, [inlineEditState]);
+
+  const beginInlineEdit = React.useCallback((imageIndex: number) => {
+    const base = imagePositions[imageIndex] || { x: 0, y: 0, scale: 1 };
+    setInlineEditState({
+      active: true,
+      imageIndex,
+      tempPosition: { x: base.x || 0, y: base.y || 0, scale: base.scale || 1 },
+      startPointer: null,
+      mode: null,
+      cropActive: false,
+    });
+  }, [imagePositions]);
+
+  const endInlineEditConfirm = React.useCallback(() => {
+    if (!inlineEditState.active || inlineEditState.imageIndex === null) {
+      setInlineEditState(prev => ({ ...prev, active: false, imageIndex: null, mode: null, cropActive: false }));
+      return;
+    }
+    const idx = inlineEditState.imageIndex;
+    const nextPositions = [...imagePositions];
+    nextPositions[idx] = { ...nextPositions[idx], ...inlineEditState.tempPosition } as ImagePosition;
+    setImagePositions(nextPositions);
+    if (onImagePositionsUpdate) {
+      onImagePositionsUpdate(nextPositions);
+    }
+    setInlineEditState(prev => ({ ...prev, active: false, imageIndex: null, mode: null, cropActive: false }));
+  }, [inlineEditState, imagePositions, onImagePositionsUpdate]);
+
+  const endInlineEditCancel = React.useCallback(() => {
+    setInlineEditState(prev => ({ ...prev, active: false, imageIndex: null, mode: null, cropActive: false }));
+  }, []);
+
+  // 크롭 제어 핸들러
+  const beginCrop = React.useCallback(() => {
+    const idx = inlineEditState.imageIndex;
+    const container = idx !== null ? imageContainerRefs.current[idx] : null;
+    const imageUrl = idx !== null ? currentImages[idx] : undefined;
+    if (!container || !imageUrl || idx === null) {
+      setInlineEditState(prev => ({ ...prev, cropActive: true }));
+      return;
+    }
+    const img = document.createElement('img');
+    img.crossOrigin = 'anonymous';
+    img.referrerPolicy = 'no-referrer';
+    img.src = imageUrl;
+    img.onload = () => {
+      const rect = container.getBoundingClientRect();
+      const containerW = rect.width;
+      const containerH = rect.height;
+      const position = isEditingIndex(idx) ? inlineEditState.tempPosition : (imagePositions[idx] || { x: 0, y: 0, scale: 1 });
+      const { x = 0, y = 0, scale = 1 } = position;
+      // object-cover 계산 (finishCropAndUpload와 동일 로직)
+      const imgAspect = img.width / img.height;
+      const boxAspect = containerW / containerH;
+      let drawW = containerW;
+      let drawH = containerH;
+      if (imgAspect > boxAspect) {
+        drawH = containerH;
+        drawW = drawH * imgAspect;
+      } else {
+        drawW = containerW;
+        drawH = drawW / imgAspect;
+      }
+      // 스케일이 중앙 기준으로 적용되므로, 최종 좌표는 center 보정이 필요
+      const scaledW = drawW * (scale || 1);
+      const scaledH = drawH * (scale || 1);
+      // CSS transform: translate(x, y) scale(s) 는 scale이 먼저 적용되고 translate가 마지막에 적용되므로
+      // 실제 픽셀 상의 이동량은 x, y 그대로 사용해야 함 (x, y에 scale을 곱하지 않음)
+      const imageLeft = (containerW / 2) - (scaledW / 2) + x;
+      const imageTop = (containerH / 2) - (scaledH / 2) + y;
+      const imageRight = imageLeft + scaledW;
+      const imageBottom = imageTop + scaledH;
+      const cropLeft = Math.max(0, imageLeft);
+      const cropTop = Math.max(0, imageTop);
+      const cropRight = Math.min(containerW, imageRight);
+      const cropBottom = Math.min(containerH, imageBottom);
+      // 초기 cropRect는 가시 이미지 외곽 그대로 설정
+      const finalLeft = cropLeft;
+      const finalTop = cropTop;
+      const finalRight = cropRight;
+      const finalBottom = cropBottom;
+      setInlineEditState(prev => ({
+        ...prev,
+        cropActive: true,
+        cropRect: { left: finalLeft, top: finalTop, right: finalRight, bottom: finalBottom },
+        cropDraggingEdge: null,
+        cropStartPointer: null,
+        cropBounds: { left: cropLeft, top: cropTop, right: cropRight, bottom: cropBottom },
+      }));
+    };
+    img.onerror = () => {
+      setInlineEditState(prev => ({ ...prev, cropActive: true }));
+    };
+  }, [inlineEditState.imageIndex, inlineEditState.tempPosition, imagePositions, isEditingIndex, currentImages]);
+
+  const { postFile } = useS3FileUpload();
+  const finishCropAndUpload = React.useCallback(async () => {
+    // 1) 현재 이미지 컨테이너 캔버스에 그려서 cropRect 기준으로 잘라 파일 생성
+    const idx = inlineEditState.imageIndex;
+    if (idx === null) {
+      setInlineEditState(prev => ({ ...prev, cropActive: false }));
+      return;
+    }
+    const container = imageContainerRefs.current[idx];
+    const imageUrl = currentImages[idx];
+    if (!container || !imageUrl || !inlineEditState.cropRect) {
+      setInlineEditState(prev => ({ ...prev, cropActive: false }));
+      return;
+    }
+    try {
+      // 원본 이미지 로드
+      const img = document.createElement('img');
+      img.crossOrigin = 'anonymous';
+      img.referrerPolicy = 'no-referrer';
+      img.src = imageUrl;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+      });
+
+      // 컨테이너 크기와 이미지 렌더링 transform으로 실제 그려진 픽셀 영역 추정
+      const containerRect = container.getBoundingClientRect();
+      const scale = isEditingIndex(idx) ? inlineEditState.tempPosition.scale : (imagePositions[idx]?.scale || 1);
+      const transX = isEditingIndex(idx) ? inlineEditState.tempPosition.x : (imagePositions[idx]?.x || 0);
+      const transY = isEditingIndex(idx) ? inlineEditState.tempPosition.y : (imagePositions[idx]?.y || 0);
+
+      // 캔버스에 컨테이너 크기로 그린 뒤 cropRect를 캡처
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.floor(containerRect.width));
+      canvas.height = Math.max(1, Math.floor(containerRect.height));
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        setInlineEditState(prev => ({ ...prev, cropActive: false }));
+        return;
+      }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // 이미지 중앙 기준으로 object-cover 비슷한 효과를 위해 scale 적용
+      const imgAspect = img.width / img.height;
+      const boxAspect = canvas.width / canvas.height;
+      let drawW = canvas.width;
+      let drawH = canvas.height;
+      if (imgAspect > boxAspect) {
+        drawH = canvas.height;
+        drawW = drawH * imgAspect;
+      } else {
+        drawW = canvas.width;
+        drawH = drawW / imgAspect;
+      }
+      // 기존 위치 변환 고려
+      const dx = (canvas.width - drawW) / 2 + transX;
+      const dy = (canvas.height - drawH) / 2 + transY;
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.scale(scale || 1, scale || 1);
+      ctx.translate(-canvas.width / 2, -canvas.height / 2);
+      ctx.drawImage(img, dx, dy, drawW, drawH);
+      ctx.restore();
+
+      // cropRect 영역만 잘라서 새 캔버스에 복사
+      const c = inlineEditState.cropRect;
+      const cropW = Math.max(1, Math.floor(c.right - c.left));
+      const cropH = Math.max(1, Math.floor(c.bottom - c.top));
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = cropW;
+      cropCanvas.height = cropH;
+      const cropCtx = cropCanvas.getContext('2d');
+      if (!cropCtx) {
+        setInlineEditState(prev => ({ ...prev, cropActive: false }));
+        return;
+      }
+      cropCtx.drawImage(canvas, Math.floor(c.left), Math.floor(c.top), cropW, cropH, 0, 0, cropW, cropH);
+
+      // Blob → File 변환
+      const blob: Blob | null = await new Promise((res) => cropCanvas.toBlob((b) => res(b), 'image/jpeg', 0.9));
+      if (!blob) {
+        setInlineEditState(prev => ({ ...prev, cropActive: false }));
+        return;
+      }
+      const croppedFile = new File([blob], `cropped_${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+      // 2) S3 업로드 (UploadModal에서 쓰는 동일 훅)
+      const uploadRes = await postFile({
+        file: croppedFile,
+        fileType: 'IMAGE',
+        taskType: 'ETC',
+        thumbFile: croppedFile,
+      });
+      // uploadRes는 SmartFolderItemResult | FileObjectResult[]
+      // SmartFolderItemResult일 때 thumbUrl/driveItemKey 사용
+      let newThumbUrl: string | undefined;
+      let newDriveItemKey: string | undefined;
+      if (Array.isArray(uploadRes)) {
+        // 썸네일 업로드 응답일 가능성. 본 파일 업로드 시에는 SmartFolderItemResult로 반환됨
+      } else if (uploadRes) {
+        const anyRes = uploadRes as any;
+        newThumbUrl = anyRes.thumbUrl || anyRes?.driveItemResult?.thumbUrl || undefined;
+        newDriveItemKey = anyRes.driveItemKey || anyRes?.driveItemResult?.key || undefined;
+      }
+
+      if (newThumbUrl) {
+        setCurrentImages(prev => {
+          const next = [...prev];
+          next[idx] = newThumbUrl as string;
+          return next;
+        });
+        // 메타데이터 동기화
+        setImageMetadata(prev => {
+          const next = [...prev];
+          const currentUrl = currentImages[idx];
+          const filtered = next.filter(m => m.url !== currentUrl);
+          return [...filtered, { url: newThumbUrl as string, driveItemKey: newDriveItemKey }];
+        });
+        // 외부 store 동기화 (항상 배열로 업데이트)
+        if (gridId && newThumbUrl) {
+          const existingImages = Array.isArray(gridContents[gridId]?.imageUrls) 
+            ? [...(gridContents[gridId]?.imageUrls as string[])] 
+            : [];
+          while (existingImages.length < imageCount) existingImages.push("");
+          if (idx < existingImages.length) existingImages[idx] = newThumbUrl as string;
+          updateImages(gridId, existingImages.slice(0, imageCount));
+
+          if (newDriveItemKey) {
+            const existingKeys = Array.isArray(gridContents[gridId]?.driveItemKeys) 
+              ? [...(gridContents[gridId]?.driveItemKeys as string[])] 
+              : [];
+            while (existingKeys.length < imageCount) existingKeys.push("");
+            if (idx < existingKeys.length) existingKeys[idx] = newDriveItemKey as string;
+            updateDriveItemKeys(gridId, existingKeys.slice(0, imageCount));
+          }
+        }
+        // 크롭 완료 후 현재 프레임(위치/스케일)을 그대로 유지하여 사용자가 보던 상태를 보존
+        // 별도의 위치/스케일 초기화를 수행하지 않습니다.
+      } else {
+        // thumbUrl이 없을 경우, 업로드 직후 일시적으로 로컬 미리보기 유지
+        const localUrl = URL.createObjectURL(croppedFile);
+        setCurrentImages(prev => {
+          const next = [...prev];
+          next[idx] = localUrl;
+          return next;
+        });
+        // 로컬 미리보기인 경우도 동일하게 현재 위치/스케일을 유지합니다.
+      }
+    } finally {
+      setInlineEditState(prev => ({ ...prev, cropActive: false, cropRect: null }));
+    }
+  }, [inlineEditState.imageIndex, inlineEditState.cropRect, inlineEditState.tempPosition, imagePositions, isEditingIndex, currentImages, postFile, gridId, updateImages, updateDriveItemKeys]);
+
+  const cancelCrop = React.useCallback(() => {
+    setInlineEditState(prev => ({ ...prev, cropActive: false, cropRect: null, cropDraggingEdge: null, cropStartPointer: null }));
+  }, []);
+
+  const onEditMouseDown = React.useCallback((e: React.MouseEvent) => {
+    if (!inlineEditState.active || inlineEditState.imageIndex === null) return;
+    const target = e.target as HTMLElement;
+    if (target?.dataset?.handle) return;
+    e.preventDefault();
+    e.stopPropagation();
+    suppressClickRef.current = false;
+    setInlineEditState(prev => ({ ...prev, startPointer: { x: e.clientX, y: e.clientY }, mode: 'drag' }));
+    const onMove = (ev: MouseEvent) => {
+      setInlineEditState(prev => {
+        if (!prev.startPointer) return prev;
+        const dx = ev.clientX - prev.startPointer.x;
+        const dy = ev.clientY - prev.startPointer.y;
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+          suppressClickRef.current = true;
+        }
+        return {
+          ...prev,
+          startPointer: { x: ev.clientX, y: ev.clientY },
+          tempPosition: { x: prev.tempPosition.x + dx, y: prev.tempPosition.y + dy, scale: prev.tempPosition.scale },
+        };
+      });
+    };
+    const onUp = () => {
+      setInlineEditState(prev => {
+        if (prev.imageIndex !== null) {
+          const idx = prev.imageIndex;
+          const nextPositions = [...imagePositions];
+          nextPositions[idx] = { ...nextPositions[idx], ...prev.tempPosition } as ImagePosition;
+          setImagePositions(nextPositions);
+          if (onImagePositionsUpdate) {
+            onImagePositionsUpdate(nextPositions);
+          }
+        }
+        return { ...prev, startPointer: null, mode: null };
+      });
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [inlineEditState.active, inlineEditState.imageIndex, imagePositions, onImagePositionsUpdate]);
+
+  const onResizeHandleDown = React.useCallback((e: React.MouseEvent, corner: 'tl' | 'tr' | 'bl' | 'br') => {
+    if (!inlineEditState.active) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setInlineEditState(prev => ({ ...prev, startPointer: { x: e.clientX, y: e.clientY }, mode: 'resize' }));
+    const onMove = (ev: MouseEvent) => {
+      setInlineEditState(prev => {
+        if (!prev.startPointer) return prev;
+        if (prev.cropActive && prev.cropRect) {
+          // 크롭 모드에서는 핸들 대신 바를 드래그해 조절하므로 여기서는 패스
+          return prev;
+        }
+        const dy = ev.clientY - prev.startPointer.y;
+        const dx = ev.clientX - prev.startPointer.x;
+        const delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+        const newScale = Math.max(0.2, Math.min(5, prev.tempPosition.scale + delta * 0.005));
+        return {
+          ...prev,
+          startPointer: { x: ev.clientX, y: ev.clientY },
+          tempPosition: { ...prev.tempPosition, scale: newScale },
+        };
+      });
+    };
+    const onUp = () => {
+      setInlineEditState(prev => {
+        if (prev.imageIndex !== null) {
+          const idx = prev.imageIndex;
+          const nextPositions = [...imagePositions];
+          nextPositions[idx] = { ...nextPositions[idx], ...prev.tempPosition } as ImagePosition;
+          setImagePositions(nextPositions);
+          if (onImagePositionsUpdate) {
+            onImagePositionsUpdate(nextPositions);
+          }
+        }
+        return { ...prev, startPointer: null, mode: null };
+      });
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [inlineEditState.active, imagePositions, onImagePositionsUpdate]);
+
+  const renderResizeHandles = React.useCallback((idx: number) => {
+    if (!isEditingIndex(idx)) return null;
+    const s = inlineEditState.tempPosition.scale || 1;
+    const overlayTransform = `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${s})`;
+    const handleScaleStyle = { transform: `scale(${1 / s})`, transformOrigin: 'center' as const };
+    return (
+      <div className="absolute inset-0 z-50 pointer-events-none" style={{ transform: inlineEditState.cropActive ? 'none' : overlayTransform, transformOrigin: 'center' }}>
+        {!inlineEditState.cropActive && (
+          <>
+            <div
+              data-handle="true"
+              className="absolute -top-2 -left-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nwse-resize pointer-events-auto"
+              style={handleScaleStyle}
+              onMouseDown={(e) => onResizeHandleDown(e, 'tl')}
+            />
+            <div
+              data-handle="true"
+              className="absolute -top-2 -right-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nesw-resize pointer-events-auto"
+              style={handleScaleStyle}
+              onMouseDown={(e) => onResizeHandleDown(e, 'tr')}
+            />
+            <div
+              data-handle="true"
+              className="absolute -bottom-2 -left-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nesw-resize pointer-events-auto"
+              style={handleScaleStyle}
+              onMouseDown={(e) => onResizeHandleDown(e, 'bl')}
+            />
+            <div
+              data-handle="true"
+              className="absolute -bottom-2 -right-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nwse-resize pointer-events-auto"
+              style={handleScaleStyle}
+              onMouseDown={(e) => onResizeHandleDown(e, 'br')}
+            />
+          </>
+        )}
+
+        {inlineEditState.cropActive && inlineEditState.cropRect && (
+          <>
+            {/* 크롭 사각형 윤곽선 (핸들 위치와 정확히 일치) */}
+            <div
+              className="absolute border-2 border-dotted border-[#3D8BFF] rounded-sm pointer-events-none"
+              style={{
+                left: inlineEditState.cropRect.left,
+                top: inlineEditState.cropRect.top,
+                width: Math.max(0, inlineEditState.cropRect.right - inlineEditState.cropRect.left),
+                height: Math.max(0, inlineEditState.cropRect.bottom - inlineEditState.cropRect.top),
+              }}
+            />
+            {/* 상단 핸들 (가로 길이 15px, 두께 8px) */}
+            {/* 크롭 바운더리 표시 */}
+            <div
+              className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-n-resize"
+              style={{
+                width: 15,
+                height: 8,
+                top: inlineEditState.cropRect.top - 4,
+                left: ((inlineEditState.cropRect.left + inlineEditState.cropRect.right) / 2) - 7.5,
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault(); e.stopPropagation();
+                setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'top', cropStartPointer: { x: e.clientX, y: e.clientY } }));
+                const onMove = (ev: MouseEvent) => {
+                  setInlineEditState(prev => {
+                    if (!prev.cropRect || prev.cropDraggingEdge !== 'top' || !prev.cropStartPointer) return prev;
+                    const dy = ev.clientY - prev.cropStartPointer.y;
+                    const boundTop = prev.cropBounds ? prev.cropBounds.top : 0;
+                    const nextTop = Math.max(boundTop, Math.min(prev.cropRect.top + dy, prev.cropRect.bottom - 15));
+                    return { ...prev, cropRect: { ...prev.cropRect, top: nextTop }, cropStartPointer: { x: ev.clientX, y: ev.clientY } };
+                  });
+                };
+                const onUp = () => {
+                  setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null }));
+                  window.removeEventListener('mousemove', onMove);
+                  window.removeEventListener('mouseup', onUp);
+                };
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp);
+              }}
+            />
+            {/* 하단 핸들 (가로 길이 15px, 두께 8px) */}
+            <div
+              className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-s-resize"
+              style={{
+                width: 15,
+                height: 8,
+                top: inlineEditState.cropRect.bottom - 4,
+                left: ((inlineEditState.cropRect.left + inlineEditState.cropRect.right) / 2) - 7.5,
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault(); e.stopPropagation();
+                setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'bottom', cropStartPointer: { x: e.clientX, y: e.clientY } }));
+                const onMove = (ev: MouseEvent) => {
+                  setInlineEditState(prev => {
+                    if (!prev.cropRect || prev.cropDraggingEdge !== 'bottom' || !prev.cropStartPointer) return prev;
+                    const dy = ev.clientY - prev.cropStartPointer.y;
+                    const boundBottom = prev.cropBounds ? prev.cropBounds.bottom : Number.POSITIVE_INFINITY;
+                    const nextBottom = Math.min(boundBottom, Math.max(prev.cropRect.top + 15, prev.cropRect.bottom + dy));
+                    return { ...prev, cropRect: { ...prev.cropRect, bottom: nextBottom }, cropStartPointer: { x: ev.clientX, y: ev.clientY } };
+                  });
+                };
+                const onUp = () => {
+                  setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null }));
+                  window.removeEventListener('mousemove', onMove);
+                  window.removeEventListener('mouseup', onUp);
+                };
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp);
+              }}
+            />
+            {/* 좌측 핸들 (세로 길이 15px, 두께 8px) */}
+            <div
+              className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-w-resize"
+              style={{
+                width: 8,
+                height: 15,
+                left: inlineEditState.cropRect.left - 4,
+                top: ((inlineEditState.cropRect.top + inlineEditState.cropRect.bottom) / 2) - 7.5,
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault(); e.stopPropagation();
+                setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'left', cropStartPointer: { x: e.clientX, y: e.clientY } }));
+                const onMove = (ev: MouseEvent) => {
+                  setInlineEditState(prev => {
+                    if (!prev.cropRect || prev.cropDraggingEdge !== 'left' || !prev.cropStartPointer) return prev;
+                    const dx = ev.clientX - prev.cropStartPointer.x;
+                    const boundLeft = prev.cropBounds ? prev.cropBounds.left : 0;
+                    const nextLeft = Math.max(boundLeft, Math.min(prev.cropRect.left + dx, prev.cropRect.right - 15));
+                    return { ...prev, cropRect: { ...prev.cropRect, left: nextLeft }, cropStartPointer: { x: ev.clientX, y: ev.clientY } };
+                  });
+                };
+                const onUp = () => {
+                  setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null }));
+                  window.removeEventListener('mousemove', onMove);
+                  window.removeEventListener('mouseup', onUp);
+                };
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp);
+              }}
+            />
+            {/* 우측 핸들 (세로 길이 15px, 두께 8px) */}
+            <div
+              className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-e-resize"
+              style={{
+                width: 8,
+                height: 15,
+                left: inlineEditState.cropRect.right - 4,
+                top: ((inlineEditState.cropRect.top + inlineEditState.cropRect.bottom) / 2) - 7.5,
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault(); e.stopPropagation();
+                setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'right', cropStartPointer: { x: e.clientX, y: e.clientY } }));
+                const onMove = (ev: MouseEvent) => {
+                  setInlineEditState(prev => {
+                    if (!prev.cropRect || prev.cropDraggingEdge !== 'right' || !prev.cropStartPointer) return prev;
+                    const dx = ev.clientX - prev.cropStartPointer.x;
+                    const boundRight = prev.cropBounds ? prev.cropBounds.right : Number.POSITIVE_INFINITY;
+                    const nextRight = Math.min(boundRight, Math.max(prev.cropRect.left + 15, prev.cropRect.right + dx));
+                    return { ...prev, cropRect: { ...prev.cropRect, right: nextRight }, cropStartPointer: { x: ev.clientX, y: ev.clientY } };
+                  });
+                };
+                const onUp = () => {
+                  setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null }));
+                  window.removeEventListener('mousemove', onMove);
+                  window.removeEventListener('mouseup', onUp);
+                };
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp);
+              }}
+            />
+          </>
+        )}
+      </div>
+    );
+  }, [isEditingIndex, inlineEditState.tempPosition, onResizeHandleDown]);
+
   // 이미지 업로드 관련 상태
   const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([]);
   
@@ -480,7 +1023,7 @@ function GridAElement({
       const newImages = [...prev];
       
       // 받은 이미지 개수를 imageCount로 제한
-      const limitedImageUrls = imageUrls.slice(0, imageCount);
+      const limitedImageUrls = Array.isArray(imageUrls) ? imageUrls.slice(0, imageCount) : [];
       
       // 받은 이미지들을 순서대로 빈 슬롯에 배치
       let imageUrlIndex = 0;
@@ -905,7 +1448,8 @@ function GridAElement({
 
     // API에서 주입된 이미지가 이미 store에 존재하는 경우, 빈 값으로 덮어쓰지 않음 (API 우선)
     if (validImages.length === 0) {
-      const existingStoreImages = gridContents[gridId]?.imageUrls || [];
+      const existingStoreImagesRaw = gridContents[gridId]?.imageUrls;
+      const existingStoreImages = Array.isArray(existingStoreImagesRaw) ? existingStoreImagesRaw : [];
       if (existingStoreImages.length > 0) {
         return;
       }
@@ -913,12 +1457,13 @@ function GridAElement({
       return;
     }
 
-    const storeImages = gridContents[gridId]?.imageUrls || [];
+    const storeImagesRaw = gridContents[gridId]?.imageUrls;
+    const storeImages = Array.isArray(storeImagesRaw) ? storeImagesRaw : [];
     // 스토어(=API 주입)의 이미지 개수보다 적은 수로는 덮어쓰지 않음 (다운사이즈 방지)
     if (storeImages.length > validImages.length) {
       return;
     }
-    const imagesEqual = storeImages.length === validImages.length && storeImages.every((v, i) => v === validImages[i]);
+    const imagesEqual = storeImages.length === validImages.length && storeImages.every((v: string, i: number) => v === validImages[i]);
     if (!imagesEqual) {
       updateImages(gridId, validImages);
     }
@@ -927,8 +1472,9 @@ function GridAElement({
       .map((imageUrl) => getDriveItemKeyByImageUrl(imageUrl) || "")
       .filter((key) => key !== "");
     if (driveItemKeys.length > 0) {
-      const storeKeys = gridContents[gridId]?.driveItemKeys || [];
-      const keysEqual = storeKeys.length === driveItemKeys.length && storeKeys.every((v, i) => v === driveItemKeys[i]);
+      const storeKeysRaw = gridContents[gridId]?.driveItemKeys;
+      const storeKeys = Array.isArray(storeKeysRaw) ? storeKeysRaw : [];
+      const keysEqual = storeKeys.length === driveItemKeys.length && storeKeys.every((v: string, i: number) => v === driveItemKeys[i]);
       if (!keysEqual) {
         updateDriveItemKeys(gridId, driveItemKeys);
       }
@@ -939,7 +1485,9 @@ function GridAElement({
   // 스토어(API 주입)의 이미지 개수가 현재 imageCount보다 많으면 imageCount를 올려 동기화 (최대 3)
   React.useEffect(() => {
     if (!gridId) return;
-    const storeCount = (gridContents[gridId]?.imageUrls || []).length;
+    const storeImagesRaw = gridContents[gridId]?.imageUrls;
+    const storeImages = Array.isArray(storeImagesRaw) ? storeImagesRaw : [];
+    const storeCount = storeImages.length;
     if (storeCount > 0) {
       const desired = Math.min(3, storeCount);
       if (desired !== imageCount) {
@@ -953,8 +1501,8 @@ function GridAElement({
     if (!gridId) return;
     const content = gridContents[gridId];
     // imageCount를 초과하는 항목은 주입하지 않음 (무한 루프 방지)
-    const urls = (content?.imageUrls || []).slice(0, imageCount);
-    const keys = (content?.driveItemKeys || []).slice(0, imageCount);
+    const urls = Array.isArray(content?.imageUrls) ? content.imageUrls.slice(0, imageCount) : [];
+    const keys = Array.isArray(content?.driveItemKeys) ? content.driveItemKeys.slice(0, imageCount) : [];
     if (urls.length === 0 || keys.length === 0) {
       return;
     }
@@ -1266,23 +1814,7 @@ function GridAElement({
   // 이미지 편집 모달 열기 핸들러
   const handleImageAdjustClick = (imageIndex: number, imageUrl: string) => {
     if (imageUrl && imageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
-      // 모든 유효한 이미지들을 가져와서 ImageEditModal 사용
-      const validImages = currentImages.filter(img => 
-        img && img !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
-      );
-      
-      if (validImages.length > 0) {
-        // 클릭한 이미지가 유효한 이미지 목록에서 몇 번째인지 찾기
-        const clickedImageIndex = validImages.findIndex(img => img === imageUrl);
-        const finalSelectedIndex = clickedImageIndex >= 0 ? clickedImageIndex : 0;
-        
-        setImageEditModal({
-          isOpen: true,
-          imageUrls: validImages,
-          selectedImageIndex: finalSelectedIndex,
-          originalImageIndex: imageIndex // 클릭한 원래 이미지 인덱스 저장
-        });
-      }
+      beginInlineEdit(imageIndex);
     }
   };
 
@@ -1789,8 +2321,8 @@ function GridAElement({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         data-grid-id={gridId}
-        {...dragAttributes}
-        {...dragListeners}
+        {...(inlineEditState.active ? {} : dragAttributes)}
+        {...(inlineEditState.active ? {} : dragListeners)}
       >
         {/* 카테고리 섹션 - 고정 높이 */}
         <div className="flex gap-2.5 text-sm font-bold tracking-tight leading-none text-amber-400 whitespace-nowrap flex-shrink-0 mb-1">
@@ -1868,24 +2400,26 @@ function GridAElement({
                 >
                   {currentImages[imageIndex] && currentImages[imageIndex] !== "" && currentImages[imageIndex] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                     <div
-                      className="absolute inset-0 overflow-hidden rounded-md cursor-pointer group"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleImageAdjustClick(imageIndex, currentImages[imageIndex]);
-                      }}
+                      className={`absolute inset-0 ${isEditingIndex(imageIndex) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} rounded-md cursor-pointer group`}
+                      onDoubleClick={(e) => { e.stopPropagation(); beginInlineEdit(imageIndex); }}
+                      ref={(el) => { imageContainerRefs.current[imageIndex] = el; }}
                     >
-                      <Image
+                      <img
                         src={currentImages[imageIndex]}
                         alt={`Image ${imageIndex + 1}`}
-                        fill
-                        className="object-cover rounded-md"
+                        className="absolute inset-0 w-full h-full object-cover rounded-md image-target"
                         style={{
-                          transform: `translate(${imagePositions[imageIndex]?.x || 0}px, ${imagePositions[imageIndex]?.y || 0}px) scale(${imagePositions[imageIndex]?.scale || 1})`,
+                          transform: isEditingIndex(imageIndex)
+                            ? `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${inlineEditState.tempPosition.scale})`
+                            : `translate(${imagePositions[imageIndex]?.x || 0}px, ${imagePositions[imageIndex]?.y || 0}px) scale(${imagePositions[imageIndex]?.scale || 1})`,
                           transformOrigin: 'center'
                         }}
                         data-id={getDriveItemKeyByImageUrl(currentImages[imageIndex])}
-                        unoptimized={true}
+                        onMouseDown={isEditingIndex(imageIndex) ? onEditMouseDown : undefined}
+                        draggable={false}
                       />
+                      {renderResizeHandles(imageIndex)}
+                      {renderResizeHandles(imageIndex)}
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[imageIndex] && (
                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 rounded-md">
@@ -1908,12 +2442,11 @@ function GridAElement({
                     </div>
                   ) : (
                     <>
-                      <Image
+                      <img
                         src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
                         alt="No image"
-                        fill
-                        className="object-cover rounded-md"
-                        unoptimized={true}
+                        className="absolute inset-0 w-full h-full object-cover rounded-md"
+                        draggable={false}
                       />
                       <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
                         <Image
@@ -1973,11 +2506,9 @@ function GridAElement({
                 >
                   {currentImages[imageIndex] && currentImages[imageIndex] !== "" && currentImages[imageIndex] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                     <div
-                      className="absolute inset-0 overflow-hidden rounded-md cursor-pointer group"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleImageAdjustClick(imageIndex, currentImages[imageIndex]);
-                      }}
+                      className={`absolute inset-0 ${isEditingIndex(imageIndex) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} rounded-md cursor-pointer group`}
+                      onDoubleClick={(e) => { e.stopPropagation(); beginInlineEdit(imageIndex); }}
+                      ref={(el) => { imageContainerRefs.current[imageIndex] = el; }}
                     >
                       <Image
                         src={currentImages[imageIndex]}
@@ -1985,11 +2516,14 @@ function GridAElement({
                         fill
                         className="object-cover rounded-md"
                         style={{
-                          transform: `translate(${imagePositions[imageIndex]?.x || 0}px, ${imagePositions[imageIndex]?.y || 0}px) scale(${imagePositions[imageIndex]?.scale || 1})`,
+                          transform: isEditingIndex(imageIndex)
+                            ? `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${inlineEditState.tempPosition.scale})`
+                            : `translate(${imagePositions[imageIndex]?.x || 0}px, ${imagePositions[imageIndex]?.y || 0}px) scale(${imagePositions[imageIndex]?.scale || 1})`,
                           transformOrigin: 'center'
                         }}
                         data-id={getDriveItemKeyByImageUrl(currentImages[imageIndex])}
                         unoptimized={true}
+                        onMouseDown={isEditingIndex(imageIndex) ? onEditMouseDown : undefined}
                       />
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[imageIndex] && (
@@ -2087,24 +2621,25 @@ function GridAElement({
               >
                 {currentImages[0] && currentImages[0] !== "" && currentImages[0] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                   <div
-                    className="absolute inset-0 overflow-hidden rounded-md cursor-pointer "
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleImageAdjustClick(0, currentImages[0]);
-                    }}
+                    className={`absolute inset-0 ${isEditingIndex(0) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} rounded-md cursor-pointer `}
+                    onDoubleClick={(e) => { e.stopPropagation(); beginInlineEdit(0); }}
+                    ref={(el) => { imageContainerRefs.current[0] = el; }}
                   >
-                                          <Image
-                        src={currentImages[0]}
-                        alt="Image 1"
-                        fill
-                        className="object-cover rounded-md"
-                        style={{
-                          transform: `translate(${imagePositions[0]?.x || 0}px, ${imagePositions[0]?.y || 0}px) scale(${imagePositions[0]?.scale || 1})`,
-                          transformOrigin: 'center'
-                        }}
-                        data-id={getDriveItemKeyByImageUrl(currentImages[0])}
-                        unoptimized={true}
-                      />
+                    <img
+                      src={currentImages[0]}
+                      alt="Image 1"
+                      className="absolute inset-0 w-full h-full object-cover rounded-md"
+                      style={{
+                        transform: isEditingIndex(0)
+                          ? `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${inlineEditState.tempPosition.scale})`
+                          : `translate(${imagePositions[0]?.x || 0}px, ${imagePositions[0]?.y || 0}px) scale(${imagePositions[0]?.scale || 1})`,
+                        transformOrigin: 'center'
+                      }}
+                      data-id={getDriveItemKeyByImageUrl(currentImages[0])}
+                      onMouseDown={isEditingIndex(0) ? onEditMouseDown : undefined}
+                      draggable={false}
+                    />
+                      {renderResizeHandles(0)}
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[0] && (
                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 rounded-md">
@@ -2189,24 +2724,25 @@ function GridAElement({
                 >
                   {currentImages[1] && currentImages[1] !== "" && currentImages[1] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                     <div
-                      className="absolute inset-0 overflow-hidden rounded-md cursor-pointer group"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleImageAdjustClick(1, currentImages[1]);
-                      }}
+                      className={`absolute inset-0 ${isEditingIndex(1) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} rounded-md cursor-pointer group`}
+                      onDoubleClick={(e) => { e.stopPropagation(); beginInlineEdit(1); }}
+                      ref={(el) => { imageContainerRefs.current[1] = el; }}
                     >
-                      <Image
+                      <img
                         src={currentImages[1]}
                         alt="Image 2"
-                        fill
-                        className="object-cover rounded-md"
+                        className="absolute inset-0 w-full h-full object-cover rounded-md"
                         style={{
-                          transform: `translate(${imagePositions[1]?.x || 0}px, ${imagePositions[1]?.y || 0}px) scale(${imagePositions[1]?.scale || 1})`,
+                          transform: isEditingIndex(1)
+                            ? `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${inlineEditState.tempPosition.scale})`
+                            : `translate(${imagePositions[1]?.x || 0}px, ${imagePositions[1]?.y || 0}px) scale(${imagePositions[1]?.scale || 1})`,
                           transformOrigin: 'center'
                         }}
                         data-id={getDriveItemKeyByImageUrl(currentImages[1])}
-                        unoptimized={true}
+                        onMouseDown={isEditingIndex(1) ? onEditMouseDown : undefined}
+                        draggable={false}
                       />
+                      {renderResizeHandles(1)}
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[1] && (
                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 rounded-md">
@@ -2289,24 +2825,25 @@ function GridAElement({
                 >
                   {currentImages[2] && currentImages[2] !== "" && currentImages[2] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                     <div
-                      className="absolute inset-0 overflow-hidden rounded-md cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleImageAdjustClick(2, currentImages[2]);
-                      }}
+                      className={`absolute inset-0 ${isEditingIndex(2) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} rounded-md cursor-pointer`}
+                      onDoubleClick={(e) => { e.stopPropagation(); beginInlineEdit(2); }}
+                      ref={(el) => { imageContainerRefs.current[2] = el; }}
                     >
-                      <Image
+                      <img
                         src={currentImages[2]}
                         alt="Image 3"
-                        fill
-                        className="object-cover rounded-md"
+                        className="absolute inset-0 w-full h-full object-cover rounded-md"
                         style={{
-                          transform: `translate(${imagePositions[2]?.x || 0}px, ${imagePositions[2]?.y || 0}px) scale(${imagePositions[2]?.scale || 1})`,
+                          transform: isEditingIndex(2)
+                            ? `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${inlineEditState.tempPosition.scale})`
+                            : `translate(${imagePositions[2]?.x || 0}px, ${imagePositions[2]?.y || 0}px) scale(${imagePositions[2]?.scale || 1})`,
                           transformOrigin: 'center'
                         }}
                         data-id={getDriveItemKeyByImageUrl(currentImages[2])}
-                        unoptimized={true}
+                        onMouseDown={isEditingIndex(2) ? onEditMouseDown : undefined}
+                        draggable={false}
                       />
+                      {renderResizeHandles(2)}
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[2] && (
                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 rounded-md">
@@ -2394,7 +2931,7 @@ function GridAElement({
             }}>
 
             {(() => {
-              const imagesToRender = currentImages.slice(0, imageCount);
+              const imagesToRender = Array.isArray(currentImages) ? currentImages.slice(0, imageCount) : [];
               console.log("🎨 일반 그리드 렌더링:", {
                 cardType,
                 imageCount,
@@ -2421,11 +2958,9 @@ function GridAElement({
                 >
                   {imageSrc && imageSrc !== "" && imageSrc !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                     <div
-                      className="absolute inset-0 overflow-hidden rounded-md cursor-pointer group"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleImageAdjustClick(index, imageSrc);
-                      }}
+                      className={`absolute inset-0 ${isEditingIndex(index) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} rounded-md cursor-pointer group`}
+                      onDoubleClick={(e) => { e.stopPropagation(); beginInlineEdit(index); }}
+                      ref={(el) => { imageContainerRefs.current[index] = el; }}
                     >
                       <Image
                         src={imageSrc}
@@ -2433,12 +2968,16 @@ function GridAElement({
                         fill
                         className="object-cover rounded-md"
                         style={{
-                          transform: `translate(${imagePositions[index]?.x || 0}px, ${imagePositions[index]?.y || 0}px) scale(${imagePositions[index]?.scale || 1})`,
+                          transform: isEditingIndex(index)
+                            ? `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${inlineEditState.tempPosition.scale})`
+                            : `translate(${imagePositions[index]?.x || 0}px, ${imagePositions[index]?.y || 0}px) scale(${imagePositions[index]?.scale || 1})`,
                           transformOrigin: 'center'
                         }}
                         data-id={getDriveItemKeyByImageUrl(imageSrc)}
                         unoptimized={true}
+                        onMouseDown={isEditingIndex(index) ? onEditMouseDown : undefined}
                       />
+                      {renderResizeHandles(index)}
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[index] && (
                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 rounded-md">
@@ -2779,17 +3318,32 @@ function GridAElement({
         </div>,
         document.body
       )}
-      
-      {/* 이미지 편집 모달 */}
-      <ImageEditModal
-        isOpen={imageEditModal.isOpen}
-        onClose={() => setImageEditModal(prev => ({ ...prev, isOpen: false }))}
-        imageUrls={imageEditModal.imageUrls}
-        selectedImageIndex={imageEditModal.selectedImageIndex}
-        onApply={handleImageEditApply}
-        onImageOrderChange={handleImageOrderChange}
-        targetFrame={measureImageCellSize(imageEditModal.originalImageIndex || 0)}
-      />
+
+      {/* 인라인 편집 확인/취소 포털 */}
+      {inlineEditState.active && typeof window !== 'undefined' && ReactDOM.createPortal(
+        <div className="fixed z-[10000]" style={{ left: 0, top: 0, pointerEvents: 'none' }}>
+          <div
+            className="absolute -translate-x-1/2 flex gap-2"
+            style={{ left: (imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().left || 0) + ((imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().width || 0) / 2), top: (imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().bottom || 0) + 8 }}
+          >
+            <div className="bg-white shadow rounded-md px-2 py-1 border border-gray-200 flex gap-2" style={{ pointerEvents: 'auto' }}>
+              {!inlineEditState.cropActive ? (
+                <Button color="line" size="small" onClick={beginCrop}>크롭 시작</Button>
+              ) : (
+                <>
+                  <Button color="primary" size="small" onClick={finishCropAndUpload}>크롭 완료</Button>
+                  <Button color="gray" size="small" onClick={cancelCrop}>크롭 취소</Button>
+                </>
+              )}
+              <Button color="primary" size="small" onClick={endInlineEditConfirm}>확인</Button>
+              <Button color="gray" size="small" onClick={endInlineEditCancel}>취소</Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* 기존 모달은 사용 중지 */}
       
       {/* 이미지 업로드 모달 */}
       {isUploadModalOpen && (
