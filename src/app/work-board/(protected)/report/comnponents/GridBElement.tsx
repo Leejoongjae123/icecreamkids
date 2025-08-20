@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import GridEditToolbar from "./GridEditToolbar";
 import { Loader } from "@/components/ui/loader";
-import ImageEditModal from "./ImageEditModal";
+import { Button } from "@/components/common/Button";
 import { ImagePosition } from "../types";
 import {IoClose} from "react-icons/io5";
 import useUserStore from "@/hooks/store/useUserStore";
@@ -21,6 +21,8 @@ import { useAlertStore } from "@/hooks/store/useAlertStore";
 import { DriveItemMemoUpdateRequest } from "@/service/file/schemas";
 import { IEditMemoData } from "@/components/modal/memo-edit/types";
 import { useSearchParams } from "next/navigation";
+import useS3FileUpload from "@/hooks/useS3FileUpload";
+import { useImageEditModalStore } from "@/hooks/store/useImageEditModalStore";
 
 interface GridBElementProps {
   index: number;
@@ -405,6 +407,317 @@ function GridBElement({
   const [imagePositions, setImagePositions] = React.useState<ImagePosition[]>(() => 
     Array(imageCount).fill({ x: 0, y: 0, scale: 1 })
   );
+
+  // 인라인 편집 상태 및 레퍼런스
+  const [inlineEditState, setInlineEditState] = React.useState<{
+    active: boolean;
+    imageIndex: number | null;
+    tempPosition: { x: number; y: number; scale: number };
+    startPointer: { x: number; y: number } | null;
+    mode: 'drag' | 'resize' | null;
+    cropActive: boolean;
+    cropRect?: { left: number; top: number; right: number; bottom: number } | null;
+    cropDraggingEdge?: 'left' | 'right' | 'top' | 'bottom' | null;
+    cropStartPointer?: { x: number; y: number } | null;
+    cropBounds?: { left: number; top: number; right: number; bottom: number } | null;
+  }>({
+    active: false,
+    imageIndex: null,
+    tempPosition: { x: 0, y: 0, scale: 1 },
+    startPointer: null,
+    mode: null,
+    cropActive: false,
+    cropRect: null,
+    cropDraggingEdge: null,
+    cropStartPointer: null,
+    cropBounds: null,
+  });
+
+  const imageContainerRefs = React.useRef<Record<number, HTMLDivElement | null>>({});
+  const suppressClickRef = React.useRef<boolean>(false);
+  const isEditingIndex = React.useCallback((idx: number) => inlineEditState.active && inlineEditState.imageIndex === idx, [inlineEditState]);
+  const { setImageEditModalOpen } = useImageEditModalStore();
+
+  const beginInlineEdit = React.useCallback((imageIndex: number) => {
+    const base = imagePositions[imageIndex] || { x: 0, y: 0, scale: 1 };
+    setInlineEditState({
+      active: true,
+      imageIndex,
+      tempPosition: { x: base.x || 0, y: base.y || 0, scale: base.scale || 1 },
+      startPointer: null,
+      mode: null,
+      cropActive: false,
+      cropRect: null,
+      cropDraggingEdge: null,
+      cropStartPointer: null,
+      cropBounds: null,
+    });
+    // 전역 플래그로 보드 DnD 비활성화
+    setImageEditModalOpen(true);
+  }, [imagePositions, setImageEditModalOpen]);
+
+  const endInlineEditConfirm = React.useCallback(() => {
+    if (!inlineEditState.active || inlineEditState.imageIndex === null) {
+      setInlineEditState(prev => ({ ...prev, active: false, imageIndex: null, mode: null, cropActive: false }));
+      setImageEditModalOpen(false);
+      return;
+    }
+    const idx = inlineEditState.imageIndex;
+    const nextPositions = [...imagePositions];
+    nextPositions[idx] = { ...nextPositions[idx], ...inlineEditState.tempPosition } as ImagePosition;
+    setImagePositions(nextPositions);
+    setInlineEditState(prev => ({ ...prev, active: false, imageIndex: null, mode: null, cropActive: false }));
+    // 전역 플래그로 보드 DnD 재활성화
+    setImageEditModalOpen(false);
+  }, [inlineEditState, imagePositions, setImageEditModalOpen]);
+
+  const endInlineEditCancel = React.useCallback(() => {
+    setInlineEditState(prev => ({ ...prev, active: false, imageIndex: null, mode: null, cropActive: false }));
+    setImageEditModalOpen(false);
+  }, [setImageEditModalOpen]);
+
+  // 크롭 제어
+  const beginCrop = React.useCallback(() => {
+    const idx = inlineEditState.imageIndex;
+    const container = idx !== null ? imageContainerRefs.current[idx] : null;
+    const imageUrl = idx !== null ? currentImages[idx] : undefined;
+    if (!container || !imageUrl || idx === null) {
+      setInlineEditState(prev => ({ ...prev, cropActive: true }));
+      return;
+    }
+    const img = document.createElement('img');
+    img.crossOrigin = 'anonymous';
+    img.referrerPolicy = 'no-referrer';
+    img.src = imageUrl;
+    img.onload = () => {
+      const rect = container.getBoundingClientRect();
+      const containerW = rect.width;
+      const containerH = rect.height;
+      const position = isEditingIndex(idx) ? inlineEditState.tempPosition : (imagePositions[idx] || { x: 0, y: 0, scale: 1 });
+      const { x = 0, y = 0, scale = 1 } = position;
+      const imgAspect = img.width / img.height;
+      const boxAspect = containerW / containerH;
+      let drawW = containerW;
+      let drawH = containerH;
+      if (imgAspect > boxAspect) { drawH = containerH; drawW = drawH * imgAspect; } else { drawW = containerW; drawH = drawW / imgAspect; }
+      const scaledW = drawW * (scale || 1);
+      const scaledH = drawH * (scale || 1);
+      const imageLeft = (containerW / 2) - (scaledW / 2) + x;
+      const imageTop = (containerH / 2) - (scaledH / 2) + y;
+      const imageRight = imageLeft + scaledW;
+      const imageBottom = imageTop + scaledH;
+      const cropLeft = Math.max(0, imageLeft);
+      const cropTop = Math.max(0, imageTop);
+      const cropRight = Math.min(containerW, imageRight);
+      const cropBottom = Math.min(containerH, imageBottom);
+      setInlineEditState(prev => ({
+        ...prev,
+        cropActive: true,
+        cropRect: { left: cropLeft, top: cropTop, right: cropRight, bottom: cropBottom },
+        cropDraggingEdge: null,
+        cropStartPointer: null,
+        cropBounds: { left: cropLeft, top: cropTop, right: cropRight, bottom: cropBottom },
+      }));
+    };
+    img.onerror = () => { setInlineEditState(prev => ({ ...prev, cropActive: true })); };
+  }, [inlineEditState.imageIndex, inlineEditState.tempPosition, imagePositions, isEditingIndex, currentImages]);
+
+  const { postFile } = useS3FileUpload();
+  const finishCropAndUpload = React.useCallback(async () => {
+    const idx = inlineEditState.imageIndex;
+    if (idx === null) { setInlineEditState(prev => ({ ...prev, cropActive: false })); return; }
+    const container = imageContainerRefs.current[idx];
+    const imageUrl = currentImages[idx];
+    if (!container || !imageUrl || !inlineEditState.cropRect) { setInlineEditState(prev => ({ ...prev, cropActive: false })); return; }
+    try {
+      const img = document.createElement('img');
+      img.crossOrigin = 'anonymous';
+      img.referrerPolicy = 'no-referrer';
+      img.src = imageUrl;
+      await new Promise<void>((resolve) => { img.onload = () => resolve(); img.onerror = () => resolve(); });
+      const containerRect = container.getBoundingClientRect();
+      const scale = isEditingIndex(idx) ? inlineEditState.tempPosition.scale : (imagePositions[idx]?.scale || 1);
+      const transX = isEditingIndex(idx) ? inlineEditState.tempPosition.x : (imagePositions[idx]?.x || 0);
+      const transY = isEditingIndex(idx) ? inlineEditState.tempPosition.y : (imagePositions[idx]?.y || 0);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.floor(containerRect.width));
+      canvas.height = Math.max(1, Math.floor(containerRect.height));
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { setInlineEditState(prev => ({ ...prev, cropActive: false })); return; }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const imgAspect = img.width / img.height;
+      const boxAspect = canvas.width / canvas.height;
+      let drawW = canvas.width; let drawH = canvas.height;
+      if (imgAspect > boxAspect) { drawH = canvas.height; drawW = drawH * imgAspect; } else { drawW = canvas.width; drawH = drawW / imgAspect; }
+      const dx = (canvas.width - drawW) / 2 + transX;
+      const dy = (canvas.height - drawH) / 2 + transY;
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.scale(scale || 1, scale || 1);
+      ctx.translate(-canvas.width / 2, -canvas.height / 2);
+      ctx.drawImage(img, dx, dy, drawW, drawH);
+      ctx.restore();
+      const c = inlineEditState.cropRect;
+      const cropW = Math.max(1, Math.floor(c.right - c.left));
+      const cropH = Math.max(1, Math.floor(c.bottom - c.top));
+      const cropCanvas = document.createElement('canvas');
+      cropCanvas.width = cropW; cropCanvas.height = cropH;
+      const cropCtx = cropCanvas.getContext('2d');
+      if (!cropCtx) { setInlineEditState(prev => ({ ...prev, cropActive: false })); return; }
+      cropCtx.drawImage(canvas, Math.floor(c.left), Math.floor(c.top), cropW, cropH, 0, 0, cropW, cropH);
+      const blob: Blob | null = await new Promise((res) => cropCanvas.toBlob((b) => res(b), 'image/jpeg', 0.9));
+      if (!blob) { setInlineEditState(prev => ({ ...prev, cropActive: false })); return; }
+      const croppedFile = new File([blob], `cropped_${Date.now()}.jpg`, { type: 'image/jpeg' });
+      const uploadRes = await postFile({ file: croppedFile, fileType: 'IMAGE', taskType: 'ETC', thumbFile: croppedFile });
+      let newThumbUrl: string | undefined; let newDriveItemKey: string | undefined;
+      if (Array.isArray(uploadRes)) {
+      } else if (uploadRes) {
+        const anyRes = uploadRes as any;
+        newThumbUrl = anyRes.thumbUrl || anyRes?.driveItemResult?.thumbUrl || undefined;
+        newDriveItemKey = anyRes.driveItemKey || anyRes?.driveItemResult?.key || undefined;
+      }
+      if (newThumbUrl) {
+        const prevUrl = currentImages[idx];
+        setCurrentImages(prev => { const next = [...prev]; next[idx] = newThumbUrl as string; return next; });
+        setImageMetadata(prev => {
+          const list = [...prev];
+          const metaIndex = list.findIndex(m => m.url === prevUrl);
+          if (metaIndex >= 0) { list[metaIndex] = { url: newThumbUrl as string, driveItemKey: newDriveItemKey }; }
+          else { list.push({ url: newThumbUrl as string, driveItemKey: newDriveItemKey }); }
+          return list;
+        });
+        if (gridId && newThumbUrl) {
+          const validImages = Array.isArray(gridContents[gridId]?.imageUrls) ? [...(gridContents[gridId]?.imageUrls as string[])] : [];
+          while (validImages.length < imageCount) validImages.push("");
+          if (idx < validImages.length) validImages[idx] = newThumbUrl as string;
+          updateImages(gridId, validImages.slice(0, imageCount));
+        }
+      } else {
+        const localUrl = URL.createObjectURL(croppedFile);
+        setCurrentImages(prev => { const next = [...prev]; next[idx] = localUrl; return next; });
+      }
+    } finally {
+      setInlineEditState(prev => ({ ...prev, cropActive: false, cropRect: null }));
+    }
+  }, [inlineEditState.imageIndex, inlineEditState.cropRect, inlineEditState.tempPosition, imagePositions, isEditingIndex, currentImages, postFile, gridId, updateImages, gridContents, imageCount]);
+
+  const cancelCrop = React.useCallback(() => {
+    setInlineEditState(prev => ({ ...prev, cropActive: false, cropRect: null, cropDraggingEdge: null, cropStartPointer: null }));
+  }, []);
+
+  const onEditMouseDown = React.useCallback((e: React.MouseEvent) => {
+    if (!inlineEditState.active || inlineEditState.imageIndex === null) return;
+    const target = e.target as HTMLElement;
+    if (target?.dataset?.handle) return;
+    e.preventDefault(); e.stopPropagation();
+    suppressClickRef.current = false;
+    setInlineEditState(prev => ({ ...prev, startPointer: { x: e.clientX, y: e.clientY }, mode: 'drag' }));
+    const onMove = (ev: MouseEvent) => {
+      setInlineEditState(prev => {
+        if (!prev.startPointer) return prev;
+        const dx = ev.clientX - prev.startPointer.x; const dy = ev.clientY - prev.startPointer.y;
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) { suppressClickRef.current = true; }
+        return { ...prev, startPointer: { x: ev.clientX, y: ev.clientY }, tempPosition: { x: prev.tempPosition.x + dx, y: prev.tempPosition.y + dy, scale: prev.tempPosition.scale } };
+      });
+    };
+    const onUp = () => {
+      setInlineEditState(prev => {
+        if (prev.imageIndex !== null) {
+          const idx = prev.imageIndex; const nextPositions = [...imagePositions];
+          nextPositions[idx] = { ...nextPositions[idx], ...prev.tempPosition } as ImagePosition;
+          setImagePositions(nextPositions);
+        }
+        return { ...prev, startPointer: null, mode: null };
+      });
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [inlineEditState.active, inlineEditState.imageIndex, imagePositions]);
+
+  const onResizeHandleDown = React.useCallback((e: React.MouseEvent) => {
+    if (!inlineEditState.active) return;
+    e.preventDefault(); e.stopPropagation();
+    setInlineEditState(prev => ({ ...prev, startPointer: { x: e.clientX, y: e.clientY }, mode: 'resize' }));
+    const onMove = (ev: MouseEvent) => {
+      setInlineEditState(prev => {
+        if (!prev.startPointer) return prev;
+        if (prev.cropActive && prev.cropRect) { return prev; }
+        const dy = ev.clientY - prev.startPointer.y; const dx = ev.clientX - prev.startPointer.x;
+        const delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+        const newScale = Math.max(0.2, Math.min(5, prev.tempPosition.scale + delta * 0.005));
+        return { ...prev, startPointer: { x: ev.clientX, y: ev.clientY }, tempPosition: { ...prev.tempPosition, scale: newScale } };
+      });
+    };
+    const onUp = () => {
+      setInlineEditState(prev => {
+        if (prev.imageIndex !== null) {
+          const idx = prev.imageIndex; const nextPositions = [...imagePositions];
+          nextPositions[idx] = { ...nextPositions[idx], ...prev.tempPosition } as ImagePosition;
+          setImagePositions(nextPositions);
+        }
+        return { ...prev, startPointer: null, mode: null };
+      });
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [inlineEditState.active, imagePositions]);
+
+  const renderResizeHandles = React.useCallback((idx: number) => {
+    if (!isEditingIndex(idx)) return null;
+    const s = inlineEditState.tempPosition.scale || 1;
+    const overlayTransform = `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${s})`;
+    const handleScaleStyle = { transform: `scale(${1 / s})`, transformOrigin: 'center' as const } as React.CSSProperties;
+    return (
+      <div className="absolute inset-0 z-50 pointer-events-none" style={{ transform: inlineEditState.cropActive ? 'none' : overlayTransform, transformOrigin: 'center' }}>
+        {!inlineEditState.cropActive && (
+          <>
+            <div data-handle="true" className="absolute -top-2 -left-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nwse-resize pointer-events-auto" style={handleScaleStyle} onMouseDown={onResizeHandleDown} />
+            <div data-handle="true" className="absolute -top-2 -right-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nesw-resize pointer-events-auto" style={handleScaleStyle} onMouseDown={onResizeHandleDown} />
+            <div data-handle="true" className="absolute -bottom-2 -left-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nesw-resize pointer-events-auto" style={handleScaleStyle} onMouseDown={onResizeHandleDown} />
+            <div data-handle="true" className="absolute -bottom-2 -right-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nwse-resize pointer-events-auto" style={handleScaleStyle} onMouseDown={onResizeHandleDown} />
+          </>
+        )}
+
+        {inlineEditState.cropActive && inlineEditState.cropRect && (
+          <>
+            <div className="absolute border-2 border-dotted border-[#3D8BFF] rounded-sm pointer-events-none" style={{ left: inlineEditState.cropRect.left, top: inlineEditState.cropRect.top, width: Math.max(0, inlineEditState.cropRect.right - inlineEditState.cropRect.left), height: Math.max(0, inlineEditState.cropRect.bottom - inlineEditState.cropRect.top) }} />
+            {/* Top bar */}
+            <div className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-n-resize" style={{ width: 15, height: 8, top: inlineEditState.cropRect.top - 4, left: ((inlineEditState.cropRect.left + inlineEditState.cropRect.right) / 2) - 7.5 }}
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'top', cropStartPointer: { x: e.clientX, y: e.clientY } }));
+                const onMove = (ev: MouseEvent) => { setInlineEditState(prev => { if (!prev.cropRect || prev.cropDraggingEdge !== 'top' || !prev.cropStartPointer) return prev; const dy = ev.clientY - prev.cropStartPointer.y; const boundTop = prev.cropBounds ? prev.cropBounds.top : 0; const nextTop = Math.max(boundTop, Math.min(prev.cropRect.top + dy, prev.cropRect.bottom - 15)); return { ...prev, cropRect: { ...prev.cropRect, top: nextTop }, cropStartPointer: { x: ev.clientX, y: ev.clientY } }; }); };
+                const onUp = () => { setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null })); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+                window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp); }}
+            />
+            {/* Bottom bar */}
+            <div className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-s-resize" style={{ width: 15, height: 8, top: inlineEditState.cropRect.bottom - 4, left: ((inlineEditState.cropRect.left + inlineEditState.cropRect.right) / 2) - 7.5 }}
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'bottom', cropStartPointer: { x: e.clientX, y: e.clientY } }));
+                const onMove = (ev: MouseEvent) => { setInlineEditState(prev => { if (!prev.cropRect || prev.cropDraggingEdge !== 'bottom' || !prev.cropStartPointer) return prev; const dy = ev.clientY - prev.cropStartPointer.y; const boundBottom = prev.cropBounds ? prev.cropBounds.bottom : Infinity; const nextBottom = Math.min(boundBottom, Math.max(prev.cropRect.bottom + dy, prev.cropRect.top + 15)); return { ...prev, cropRect: { ...prev.cropRect, bottom: nextBottom }, cropStartPointer: { x: ev.clientX, y: ev.clientY } }; }); };
+                const onUp = () => { setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null })); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+                window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp); }}
+            />
+            {/* Left bar */}
+            <div className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-w-resize" style={{ width: 8, height: 15, left: inlineEditState.cropRect.left - 4, top: ((inlineEditState.cropRect.top + inlineEditState.cropRect.bottom) / 2) - 7.5 }}
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'left', cropStartPointer: { x: e.clientX, y: e.clientY } }));
+                const onMove = (ev: MouseEvent) => { setInlineEditState(prev => { if (!prev.cropRect || prev.cropDraggingEdge !== 'left' || !prev.cropStartPointer) return prev; const dx = ev.clientX - prev.cropStartPointer.x; const boundLeft = prev.cropBounds ? prev.cropBounds.left : 0; const nextLeft = Math.max(boundLeft, Math.min(prev.cropRect.left + dx, prev.cropRect.right - 15)); return { ...prev, cropRect: { ...prev.cropRect, left: nextLeft }, cropStartPointer: { x: ev.clientX, y: ev.clientY } }; }); };
+                const onUp = () => { setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null })); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+                window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp); }}
+            />
+            {/* Right bar */}
+            <div className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-e-resize" style={{ width: 8, height: 15, left: inlineEditState.cropRect.right - 4, top: ((inlineEditState.cropRect.top + inlineEditState.cropRect.bottom) / 2) - 7.5 }}
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'right', cropStartPointer: { x: e.clientX, y: e.clientY } }));
+                const onMove = (ev: MouseEvent) => { setInlineEditState(prev => { if (!prev.cropRect || prev.cropDraggingEdge !== 'right' || !prev.cropStartPointer) return prev; const dx = ev.clientX - prev.cropStartPointer.x; const boundRight = prev.cropBounds ? prev.cropBounds.right : Infinity; const nextRight = Math.min(boundRight, Math.max(prev.cropRect.right + dx, prev.cropRect.left + 15)); return { ...prev, cropRect: { ...prev.cropRect, right: nextRight }, cropStartPointer: { x: ev.clientX, y: ev.clientY } }; }); };
+                const onUp = () => { setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null })); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+                window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp); }}
+            />
+          </>
+        )}
+      </div>
+    );
+  }, [isEditingIndex, inlineEditState.tempPosition]);
 
   // 이미지 편집 모달 상태
   const [imageEditModal, setImageEditModal] = React.useState<{
@@ -1003,26 +1316,10 @@ function GridBElement({
     fileInput.click();
   };
 
-  // 이미지 편집 모달 열기 핸들러
+  // 이미지 더블클릭 시 인라인 편집 시작
   const handleImageAdjustClick = (imageIndex: number, imageUrl: string) => {
     if (imageUrl && imageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
-      // 모든 유효한 이미지들을 가져와서 ImageEditModal 사용
-      const validImages = currentImages.filter(img => 
-        img && img !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
-      );
-      
-      if (validImages.length > 0) {
-        // 클릭한 이미지가 유효한 이미지 목록에서 몇 번째인지 찾기
-        const clickedImageIndex = validImages.findIndex(img => img === imageUrl);
-        const finalSelectedIndex = clickedImageIndex >= 0 ? clickedImageIndex : 0;
-        
-        setImageEditModal({
-          isOpen: true,
-          imageUrls: validImages,
-          selectedImageIndex: finalSelectedIndex,
-          originalImageIndex: imageIndex // 클릭한 원래 이미지 인덱스 저장
-        });
-      }
+      beginInlineEdit(imageIndex);
     }
   };
 
@@ -1488,23 +1785,26 @@ function GridBElement({
                 >
                   {imageSrc && imageSrc !== "" && imageSrc !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                     <div
-                      className="absolute inset-0 overflow-hidden rounded-md cursor-pointer group"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleImageAdjustClick(index, imageSrc);
-                      }}
+                      className={`absolute inset-0 ${isEditingIndex(index) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} rounded-md cursor-pointer group`}
+                      onDoubleClick={(e) => { e.stopPropagation(); beginInlineEdit(index); }}
+                      ref={(el) => { imageContainerRefs.current[index] = el; }}
                     >
-                      <Image
+                      <img
                         src={imageSrc}
                         alt={`Image ${index + 1}`}
-                        fill
-                        className="object-cover rounded-md"
+                        className="absolute inset-0 w-full h-full object-cover rounded-md"
                         style={{
-                          transform: `translate(${imagePositions[index]?.x || 0}px, ${imagePositions[index]?.y || 0}px) scale(${imagePositions[index]?.scale || 1})`,
+                          transform: isEditingIndex(index)
+                            ? `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${inlineEditState.tempPosition.scale})`
+                            : `translate(${imagePositions[index]?.x || 0}px, ${imagePositions[index]?.y || 0}px) scale(${imagePositions[index]?.scale || 1})`,
                           transformOrigin: 'center'
                         }}
                         data-id={getDriveItemKeyByImageUrl(imageSrc)}
+                        onDoubleClick={(e) => { e.stopPropagation(); beginInlineEdit(index); }}
+                        onMouseDown={isEditingIndex(index) ? onEditMouseDown : undefined}
+                        draggable={false}
                       />
+                      {renderResizeHandles(index)}
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[index] && (
                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 rounded-md">
@@ -1749,16 +2049,29 @@ function GridBElement({
         document.body
       )}
 
-      {/* 이미지 편집 모달 */}
-      <ImageEditModal
-        isOpen={imageEditModal.isOpen}
-        onClose={() => setImageEditModal(prev => ({ ...prev, isOpen: false }))}
-        imageUrls={imageEditModal.imageUrls}
-        selectedImageIndex={imageEditModal.selectedImageIndex}
-        onApply={handleImageEditApply}
-        onImageOrderChange={handleImageOrderChange}
-        targetFrame={measureImageCellSize(imageEditModal.originalImageIndex || 0)}
-      />
+      {/* 인라인 편집 컨트롤 포털 */}
+      {inlineEditState.active && typeof window !== 'undefined' && ReactDOM.createPortal(
+        <div className="fixed z-[10000]" style={{ left: 0, top: 0, pointerEvents: 'none' }}>
+          <div
+            className="absolute -translate-x-1/2 flex gap-2"
+            style={{ left: (imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().left || 0) + ((imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().width || 0) / 2), top: (imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().bottom || 0) + 8 }}
+          >
+            <div className="bg-white shadow rounded-md px-2 py-1 border border-gray-200 flex gap-2" style={{ pointerEvents: 'auto' }}>
+              {!inlineEditState.cropActive ? (
+                <Button color="line" size="small" onClick={beginCrop}>크롭 시작</Button>
+              ) : (
+                <>
+                  <Button color="primary" size="small" onClick={finishCropAndUpload}>크롭 완료</Button>
+                  <Button color="gray" size="small" onClick={cancelCrop}>크롭 취소</Button>
+                </>
+              )}
+              <Button color="primary" size="small" onClick={endInlineEditConfirm}>확인</Button>
+              <Button color="gray" size="small" onClick={endInlineEditCancel}>취소</Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
       
       {/* 이미지 업로드 모달 */}
       {isUploadModalOpen && (

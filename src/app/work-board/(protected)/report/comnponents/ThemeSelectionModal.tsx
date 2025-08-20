@@ -6,107 +6,107 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+//
+
+import type { ThemeItem, ThemeItemListResponse } from "./types";
+import { useGlobalThemeStore } from "@/hooks/store/useGlobalThemeStore";
 
 interface ThemeSelectionModalProps {
   children: React.ReactNode;
 }
 
-// 드래그 스크롤 훅
-function useDragScroll() {
-  const scrollRef = React.useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = React.useState(false);
-  const [startX, setStartX] = React.useState(0);
-  const [scrollLeft, setScrollLeft] = React.useState(0);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!scrollRef.current) return;
-    setIsDragging(true);
-    setStartX(e.pageX - scrollRef.current.offsetLeft);
-    setScrollLeft(scrollRef.current.scrollLeft);
-    scrollRef.current.style.cursor = 'grabbing';
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !scrollRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX) * 2; // 스크롤 속도 조절
-    scrollRef.current.scrollLeft = scrollLeft - walk;
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    if (scrollRef.current) {
-      scrollRef.current.style.cursor = 'grab';
-    }
-  };
-
-  const handleMouseLeave = () => {
-    setIsDragging(false);
-    if (scrollRef.current) {
-      scrollRef.current.style.cursor = 'grab';
-    }
-  };
-
-  return {
-    scrollRef,
-    isDragging,
-    dragProps: {
-      onMouseDown: handleMouseDown,
-      onMouseMove: handleMouseMove,
-      onMouseUp: handleMouseUp,
-      onMouseLeave: handleMouseLeave,
-      style: { cursor: 'grab' }
-    }
-  };
-}
+// 카테고리 버튼 비활성화로 드래그 스크롤 훅 제거
 
 function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
   const [activeTab, setActiveTab] = React.useState("테마선택");
-  const [selectedCategory, setSelectedCategory] = React.useState("카테고리1");
   const [selectedImage, setSelectedImage] = React.useState<number | null>(null);
-  const [selectedBgCategory, setSelectedBgCategory] = React.useState("카테고리1");
   const [selectedBgImage, setSelectedBgImage] = React.useState<number | null>(null);
 
-  // 드래그 스크롤 훅 사용
-  const categoryDragScroll = useDragScroll();
-  const bgCategoryDragScroll = useDragScroll();
+  const [themeItems, setThemeItems] = React.useState<ThemeItem[]>([]);
+  const [bgItems, setBgItems] = React.useState<ThemeItem[]>([]);
+  const [isLoading, setIsLoading] = React.useState(false);
 
-  const categories = [
-    "카테고리1",
-    "카테고리2",
-    "카테고리3",
-    "카테고리4"
-  ];
+  const { setTheme, setBackgroundImageUrlFor, currentType } = useGlobalThemeStore();
 
-  const bgCategories = [
-    "카테고리1",
-    "카테고리2",
-    "카테고리3",
-    "카테고리4"
-  ];
+  React.useEffect(() => {
+    let isMounted = true;
+    const fetchThemes = async () => {
+      setIsLoading(true);
+      try {
+        const res = await fetch(`/api/report/theme-item-list?offsetWithLimit=0,20&sorts=createdAt.desc,name.asc`, { method: "GET" });
+        if (!res.ok) {
+          if (isMounted) {
+            setThemeItems([]);
+            setBgItems([]);
+          }
+          return;
+        }
+        const data = (await res.json()) as ThemeItemListResponse;
+        const list = Array.isArray(data?.result) ? data.result : [];
+        if (isMounted) {
+          setThemeItems(list);
+          setBgItems(list);
+        }
+      } catch (_) {
+        if (isMounted) {
+          setThemeItems([]);
+          setBgItems([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+    fetchThemes();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-  // 3x4 그리드를 위한 12개 이미지 배열
-  const imageItems = Array.from({ length: 12 }, (_, index) => ({
-    id: index,
-    src: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sample.png",
-    alt: `테마 이미지 ${index + 1}`,
-  }));
+  // 카테고리 버튼 HIDE: 기존 카테고리 UI 제거
 
-  // 배경 이미지 배열
-  const bgImageItems = Array.from({ length: 12 }, (_, index) => ({
-    id: index,
-    src: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sample.png",
-    alt: `배경 이미지 ${index + 1}`,
-  }));
+  // 리스트는 API에서 받아온 result를 사용 (thumbUrl 기반 렌더링)
+
+  const handleApply = React.useCallback(() => {
+    // 탭 상태에 따라 적용 동작 분기
+    if (activeTab === "테마선택" && selectedImage != null) {
+      const selected = themeItems.find((it) => Number(it.id) === Number(selectedImage));
+      if (selected) {
+        const themeId = typeof selected.id === "number" ? selected.id : parseInt(String(selected.id));
+        const backgroundImageUrl = selected.backgroundImage
+          ? typeof selected.backgroundImage === "string"
+            ? selected.backgroundImage
+            : selected.backgroundImage.imageUrl || ""
+          : "";
+        setTheme(
+          {
+            id: themeId,
+            name: selected.name,
+            backgroundImage: backgroundImageUrl
+              ? {
+                  id: 0,
+                  imageUrl: backgroundImageUrl,
+                }
+              : null,
+          },
+          currentType
+        );
+      }
+    } else if (activeTab === "배경" && selectedBgImage != null) {
+      const selected = bgItems.find((it) => Number(it.id) === Number(selectedBgImage));
+      if (selected) {
+        const bgUrl = (selected.backgroundImage && (typeof selected.backgroundImage === "string" ? selected.backgroundImage : selected.backgroundImage.imageUrl)) || selected.thumbUrl || selected.previewUrl || "";
+        setBackgroundImageUrlFor(currentType, bgUrl || null);
+      }
+    }
+  }, [activeTab, selectedImage, selectedBgImage, themeItems, bgItems, setTheme, setBackgroundImageUrlFor, currentType]);
 
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-[541px] p-0 border-none bg-transparent shadow-none">
-        <div className="flex overflow-hidden flex-col px-10 py-10 leading-none bg-white rounded-3xl max-w-[541px] max-md:px-5">
+      <DialogContent className="max-w-[700px] p-0 border-none bg-transparent shadow-none">
+        <div className="flex overflow-hidden flex-col px-10 py-10 leading-none bg-white rounded-3xl max-w-[700px] max-md:px-5">
           <div className="flex gap-5 justify-between items-start w-full max-md:max-w-full mb-10">
             <div className="text-xl font-semibold tracking-tight text-gray-700">
               테마 선택
@@ -160,119 +160,95 @@ function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
             {/* 탭 내용 */}
             {activeTab === "테마선택" && (
               <div className="space-y-0">
-                <ScrollArea className="w-full whitespace-nowrap rounded-md mb-5">
-                  <div 
-                    ref={categoryDragScroll.scrollRef}
-                    {...categoryDragScroll.dragProps}
-                    className="flex gap-2.5 text-base font-medium tracking-tight text-gray-700 p-1 select-none"
-                  >
-                    {categories.map((category, index) => (
-                      <button
-                        key={index}
-                        onClick={(e) => {
-                          // 드래그 중일 때는 클릭 이벤트 방지
-                          if (!categoryDragScroll.isDragging) {
-                            setSelectedCategory(category);
-                          }
-                        }}
-                        className={`flex overflow-hidden flex-col justify-center min-w-[91px] w-[91px] h-[42px] rounded-[50px] transition-all duration-200 flex-shrink-0 pointer-events-auto ${
-                          selectedCategory === category
-                            ? "text-white bg-primary hover:bg-primary/80 shadow-md scale-105"
-                            : "border border-solid border-zinc-100 hover:bg-gray-50 hover:border-primary"
-                        }`}
-                        style={{ cursor: categoryDragScroll.isDragging ? 'grabbing' : 'pointer' }}
-                      >
-                        <div>{category}</div>
-                      </button>
-                    ))}
-                  </div>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
-                
-                {/* 이미지 그리드 3x4 - 화면 50vh 높이까지만 보여주고 스크롤 가능 */}
-                <div className="grid grid-cols-3 gap-3 w-full max-h-[50vh] overflow-y-auto overflow-x-hidden">
-                  {imageItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => setSelectedImage(item.id)}
-                      className={`relative h-[196px] rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 ${
-                        selectedImage === item.id
-                          ? "ring-2 ring-[#FAB83D] ring-offset-2"
-                          : "ring-1 ring-gray-200 hover:ring-[#FAB83D]"
-                      }`}
-                    >
-                      <img
-                        src={item.src}
-                        alt={item.alt}
-                        className="w-full h-full object-cover"
-                      />
-                      {selectedImage === item.id && (
-                        <div className="absolute inset-0 bg-[#FAB83D] bg-opacity-20 flex items-center justify-center">
-                          
+                {/* 카테고리 버튼 HIDE - 제거 */}
+                {/* 이미지 그리드 4x4 - 화면 50vh 높이까지만 보여주고 스크롤 가능 */}
+                <div className="grid grid-cols-4 gap-3 w-full max-h-[50vh] overflow-y-auto overflow-x-hidden p-1">
+                  {isLoading && (
+                    <div className="col-span-3 text-center text-sm text-zinc-400 py-6">불러오는 중…</div>
+                  )}
+                  {!isLoading && Array.from({ length: 16 }).map((_, idx) => {
+                    const item = themeItems[idx];
+                    if (!item) {
+                      return (
+                        <div
+                          key={`theme-empty-${idx}`}
+                          className="relative w-[145px] h-[196px] rounded-lg border border-gray-100 bg-gray-50 flex items-center justify-center"
+                        >
+                          <img
+                            src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg"
+                            alt="이미지 없음"
+                            className="w-6 h-6 opacity-40"
+                          />
                         </div>
-                      )}
-                    </button>
-                  ))}
+                      );
+                    }
+                    const idNum = typeof item.id === 'number' ? item.id : parseInt(String(item.id));
+                    return (
+                      <button
+                        key={String(item.id)}
+                        onClick={() => setSelectedImage(idNum)}
+                        className={`relative w-[145px] h-[196px] rounded-lg overflow-hidden ${
+                          selectedImage === idNum
+                            ? "ring-2 ring-[#FAB83D] ring-offset-2"
+                            : "ring-1 ring-gray-200"
+                        }`}
+                      >
+                        <img
+                          src={item.thumbUrl || item.previewUrl || "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sample.png"}
+                          alt={item.name || '테마 이미지'}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
             
             {activeTab === "배경" && (
               <div className="space-y-0">
-                <ScrollArea className="w-full whitespace-nowrap rounded-md mb-5">
-                  <div 
-                    ref={bgCategoryDragScroll.scrollRef}
-                    {...bgCategoryDragScroll.dragProps}
-                    className="flex gap-2.5 text-base font-medium tracking-tight text-gray-700 p-1 select-none"
-                  >
-                    {bgCategories.map((category, index) => (
-                      <button
-                        key={index}
-                        onClick={(e) => {
-                          // 드래그 중일 때는 클릭 이벤트 방지
-                          if (!bgCategoryDragScroll.isDragging) {
-                            setSelectedBgCategory(category);
-                          }
-                        }}
-                        className={`flex overflow-hidden flex-col justify-center min-w-[91px] w-[91px] h-[42px] rounded-[50px] transition-all duration-200 flex-shrink-0 pointer-events-auto ${
-                          selectedBgCategory === category
-                            ? "text-white bg-primary hover:bg-primary/80 shadow-md scale-105"
-                            : "border border-solid border-zinc-100 hover:bg-gray-50 hover:border-primary"
-                        }`}
-                        style={{ cursor: bgCategoryDragScroll.isDragging ? 'grabbing' : 'pointer' }}
-                      >
-                        <div>{category}</div>
-                      </button>
-                    ))}
-                  </div>
-                  <ScrollBar orientation="horizontal" />
-                </ScrollArea>
-                
-                {/* 배경 이미지 그리드 3x4 - 화면 50vh 높이까지만 보여주고 스크롤 가능 */}
-                <div className="grid grid-cols-3 gap-3 w-full max-h-[50vh] overflow-y-auto overflow-x-hidden">
-                  {bgImageItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => setSelectedBgImage(item.id)}
-                      className={`relative h-[196px] rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 ${
-                        selectedBgImage === item.id
-                          ? "ring-2 ring-[#FAB83D] ring-offset-2"
-                          : "ring-1 ring-gray-200 hover:ring-[#FAB83D]"
-                      }`}
-                    >
-                      <img
-                        src={item.src}
-                        alt={item.alt}
-                        className="w-full h-full object-cover"
-                      />
-                      
-                      {selectedBgImage === item.id && (
-                        <div className="absolute inset-0 bg-[#FAB83D] bg-opacity-20 flex items-center justify-center">
-                          
+                {/* 카테고리 버튼 HIDE - 제거 */}
+                {/* 배경 이미지 그리드 4x4 - 화면 50vh 높이까지만 보여주고 스크롤 가능 */}
+                <div className="grid grid-cols-4 gap-3 w-full max-h-[50vh] overflow-y-auto overflow-x-hidden p-1">
+                  {isLoading && (
+                    <div className="col-span-3 text-center text-sm text-zinc-400 py-6">불러오는 중…</div>
+                  )}
+                  {!isLoading && Array.from({ length: 16 }).map((_, idx) => {
+                    const item = bgItems[idx];
+                    if (!item) {
+                      return (
+                        <div
+                          key={`bg-empty-${idx}`}
+                          className="relative w-[145px] h-[196px] rounded-lg border border-gray-100 bg-gray-50 flex items-center justify-center"
+                        >
+                          <img
+                            src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg"
+                            alt="이미지 없음"
+                            className="w-6 h-6 opacity-40"
+                          />
                         </div>
-                      )}
-                    </button>
-                  ))}
+                      );
+                    }
+                    const idNum = typeof item.id === 'number' ? item.id : parseInt(String(item.id));
+                    const bgUrl = (item.backgroundImage && (typeof item.backgroundImage === 'string' ? item.backgroundImage : item.backgroundImage.imageUrl)) || item.thumbUrl || item.previewUrl || "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/sample.png";
+                    return (
+                      <button
+                        key={`bg-${String(item.id)}`}
+                        onClick={() => setSelectedBgImage(idNum)}
+                        className={`relative w-[145px] h-[196px] rounded-lg overflow-hidden ${
+                          selectedBgImage === idNum
+                            ? "ring-2 ring-[#FAB83D] ring-offset-2"
+                            : "ring-1 ring-gray-200"
+                        }`}
+                      >
+                        <img
+                          src={bgUrl}
+                          alt={item.name || '배경 이미지'}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -284,9 +260,11 @@ function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
                 <div>닫기</div>
               </button>
             </DialogClose>
-            <button className="flex items-center justify-center w-[100px] h-[42px] text-white bg-[#FAB83D] rounded-md hover:bg-[#e5a635] transition-colors">
-              <div>적용</div>
-            </button>
+            <DialogClose asChild>
+              <button onClick={handleApply} className="flex items-center justify-center w-[100px] h-[42px] text-white bg-[#FAB83D] rounded-md hover:bg-[#e5a635] transition-colors">
+                <div>적용</div>
+              </button>
+            </DialogClose>
           </div>
         </div>
       </DialogContent>

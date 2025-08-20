@@ -153,8 +153,8 @@ function LeftSideBarContent() {
                       onClick={() => handleThemeSelect(index)}
                       className={`rounded bg-gray-50 flex flex-col overflow-hidden items-center justify-center aspect-[0.75] cursor-pointer transition-all duration-200 ${
                         selectedTheme === index
-                          ? "border-2 border-primary p-0 bg-transparent hover:bg-transparent"
-                          : "p-2 border border-gray-200 hover:bg-gray-100"
+                          ? "border border-primary bg-transparent hover:bg-transparent"
+                          : " border border-gray-200 hover:bg-gray-100"
                       }`}
                     >
                       {theme?.backgroundImage ? (
@@ -184,7 +184,7 @@ function LeftSideBarContent() {
                     onClick={() => setSelectedBackground(0)}
                     className={`rounded bg-red-100 flex flex-col overflow-hidden items-center justify-center flex-1 p-[86px_29px] cursor-pointer transition-all duration-200 hover:bg-red-200 ${
                       selectedBackground === 0
-                        ? "border-2 border-primary"
+                        ? "border border-primary"
                         : "border border-gray-200"
                     }`}
                   >
@@ -194,7 +194,7 @@ function LeftSideBarContent() {
                     onClick={() => setSelectedBackground(1)}
                     className={`rounded bg-blue-100 flex flex-col overflow-hidden items-center justify-center flex-1 p-[86px_29px] cursor-pointer transition-all duration-200 hover:bg-blue-200 ${
                       selectedBackground === 1
-                        ? "border-2 border-primary"
+                        ? "border border-primary"
                         : "border border-gray-200"
                     }`}
                   >
@@ -206,7 +206,7 @@ function LeftSideBarContent() {
                     onClick={() => setSelectedBackground(2)}
                     className={`rounded bg-green-100 flex flex-col overflow-hidden items-center justify-center flex-1 p-[86px_29px] cursor-pointer transition-all duration-200 hover:bg-green-200 ${
                       selectedBackground === 2
-                        ? "border-2 border-primary"
+                        ? "border border-primary"
                         : "border border-gray-200"
                     }`}
                   >
@@ -216,7 +216,7 @@ function LeftSideBarContent() {
                     onClick={() => setSelectedBackground(3)}
                     className={`rounded bg-yellow-100 flex flex-col overflow-hidden items-center justify-center flex-1 p-[86px_29px] cursor-pointer transition-all duration-200 hover:bg-yellow-200 ${
                       selectedBackground === 3
-                        ? "border-2 border-primary"
+                        ? "border border-primary"
                         : "border border-gray-200"
                     }`}
                   >

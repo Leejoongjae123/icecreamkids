@@ -269,6 +269,7 @@ export interface ImageThumbnailProps {
 export interface ThemeItem {
   id: string | number;
   name: string;
+  thumbUrl?: string;
   previewUrl?: string;
   backgroundImageUrl?: string;
   backgroundImage?: string | {

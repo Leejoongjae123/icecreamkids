@@ -18,6 +18,7 @@ import AddButton from "./AddButton";
 import ApplyModal from "./ApplyModal";
 import { GridBItem } from "./types";
 import useGridContentStore from "@/hooks/store/useGridContentStore";
+import { useImageEditModalStore } from "@/hooks/store/useImageEditModalStore";
 
 interface GridBProps {
   gridCount?: number;
@@ -32,6 +33,7 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
   
   // Grid content store 사용 (초기화용)
   const { updatePlaySubject, updateImages, updateCategoryValue, updateAiGenerated, gridContents } = useGridContentStore();
+  const { isImageEditModalOpen } = useImageEditModalStore();
   
   // 그리드 아이템 데이터 관리
   const [items, setItems] = React.useState<GridBItem[]>(() => {
@@ -78,14 +80,16 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
   const [expandedItems, setExpandedItems] = React.useState<Set<number>>(new Set());
 
   // 센서 설정
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor)
-  );
+  // Hooks는 항상 동일한 순서/개수로 호출되어야 함: 드래그 비활성화 여부와 무관하게 모두 호출
+  const pointerSensor = useSensor(PointerSensor, {
+    activationConstraint: {
+      distance: 8,
+    },
+  });
+  const keyboardSensor = useSensor(KeyboardSensor);
+  const sensorsEnabled = useSensors(pointerSensor, keyboardSensor);
+  const sensorsDisabled = useSensors();
+  const sensors = isImageEditModalOpen ? sensorsDisabled : sensorsEnabled;
 
   // 간단한 collision detection
   const customCollisionDetection: CollisionDetection = closestCenter;
