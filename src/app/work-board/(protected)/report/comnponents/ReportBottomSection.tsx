@@ -362,8 +362,9 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
           {/* 그리드 삭제 버튼 */}
 
           {!isSaved && (
-            <div className="absolute bottom-1 right-2 text-[10px] font-bold text-primary">
-              ({playActivityText.length}/{maxLength})
+            <div className="absolute bottom-1 right-2 text-[10px] font-bold">
+              <span className="text-[#444444]">{playActivityText.length}</span>
+              <span className="text-[#B3B3B3]">/{maxLength}</span>
             </div>
           )}
 
@@ -434,8 +435,9 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
             {/* 그리드 삭제 버튼 */}
 
             {!isSaved && (
-              <div className="absolute bottom-1 right-2 text-[10px] font-bold text-primary">
-                ({teacherSupportText.length}/{maxLength})
+              <div className="absolute bottom-1 right-2 text-[10px] font-bold">
+                <span className="text-[#444444]">{teacherSupportText.length}</span>
+                <span className="text-[#B3B3B3]">/{maxLength}</span>
               </div>
             )}
 
@@ -500,8 +502,9 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
             {/* 그리드 삭제 버튼 */}
 
             {!isSaved && (
-              <div className="absolute bottom-2 right-2 text-xs font-bold text-primary">
-                ({homeConnectionText.length}/{maxLength})
+              <div className="absolute bottom-2 right-2 text-xs font-bold">
+                <span className="text-[#444444]">{homeConnectionText.length}</span>
+                <span className="text-[#B3B3B3]">/{maxLength}</span>
               </div>
             )}
 

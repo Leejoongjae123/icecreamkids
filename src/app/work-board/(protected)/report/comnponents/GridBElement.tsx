@@ -7,7 +7,8 @@ import GridEditToolbar from "./GridEditToolbar";
 import { Loader } from "@/components/ui/loader";
 import { Button } from "@/components/common/Button";
 import { ImagePosition } from "../types";
-import {IoClose} from "react-icons/io5";
+import { IoClose } from "react-icons/io5";
+import { MdRefresh } from "react-icons/md";
 import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
 import useUserStore from "@/hooks/store/useUserStore";
 import useGridContentStore from "@/hooks/store/useGridContentStore";
@@ -16,7 +17,10 @@ import { useMemoCheck } from "@/hooks/useMemoCheck";
 import MemoIndicator from "../components/MemoIndicator";
 import { MemoEditModal } from "@/components/modal/memo-edit";
 import { UploadModal } from "@/components/modal";
-import { useGetDriveItemMemos, useUpdateDriveItemMemo } from "@/service/file/fileStore";
+import {
+  useGetDriveItemMemos,
+  useUpdateDriveItemMemo,
+} from "@/service/file/fileStore";
 import { useToast } from "@/hooks/store/useToastStore";
 import { useAlertStore } from "@/hooks/store/useAlertStore";
 import { DriveItemMemoUpdateRequest } from "@/service/file/schemas";
@@ -58,7 +62,7 @@ function GridBElement({
   onAIGenerate,
   onImageUpload,
   onDelete,
-  placeholderText = "ex) 아이들과 촉감놀이를 했어요",
+  placeholderText = "(선택)놀이 키워드 입력 또는 메모 파일 업로드",
   isExpanded = false,
   isHidden = false,
   imageCount: propsImageCount = 1, // 초기 이미지 개수
@@ -68,25 +72,37 @@ function GridBElement({
   const { isSaved } = useSavedDataStore();
   const { userInfo } = useUserStore();
   const profileId = React.useMemo(() => userInfo?.id || null, [userInfo?.id]);
-  const accountId = React.useMemo(() => userInfo?.accountId || null, [userInfo?.accountId]);
-  
+  const accountId = React.useMemo(
+    () => userInfo?.accountId || null,
+    [userInfo?.accountId]
+  );
+
   // URL 파라미터 가져오기
   const searchParams = useSearchParams();
 
   // 각 이미지의 메모 존재 여부를 체크하는 상태
-  const [memoStatuses, setMemoStatuses] = React.useState<{[key: string]: boolean}>({});
-  
+  const [memoStatuses, setMemoStatuses] = React.useState<{
+    [key: string]: boolean;
+  }>({});
+
   // 현재 메모를 편집하고자 하는 driveItemKey 상태 관리
-  const [currentDriveItemKey, setCurrentDriveItemKey] = React.useState<string>('');
+  const [currentDriveItemKey, setCurrentDriveItemKey] =
+    React.useState<string>("");
   const [isMemoOpen, setIsMemoOpen] = React.useState<boolean>(false);
   const [memoData, setMemoData] = React.useState<IEditMemoData>({
-    title: '',
-    memo: ''
+    title: "",
+    memo: "",
   });
-  
+
   // Grid content store 사용
-  const { updatePlaySubject, updateImages, updateCategoryValue, updateAiGenerated, gridContents } = useGridContentStore();
-  
+  const {
+    updatePlaySubject,
+    updateImages,
+    updateCategoryValue,
+    updateAiGenerated,
+    gridContents,
+  } = useGridContentStore();
+
   // Toast 및 Alert hook
   const addToast = useToast((state) => state.add);
   const { showAlert } = useAlertStore();
@@ -95,7 +111,7 @@ function GridBElement({
   const { data: driveItemMemo, refetch: refetchMemo } = useGetDriveItemMemos(
     currentDriveItemKey,
     {
-      owner_account_id: accountId?.toString() || '0',
+      owner_account_id: accountId?.toString() || "0",
     },
     {
       query: { enabled: !!currentDriveItemKey && !!accountId },
@@ -108,12 +124,12 @@ function GridBElement({
     if (driveItemMemo?.result?.[0]) {
       const existingMemo = driveItemMemo.result[0];
       setMemoData({
-        title: existingMemo.title || '',
-        memo: existingMemo.memo || ''
+        title: existingMemo.title || "",
+        memo: existingMemo.memo || "",
       });
     } else {
       // 메모가 없으면 초기화
-      setMemoData({ title: '', memo: '' });
+      setMemoData({ title: "", memo: "" });
     }
   }, [driveItemMemo]);
 
@@ -126,13 +142,13 @@ function GridBElement({
   // 메모 모달 닫기 함수
   const closeMemoModal = () => {
     setIsMemoOpen(false);
-    setCurrentDriveItemKey('');
-    setMemoData({ title: '', memo: '' });
+    setCurrentDriveItemKey("");
+    setMemoData({ title: "", memo: "" });
   };
 
   // 메모 데이터 업데이트 함수
   const updateMemoData = (data: Partial<IEditMemoData>) => {
-    setMemoData(prev => ({ ...prev, ...data }));
+    setMemoData((prev) => ({ ...prev, ...data }));
   };
 
   // 메모 저장 함수
@@ -162,22 +178,22 @@ function GridBElement({
         if (status === 200) {
           await refetchMemo();
           // 메모 상태 업데이트
-          setMemoStatuses(prev => ({
+          setMemoStatuses((prev) => ({
             ...prev,
-            [currentDriveItemKey]: true
+            [currentDriveItemKey]: true,
           }));
         } else {
-          showAlert({ message: '메모 수정에 실패하였습니다.' });
+          showAlert({ message: "메모 수정에 실패하였습니다." });
         }
       } else {
         // 새 메모 생성 - API 호출
         const response = await fetch(
           `/api/file/v1/drive-items/${currentDriveItemKey}/memos?owner_account_id=${accountId}`,
           {
-            method: 'POST',
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json',
-              'accept': '*/*',
+              "Content-Type": "application/json",
+              accept: "*/*",
             },
             body: JSON.stringify({
               title: memoData.title,
@@ -187,19 +203,19 @@ function GridBElement({
         );
 
         if (response.ok) {
-          addToast({ message: '메모가 저장되었습니다.' });
+          addToast({ message: "메모가 저장되었습니다." });
           await refetchMemo();
           // 메모 상태 업데이트
-          setMemoStatuses(prev => ({
+          setMemoStatuses((prev) => ({
             ...prev,
-            [currentDriveItemKey]: true
+            [currentDriveItemKey]: true,
           }));
         } else {
-          showAlert({ message: '메모 저장에 실패하였습니다.' });
+          showAlert({ message: "메모 저장에 실패하였습니다." });
         }
       }
     } catch {
-      showAlert({ message: '메모 저장 중 오류가 발생했습니다.' });
+      showAlert({ message: "메모 저장 중 오류가 발생했습니다." });
     } finally {
       closeMemoModal();
     }
@@ -207,23 +223,26 @@ function GridBElement({
 
   // 이미지 개수 상태 관리
   const [imageCount, setImageCount] = React.useState(propsImageCount);
-  
+
   // description-area 확장 상태 관리
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = React.useState(false);
-  
+  const [isDescriptionExpanded, setIsDescriptionExpanded] =
+    React.useState(false);
+
   // AI 생성 로딩 상태 관리
   const [isLoading, setIsLoading] = React.useState(false);
-  
+
   // 배경 제거 로딩 상태 관리 - 각 이미지별로 관리
-  const [isRemoveBackgroundLoading, setIsRemoveBackgroundLoading] = React.useState(false);
-  const [imageRemoveLoadingStates, setImageRemoveLoadingStates] = React.useState<{[index: number]: boolean}>({});
-  
+  const [isRemoveBackgroundLoading, setIsRemoveBackgroundLoading] =
+    React.useState(false);
+  const [imageRemoveLoadingStates, setImageRemoveLoadingStates] =
+    React.useState<{ [index: number]: boolean }>({});
+
   // AI 생성 버튼을 클릭한 적이 있는지 추적
   const [hasClickedAIGenerate, setHasClickedAIGenerate] = React.useState(false);
-  
+
   // textarea focus 상태 관리 추가
   const [isTextareaFocused, setIsTextareaFocused] = React.useState(false);
-  
+
   // 이미지 배열을 imageCount에 맞게 조정
   const [currentImages, setCurrentImages] = React.useState<string[]>(() => {
     const newImages = [...images];
@@ -236,17 +255,19 @@ function GridBElement({
       원본이미지: images,
       새이미지: newImages,
       초기이미지: initialImages,
-      imageCount: imageCount
+      imageCount: imageCount,
     });
     return initialImages;
   });
 
   // 이미지 업로드 관련 상태
   const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([]);
-  
+
   // 이미지 메타데이터 상태 (driveItemKey 포함)
-  const [imageMetadata, setImageMetadata] = React.useState<{url: string, driveItemKey?: string}[]>([]);
-  
+  const [imageMetadata, setImageMetadata] = React.useState<
+    { url: string; driveItemKey?: string }[]
+  >([]);
+
   // 드래그앤드롭을 위한 ref
   const dropRef = React.useRef<HTMLDivElement>(null);
 
@@ -264,28 +285,34 @@ function GridBElement({
   } = useImageUpload({
     uploadedFiles,
     onFilesUpload: (files: File[] | any[]) => {
-      console.log('📥 GridB 이미지 업로드 완료:', files);
-      
+      console.log("📥 GridB 이미지 업로드 완료:", files);
+
       const imageUrls: string[] = [];
-      const metadata: {url: string, driveItemKey?: string}[] = [];
-      
+      const metadata: { url: string; driveItemKey?: string }[] = [];
+
       files.forEach((item) => {
         if (item instanceof File) {
           // File 타입인 경우
           const fileUrl = URL.createObjectURL(item);
           imageUrls.push(fileUrl);
-          metadata.push({ url: fileUrl, driveItemKey: `local_${Date.now()}_${Math.random()}` });
-          setUploadedFiles(prev => [...prev, item]);
-        } else if (item && typeof item === 'object' && item.thumbUrl) {
+          metadata.push({
+            url: fileUrl,
+            driveItemKey: `local_${Date.now()}_${Math.random()}`,
+          });
+          setUploadedFiles((prev) => [...prev, item]);
+        } else if (item && typeof item === "object" && item.thumbUrl) {
           // SmartFolderItemResult 타입인 경우
           imageUrls.push(item.thumbUrl);
-          metadata.push({ url: item.thumbUrl, driveItemKey: item.driveItemKey });
+          metadata.push({
+            url: item.thumbUrl,
+            driveItemKey: item.driveItemKey,
+          });
         }
       });
-      
+
       // 이미지 메타데이터 업데이트
-      setImageMetadata(prev => [...prev, ...metadata]);
-      
+      setImageMetadata((prev) => [...prev, ...metadata]);
+
       // 이미지 URL들을 currentImages에 추가
       handleImagesAdded(imageUrls);
     },
@@ -300,10 +327,13 @@ function GridBElement({
   }, [drop]);
 
   // 이미지 URL로 driveItemKey 찾기
-  const getDriveItemKeyByImageUrl = React.useCallback((imageUrl: string): string | undefined => {
-    const metadata = imageMetadata.find(item => item.url === imageUrl);
-    return metadata?.driveItemKey;
-  }, [imageMetadata]);
+  const getDriveItemKeyByImageUrl = React.useCallback(
+    (imageUrl: string): string | undefined => {
+      const metadata = imageMetadata.find((item) => item.url === imageUrl);
+      return metadata?.driveItemKey;
+    },
+    [imageMetadata]
+  );
 
   // 이미지 메타데이터가 변경될 때마다 메모 상태 체크
   React.useEffect(() => {
@@ -313,7 +343,10 @@ function GridBElement({
       }
 
       const memoCheckPromises = imageMetadata.map(async (metadata) => {
-        if (metadata.driveItemKey && metadata.driveItemKey.startsWith('local_')) {
+        if (
+          metadata.driveItemKey &&
+          metadata.driveItemKey.startsWith("local_")
+        ) {
           // 로컬 이미지(직접 업로드)는 메모 체크하지 않음
           return null;
         }
@@ -323,28 +356,33 @@ function GridBElement({
             const response = await fetch(
               `/api/file/v1/drive-items/${metadata.driveItemKey}/memos?owner_account_id=${userInfo.accountId}`,
               {
-                method: 'GET',
+                method: "GET",
                 headers: {
-                  'accept': '*/*',
+                  accept: "*/*",
                 },
               }
             );
 
             if (response.ok) {
               const data = await response.json();
-              const memoExists = Array.isArray(data.result) ? data.result.length > 0 : false;
-              return { driveItemKey: metadata.driveItemKey, hasMemo: memoExists };
+              const memoExists = Array.isArray(data.result)
+                ? data.result.length > 0
+                : false;
+              return {
+                driveItemKey: metadata.driveItemKey,
+                hasMemo: memoExists,
+              };
             }
           } catch (error) {
-            console.log('메모 체크 실패:', error);
+            console.log("메모 체크 실패:", error);
           }
         }
         return null;
       });
 
       const results = await Promise.all(memoCheckPromises);
-      const newMemoStatuses: {[key: string]: boolean} = {};
-      
+      const newMemoStatuses: { [key: string]: boolean } = {};
+
       results.forEach((result) => {
         if (result) {
           newMemoStatuses[result.driveItemKey] = result.hasMemo;
@@ -360,14 +398,17 @@ function GridBElement({
   // props에서 받은 images가 변경될 때 currentImages 상태 업데이트 (초기화 반영)
   React.useEffect(() => {
     if (Array.isArray(images)) {
-      console.log("🔄 GridBElement props.images 변경됨, currentImages 업데이트:", {
-        propsImages: images,
-        이전currentImages: currentImages,
-        imageCount: imageCount
-      });
-      
+      console.log(
+        "🔄 GridBElement props.images 변경됨, currentImages 업데이트:",
+        {
+          propsImages: images,
+          이전currentImages: currentImages,
+          imageCount: imageCount,
+        }
+      );
+
       // props images가 비어있으면 currentImages도 초기화
-      if (images.length === 0 || images.every(img => !img || img === "")) {
+      if (images.length === 0 || images.every((img) => !img || img === "")) {
         setCurrentImages(new Array(imageCount).fill(""));
         setImageMetadata([]); // 메타데이터도 초기화
         setUploadedFiles([]); // 업로드 파일도 초기화
@@ -384,8 +425,6 @@ function GridBElement({
     }
   }, [images, imageCount]);
 
-
-
   // props에서 받은 imageCount가 변경될 때 내부 상태 업데이트
   React.useEffect(() => {
     // props로 받은 imageCount로 강제 업데이트
@@ -394,8 +433,12 @@ function GridBElement({
 
   // 현재 선택된 이미지 개수 계산 함수
   const getCurrentImageCount = React.useCallback((): number => {
-    return currentImages.filter(img => 
-      img && img !== "" && img !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+    return currentImages.filter(
+      (img) =>
+        img &&
+        img !== "" &&
+        img !==
+          "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
     ).length;
   }, [currentImages]);
 
@@ -406,8 +449,8 @@ function GridBElement({
   }, [getCurrentImageCount, imageCount]);
 
   // 이미지 위치 정보 상태
-  const [imagePositions, setImagePositions] = React.useState<ImagePosition[]>(() => 
-    Array(imageCount).fill({ x: 0, y: 0, scale: 1 })
+  const [imagePositions, setImagePositions] = React.useState<ImagePosition[]>(
+    () => Array(imageCount).fill({ x: 0, y: 0, scale: 1 })
   );
 
   // 인라인 편집 상태 및 레퍼런스
@@ -416,12 +459,22 @@ function GridBElement({
     imageIndex: number | null;
     tempPosition: { x: number; y: number; scale: number };
     startPointer: { x: number; y: number } | null;
-    mode: 'drag' | 'resize' | null;
+    mode: "drag" | "resize" | null;
     cropActive: boolean;
-    cropRect?: { left: number; top: number; right: number; bottom: number } | null;
-    cropDraggingEdge?: 'left' | 'right' | 'top' | 'bottom' | null;
+    cropRect?: {
+      left: number;
+      top: number;
+      right: number;
+      bottom: number;
+    } | null;
+    cropDraggingEdge?: "left" | "right" | "top" | "bottom" | null;
     cropStartPointer?: { x: number; y: number } | null;
-    cropBounds?: { left: number; top: number; right: number; bottom: number } | null;
+    cropBounds?: {
+      left: number;
+      top: number;
+      right: number;
+      bottom: number;
+    } | null;
   }>({
     active: false,
     imageIndex: null,
@@ -435,46 +488,80 @@ function GridBElement({
     cropBounds: null,
   });
 
-  const imageContainerRefs = React.useRef<Record<number, HTMLDivElement | null>>({});
+  const imageContainerRefs = React.useRef<
+    Record<number, HTMLDivElement | null>
+  >({});
   const suppressClickRef = React.useRef<boolean>(false);
-  const isEditingIndex = React.useCallback((idx: number) => inlineEditState.active && inlineEditState.imageIndex === idx, [inlineEditState]);
+  const isEditingIndex = React.useCallback(
+    (idx: number) =>
+      inlineEditState.active && inlineEditState.imageIndex === idx,
+    [inlineEditState]
+  );
   const { setImageEditModalOpen } = useImageEditModalStore();
 
-  const beginInlineEdit = React.useCallback((imageIndex: number) => {
-    const base = imagePositions[imageIndex] || { x: 0, y: 0, scale: 1 };
-    setInlineEditState({
-      active: true,
-      imageIndex,
-      tempPosition: { x: base.x || 0, y: base.y || 0, scale: base.scale || 1 },
-      startPointer: null,
-      mode: null,
-      cropActive: false,
-      cropRect: null,
-      cropDraggingEdge: null,
-      cropStartPointer: null,
-      cropBounds: null,
-    });
-    // 전역 플래그로 보드 DnD 비활성화
-    setImageEditModalOpen(true);
-  }, [imagePositions, setImageEditModalOpen]);
+  const beginInlineEdit = React.useCallback(
+    (imageIndex: number) => {
+      const base = imagePositions[imageIndex] || { x: 0, y: 0, scale: 1 };
+      setInlineEditState({
+        active: true,
+        imageIndex,
+        tempPosition: {
+          x: base.x || 0,
+          y: base.y || 0,
+          scale: base.scale || 1,
+        },
+        startPointer: null,
+        mode: null,
+        cropActive: false,
+        cropRect: null,
+        cropDraggingEdge: null,
+        cropStartPointer: null,
+        cropBounds: null,
+      });
+      // 전역 플래그로 보드 DnD 비활성화
+      setImageEditModalOpen(true);
+    },
+    [imagePositions, setImageEditModalOpen]
+  );
 
   const endInlineEditConfirm = React.useCallback(() => {
     if (!inlineEditState.active || inlineEditState.imageIndex === null) {
-      setInlineEditState(prev => ({ ...prev, active: false, imageIndex: null, mode: null, cropActive: false }));
+      setInlineEditState((prev) => ({
+        ...prev,
+        active: false,
+        imageIndex: null,
+        mode: null,
+        cropActive: false,
+      }));
       setImageEditModalOpen(false);
       return;
     }
     const idx = inlineEditState.imageIndex;
     const nextPositions = [...imagePositions];
-    nextPositions[idx] = { ...nextPositions[idx], ...inlineEditState.tempPosition } as ImagePosition;
+    nextPositions[idx] = {
+      ...nextPositions[idx],
+      ...inlineEditState.tempPosition,
+    } as ImagePosition;
     setImagePositions(nextPositions);
-    setInlineEditState(prev => ({ ...prev, active: false, imageIndex: null, mode: null, cropActive: false }));
+    setInlineEditState((prev) => ({
+      ...prev,
+      active: false,
+      imageIndex: null,
+      mode: null,
+      cropActive: false,
+    }));
     // 전역 플래그로 보드 DnD 재활성화
     setImageEditModalOpen(false);
   }, [inlineEditState, imagePositions, setImageEditModalOpen]);
 
   const endInlineEditCancel = React.useCallback(() => {
-    setInlineEditState(prev => ({ ...prev, active: false, imageIndex: null, mode: null, cropActive: false }));
+    setInlineEditState((prev) => ({
+      ...prev,
+      active: false,
+      imageIndex: null,
+      mode: null,
+      cropActive: false,
+    }));
     setImageEditModalOpen(false);
   }, [setImageEditModalOpen]);
 
@@ -484,73 +571,124 @@ function GridBElement({
     const container = idx !== null ? imageContainerRefs.current[idx] : null;
     const imageUrl = idx !== null ? currentImages[idx] : undefined;
     if (!container || !imageUrl || idx === null) {
-      setInlineEditState(prev => ({ ...prev, cropActive: true }));
+      setInlineEditState((prev) => ({ ...prev, cropActive: true }));
       return;
     }
-    const img = document.createElement('img');
-    img.crossOrigin = 'anonymous';
-    img.referrerPolicy = 'no-referrer';
+    const img = document.createElement("img");
+    img.crossOrigin = "anonymous";
+    img.referrerPolicy = "no-referrer";
     img.src = imageUrl;
     img.onload = () => {
       const rect = container.getBoundingClientRect();
       const containerW = rect.width;
       const containerH = rect.height;
-      const position = isEditingIndex(idx) ? inlineEditState.tempPosition : (imagePositions[idx] || { x: 0, y: 0, scale: 1 });
+      const position = isEditingIndex(idx)
+        ? inlineEditState.tempPosition
+        : imagePositions[idx] || { x: 0, y: 0, scale: 1 };
       const { x = 0, y = 0, scale = 1 } = position;
       const imgAspect = img.width / img.height;
       const boxAspect = containerW / containerH;
       let drawW = containerW;
       let drawH = containerH;
-      if (imgAspect > boxAspect) { drawH = containerH; drawW = drawH * imgAspect; } else { drawW = containerW; drawH = drawW / imgAspect; }
+      if (imgAspect > boxAspect) {
+        drawH = containerH;
+        drawW = drawH * imgAspect;
+      } else {
+        drawW = containerW;
+        drawH = drawW / imgAspect;
+      }
       const scaledW = drawW * (scale || 1);
       const scaledH = drawH * (scale || 1);
-      const imageLeft = (containerW / 2) - (scaledW / 2) + x;
-      const imageTop = (containerH / 2) - (scaledH / 2) + y;
+      const imageLeft = containerW / 2 - scaledW / 2 + x;
+      const imageTop = containerH / 2 - scaledH / 2 + y;
       const imageRight = imageLeft + scaledW;
       const imageBottom = imageTop + scaledH;
       const cropLeft = Math.max(0, imageLeft);
       const cropTop = Math.max(0, imageTop);
       const cropRight = Math.min(containerW, imageRight);
       const cropBottom = Math.min(containerH, imageBottom);
-      setInlineEditState(prev => ({
+      setInlineEditState((prev) => ({
         ...prev,
         cropActive: true,
-        cropRect: { left: cropLeft, top: cropTop, right: cropRight, bottom: cropBottom },
+        cropRect: {
+          left: cropLeft,
+          top: cropTop,
+          right: cropRight,
+          bottom: cropBottom,
+        },
         cropDraggingEdge: null,
         cropStartPointer: null,
-        cropBounds: { left: cropLeft, top: cropTop, right: cropRight, bottom: cropBottom },
+        cropBounds: {
+          left: cropLeft,
+          top: cropTop,
+          right: cropRight,
+          bottom: cropBottom,
+        },
       }));
     };
-    img.onerror = () => { setInlineEditState(prev => ({ ...prev, cropActive: true })); };
-  }, [inlineEditState.imageIndex, inlineEditState.tempPosition, imagePositions, isEditingIndex, currentImages]);
+    img.onerror = () => {
+      setInlineEditState((prev) => ({ ...prev, cropActive: true }));
+    };
+  }, [
+    inlineEditState.imageIndex,
+    inlineEditState.tempPosition,
+    imagePositions,
+    isEditingIndex,
+    currentImages,
+  ]);
 
   const { postFile } = useS3FileUpload();
   const finishCropAndUpload = React.useCallback(async () => {
     const idx = inlineEditState.imageIndex;
-    if (idx === null) { setInlineEditState(prev => ({ ...prev, cropActive: false })); return; }
+    if (idx === null) {
+      setInlineEditState((prev) => ({ ...prev, cropActive: false }));
+      return;
+    }
     const container = imageContainerRefs.current[idx];
     const imageUrl = currentImages[idx];
-    if (!container || !imageUrl || !inlineEditState.cropRect) { setInlineEditState(prev => ({ ...prev, cropActive: false })); return; }
+    if (!container || !imageUrl || !inlineEditState.cropRect) {
+      setInlineEditState((prev) => ({ ...prev, cropActive: false }));
+      return;
+    }
     try {
-      const img = document.createElement('img');
-      img.crossOrigin = 'anonymous';
-      img.referrerPolicy = 'no-referrer';
+      const img = document.createElement("img");
+      img.crossOrigin = "anonymous";
+      img.referrerPolicy = "no-referrer";
       img.src = imageUrl;
-      await new Promise<void>((resolve) => { img.onload = () => resolve(); img.onerror = () => resolve(); });
+      await new Promise<void>((resolve) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+      });
       const containerRect = container.getBoundingClientRect();
-      const scale = isEditingIndex(idx) ? inlineEditState.tempPosition.scale : (imagePositions[idx]?.scale || 1);
-      const transX = isEditingIndex(idx) ? inlineEditState.tempPosition.x : (imagePositions[idx]?.x || 0);
-      const transY = isEditingIndex(idx) ? inlineEditState.tempPosition.y : (imagePositions[idx]?.y || 0);
-      const canvas = document.createElement('canvas');
+      const scale = isEditingIndex(idx)
+        ? inlineEditState.tempPosition.scale
+        : imagePositions[idx]?.scale || 1;
+      const transX = isEditingIndex(idx)
+        ? inlineEditState.tempPosition.x
+        : imagePositions[idx]?.x || 0;
+      const transY = isEditingIndex(idx)
+        ? inlineEditState.tempPosition.y
+        : imagePositions[idx]?.y || 0;
+      const canvas = document.createElement("canvas");
       canvas.width = Math.max(1, Math.floor(containerRect.width));
       canvas.height = Math.max(1, Math.floor(containerRect.height));
-      const ctx = canvas.getContext('2d');
-      if (!ctx) { setInlineEditState(prev => ({ ...prev, cropActive: false })); return; }
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        setInlineEditState((prev) => ({ ...prev, cropActive: false }));
+        return;
+      }
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const imgAspect = img.width / img.height;
       const boxAspect = canvas.width / canvas.height;
-      let drawW = canvas.width; let drawH = canvas.height;
-      if (imgAspect > boxAspect) { drawH = canvas.height; drawW = drawH * imgAspect; } else { drawW = canvas.width; drawH = drawW / imgAspect; }
+      let drawW = canvas.width;
+      let drawH = canvas.height;
+      if (imgAspect > boxAspect) {
+        drawH = canvas.height;
+        drawW = drawH * imgAspect;
+      } else {
+        drawW = canvas.width;
+        drawH = drawW / imgAspect;
+      }
       const dx = (canvas.width - drawW) / 2 + transX;
       const dy = (canvas.height - drawH) / 2 + transY;
       ctx.save();
@@ -562,164 +700,541 @@ function GridBElement({
       const c = inlineEditState.cropRect;
       const cropW = Math.max(1, Math.floor(c.right - c.left));
       const cropH = Math.max(1, Math.floor(c.bottom - c.top));
-      const cropCanvas = document.createElement('canvas');
-      cropCanvas.width = cropW; cropCanvas.height = cropH;
-      const cropCtx = cropCanvas.getContext('2d');
-      if (!cropCtx) { setInlineEditState(prev => ({ ...prev, cropActive: false })); return; }
-      cropCtx.drawImage(canvas, Math.floor(c.left), Math.floor(c.top), cropW, cropH, 0, 0, cropW, cropH);
-      const blob: Blob | null = await new Promise((res) => cropCanvas.toBlob((b) => res(b), 'image/jpeg', 0.9));
-      if (!blob) { setInlineEditState(prev => ({ ...prev, cropActive: false })); return; }
-      const croppedFile = new File([blob], `cropped_${Date.now()}.jpg`, { type: 'image/jpeg' });
-      const uploadRes = await postFile({ file: croppedFile, fileType: 'IMAGE', taskType: 'ETC', thumbFile: croppedFile });
-      let newThumbUrl: string | undefined; let newDriveItemKey: string | undefined;
+      const cropCanvas = document.createElement("canvas");
+      cropCanvas.width = cropW;
+      cropCanvas.height = cropH;
+      const cropCtx = cropCanvas.getContext("2d");
+      if (!cropCtx) {
+        setInlineEditState((prev) => ({ ...prev, cropActive: false }));
+        return;
+      }
+      cropCtx.drawImage(
+        canvas,
+        Math.floor(c.left),
+        Math.floor(c.top),
+        cropW,
+        cropH,
+        0,
+        0,
+        cropW,
+        cropH
+      );
+      const blob: Blob | null = await new Promise((res) =>
+        cropCanvas.toBlob((b) => res(b), "image/jpeg", 0.9)
+      );
+      if (!blob) {
+        setInlineEditState((prev) => ({ ...prev, cropActive: false }));
+        return;
+      }
+      const croppedFile = new File([blob], `cropped_${Date.now()}.jpg`, {
+        type: "image/jpeg",
+      });
+      const uploadRes = await postFile({
+        file: croppedFile,
+        fileType: "IMAGE",
+        taskType: "ETC",
+        thumbFile: croppedFile,
+      });
+      let newThumbUrl: string | undefined;
+      let newDriveItemKey: string | undefined;
       if (Array.isArray(uploadRes)) {
       } else if (uploadRes) {
         const anyRes = uploadRes as any;
-        newThumbUrl = anyRes.thumbUrl || anyRes?.driveItemResult?.thumbUrl || undefined;
-        newDriveItemKey = anyRes.driveItemKey || anyRes?.driveItemResult?.key || undefined;
+        newThumbUrl =
+          anyRes.thumbUrl || anyRes?.driveItemResult?.thumbUrl || undefined;
+        newDriveItemKey =
+          anyRes.driveItemKey || anyRes?.driveItemResult?.key || undefined;
       }
       if (newThumbUrl) {
         const prevUrl = currentImages[idx];
-        setCurrentImages(prev => { const next = [...prev]; next[idx] = newThumbUrl as string; return next; });
-        setImageMetadata(prev => {
+        setCurrentImages((prev) => {
+          const next = [...prev];
+          next[idx] = newThumbUrl as string;
+          return next;
+        });
+        setImageMetadata((prev) => {
           const list = [...prev];
-          const metaIndex = list.findIndex(m => m.url === prevUrl);
-          if (metaIndex >= 0) { list[metaIndex] = { url: newThumbUrl as string, driveItemKey: newDriveItemKey }; }
-          else { list.push({ url: newThumbUrl as string, driveItemKey: newDriveItemKey }); }
+          const metaIndex = list.findIndex((m) => m.url === prevUrl);
+          if (metaIndex >= 0) {
+            list[metaIndex] = {
+              url: newThumbUrl as string,
+              driveItemKey: newDriveItemKey,
+            };
+          } else {
+            list.push({
+              url: newThumbUrl as string,
+              driveItemKey: newDriveItemKey,
+            });
+          }
           return list;
         });
         if (gridId && newThumbUrl) {
-          const validImages = Array.isArray(gridContents[gridId]?.imageUrls) ? [...(gridContents[gridId]?.imageUrls as string[])] : [];
+          const validImages = Array.isArray(gridContents[gridId]?.imageUrls)
+            ? [...(gridContents[gridId]?.imageUrls as string[])]
+            : [];
           while (validImages.length < imageCount) validImages.push("");
-          if (idx < validImages.length) validImages[idx] = newThumbUrl as string;
+          if (idx < validImages.length)
+            validImages[idx] = newThumbUrl as string;
           updateImages(gridId, validImages.slice(0, imageCount));
         }
       } else {
         const localUrl = URL.createObjectURL(croppedFile);
-        setCurrentImages(prev => { const next = [...prev]; next[idx] = localUrl; return next; });
+        setCurrentImages((prev) => {
+          const next = [...prev];
+          next[idx] = localUrl;
+          return next;
+        });
       }
     } finally {
-      setInlineEditState(prev => ({ ...prev, cropActive: false, cropRect: null }));
+      setInlineEditState((prev) => ({
+        ...prev,
+        cropActive: false,
+        cropRect: null,
+      }));
     }
-  }, [inlineEditState.imageIndex, inlineEditState.cropRect, inlineEditState.tempPosition, imagePositions, isEditingIndex, currentImages, postFile, gridId, updateImages, gridContents, imageCount]);
+  }, [
+    inlineEditState.imageIndex,
+    inlineEditState.cropRect,
+    inlineEditState.tempPosition,
+    imagePositions,
+    isEditingIndex,
+    currentImages,
+    postFile,
+    gridId,
+    updateImages,
+    gridContents,
+    imageCount,
+  ]);
 
   const cancelCrop = React.useCallback(() => {
-    setInlineEditState(prev => ({ ...prev, cropActive: false, cropRect: null, cropDraggingEdge: null, cropStartPointer: null }));
+    setInlineEditState((prev) => ({
+      ...prev,
+      cropActive: false,
+      cropRect: null,
+      cropDraggingEdge: null,
+      cropStartPointer: null,
+    }));
   }, []);
 
-  const onEditMouseDown = React.useCallback((e: React.MouseEvent) => {
-    if (!inlineEditState.active || inlineEditState.imageIndex === null) return;
-    const target = e.target as HTMLElement;
-    if (target?.dataset?.handle) return;
-    e.preventDefault(); e.stopPropagation();
-    suppressClickRef.current = false;
-    setInlineEditState(prev => ({ ...prev, startPointer: { x: e.clientX, y: e.clientY }, mode: 'drag' }));
-    const onMove = (ev: MouseEvent) => {
-      setInlineEditState(prev => {
-        if (!prev.startPointer) return prev;
-        const dx = ev.clientX - prev.startPointer.x; const dy = ev.clientY - prev.startPointer.y;
-        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) { suppressClickRef.current = true; }
-        return { ...prev, startPointer: { x: ev.clientX, y: ev.clientY }, tempPosition: { x: prev.tempPosition.x + dx, y: prev.tempPosition.y + dy, scale: prev.tempPosition.scale } };
-      });
-    };
-    const onUp = () => {
-      setInlineEditState(prev => {
-        if (prev.imageIndex !== null) {
-          const idx = prev.imageIndex; const nextPositions = [...imagePositions];
-          nextPositions[idx] = { ...nextPositions[idx], ...prev.tempPosition } as ImagePosition;
-          setImagePositions(nextPositions);
-        }
-        return { ...prev, startPointer: null, mode: null };
-      });
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, [inlineEditState.active, inlineEditState.imageIndex, imagePositions]);
+  const onEditMouseDown = React.useCallback(
+    (e: React.MouseEvent) => {
+      if (!inlineEditState.active || inlineEditState.imageIndex === null)
+        return;
+      const target = e.target as HTMLElement;
+      if (target?.dataset?.handle) return;
+      e.preventDefault();
+      e.stopPropagation();
+      suppressClickRef.current = false;
+      setInlineEditState((prev) => ({
+        ...prev,
+        startPointer: { x: e.clientX, y: e.clientY },
+        mode: "drag",
+      }));
+      const onMove = (ev: MouseEvent) => {
+        setInlineEditState((prev) => {
+          if (!prev.startPointer) return prev;
+          const dx = ev.clientX - prev.startPointer.x;
+          const dy = ev.clientY - prev.startPointer.y;
+          if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+            suppressClickRef.current = true;
+          }
+          return {
+            ...prev,
+            startPointer: { x: ev.clientX, y: ev.clientY },
+            tempPosition: {
+              x: prev.tempPosition.x + dx,
+              y: prev.tempPosition.y + dy,
+              scale: prev.tempPosition.scale,
+            },
+          };
+        });
+      };
+      const onUp = () => {
+        setInlineEditState((prev) => {
+          if (prev.imageIndex !== null) {
+            const idx = prev.imageIndex;
+            const nextPositions = [...imagePositions];
+            nextPositions[idx] = {
+              ...nextPositions[idx],
+              ...prev.tempPosition,
+            } as ImagePosition;
+            setImagePositions(nextPositions);
+          }
+          return { ...prev, startPointer: null, mode: null };
+        });
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    },
+    [inlineEditState.active, inlineEditState.imageIndex, imagePositions]
+  );
 
-  const onResizeHandleDown = React.useCallback((e: React.MouseEvent) => {
-    if (!inlineEditState.active) return;
-    e.preventDefault(); e.stopPropagation();
-    setInlineEditState(prev => ({ ...prev, startPointer: { x: e.clientX, y: e.clientY }, mode: 'resize' }));
-    const onMove = (ev: MouseEvent) => {
-      setInlineEditState(prev => {
-        if (!prev.startPointer) return prev;
-        if (prev.cropActive && prev.cropRect) { return prev; }
-        const dy = ev.clientY - prev.startPointer.y; const dx = ev.clientX - prev.startPointer.x;
-        const delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
-        const newScale = Math.max(0.2, Math.min(5, prev.tempPosition.scale + delta * 0.005));
-        return { ...prev, startPointer: { x: ev.clientX, y: ev.clientY }, tempPosition: { ...prev.tempPosition, scale: newScale } };
-      });
-    };
-    const onUp = () => {
-      setInlineEditState(prev => {
-        if (prev.imageIndex !== null) {
-          const idx = prev.imageIndex; const nextPositions = [...imagePositions];
-          nextPositions[idx] = { ...nextPositions[idx], ...prev.tempPosition } as ImagePosition;
-          setImagePositions(nextPositions);
-        }
-        return { ...prev, startPointer: null, mode: null };
-      });
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, [inlineEditState.active, imagePositions]);
+  const onResizeHandleDown = React.useCallback(
+    (e: React.MouseEvent) => {
+      if (!inlineEditState.active) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setInlineEditState((prev) => ({
+        ...prev,
+        startPointer: { x: e.clientX, y: e.clientY },
+        mode: "resize",
+      }));
+      const onMove = (ev: MouseEvent) => {
+        setInlineEditState((prev) => {
+          if (!prev.startPointer) return prev;
+          if (prev.cropActive && prev.cropRect) {
+            return prev;
+          }
+          const dy = ev.clientY - prev.startPointer.y;
+          const dx = ev.clientX - prev.startPointer.x;
+          const delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+          const newScale = Math.max(
+            0.2,
+            Math.min(5, prev.tempPosition.scale + delta * 0.005)
+          );
+          return {
+            ...prev,
+            startPointer: { x: ev.clientX, y: ev.clientY },
+            tempPosition: { ...prev.tempPosition, scale: newScale },
+          };
+        });
+      };
+      const onUp = () => {
+        setInlineEditState((prev) => {
+          if (prev.imageIndex !== null) {
+            const idx = prev.imageIndex;
+            const nextPositions = [...imagePositions];
+            nextPositions[idx] = {
+              ...nextPositions[idx],
+              ...prev.tempPosition,
+            } as ImagePosition;
+            setImagePositions(nextPositions);
+          }
+          return { ...prev, startPointer: null, mode: null };
+        });
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+    },
+    [inlineEditState.active, imagePositions]
+  );
 
-  const renderResizeHandles = React.useCallback((idx: number) => {
-    if (!isEditingIndex(idx)) return null;
-    const s = inlineEditState.tempPosition.scale || 1;
-    const overlayTransform = `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${s})`;
-    const handleScaleStyle = { transform: `scale(${1 / s})`, transformOrigin: 'center' as const } as React.CSSProperties;
-    return (
-      <div className="absolute inset-0 z-50 pointer-events-none" style={{ transform: inlineEditState.cropActive ? 'none' : overlayTransform, transformOrigin: 'center' }}>
-        {!inlineEditState.cropActive && (
-          <>
-            <div data-handle="true" className="absolute -top-2 -left-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nwse-resize pointer-events-auto" style={handleScaleStyle} onMouseDown={onResizeHandleDown} />
-            <div data-handle="true" className="absolute -top-2 -right-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nesw-resize pointer-events-auto" style={handleScaleStyle} onMouseDown={onResizeHandleDown} />
-            <div data-handle="true" className="absolute -bottom-2 -left-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nesw-resize pointer-events-auto" style={handleScaleStyle} onMouseDown={onResizeHandleDown} />
-            <div data-handle="true" className="absolute -bottom-2 -right-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nwse-resize pointer-events-auto" style={handleScaleStyle} onMouseDown={onResizeHandleDown} />
-          </>
-        )}
+  const renderResizeHandles = React.useCallback(
+    (idx: number) => {
+      if (!isEditingIndex(idx)) return null;
+      const s = inlineEditState.tempPosition.scale || 1;
+      const overlayTransform = `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${s})`;
+      const handleScaleStyle = {
+        transform: `scale(${1 / s})`,
+        transformOrigin: "center" as const,
+      } as React.CSSProperties;
+      return (
+        <div
+          className="absolute inset-0 z-50 pointer-events-none"
+          style={{
+            transform: inlineEditState.cropActive ? "none" : overlayTransform,
+            transformOrigin: "center",
+          }}
+        >
+          {!inlineEditState.cropActive && (
+            <>
+              <div
+                data-handle="true"
+                className="absolute -top-2 -left-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nwse-resize pointer-events-auto"
+                style={handleScaleStyle}
+                onMouseDown={onResizeHandleDown}
+              />
+              <div
+                data-handle="true"
+                className="absolute -top-2 -right-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nesw-resize pointer-events-auto"
+                style={handleScaleStyle}
+                onMouseDown={onResizeHandleDown}
+              />
+              <div
+                data-handle="true"
+                className="absolute -bottom-2 -left-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nesw-resize pointer-events-auto"
+                style={handleScaleStyle}
+                onMouseDown={onResizeHandleDown}
+              />
+              <div
+                data-handle="true"
+                className="absolute -bottom-2 -right-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nwse-resize pointer-events-auto"
+                style={handleScaleStyle}
+                onMouseDown={onResizeHandleDown}
+              />
+            </>
+          )}
 
-        {inlineEditState.cropActive && inlineEditState.cropRect && (
-          <>
-            <div className="absolute border-2 border-dotted border-[#3D8BFF] rounded-sm pointer-events-none" style={{ left: inlineEditState.cropRect.left, top: inlineEditState.cropRect.top, width: Math.max(0, inlineEditState.cropRect.right - inlineEditState.cropRect.left), height: Math.max(0, inlineEditState.cropRect.bottom - inlineEditState.cropRect.top) }} />
-            {/* Top bar */}
-            <div className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-n-resize" style={{ width: 15, height: 8, top: inlineEditState.cropRect.top - 4, left: ((inlineEditState.cropRect.left + inlineEditState.cropRect.right) / 2) - 7.5 }}
-              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'top', cropStartPointer: { x: e.clientX, y: e.clientY } }));
-                const onMove = (ev: MouseEvent) => { setInlineEditState(prev => { if (!prev.cropRect || prev.cropDraggingEdge !== 'top' || !prev.cropStartPointer) return prev; const dy = ev.clientY - prev.cropStartPointer.y; const boundTop = prev.cropBounds ? prev.cropBounds.top : 0; const nextTop = Math.max(boundTop, Math.min(prev.cropRect.top + dy, prev.cropRect.bottom - 15)); return { ...prev, cropRect: { ...prev.cropRect, top: nextTop }, cropStartPointer: { x: ev.clientX, y: ev.clientY } }; }); };
-                const onUp = () => { setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null })); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-                window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp); }}
-            />
-            {/* Bottom bar */}
-            <div className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-s-resize" style={{ width: 15, height: 8, top: inlineEditState.cropRect.bottom - 4, left: ((inlineEditState.cropRect.left + inlineEditState.cropRect.right) / 2) - 7.5 }}
-              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'bottom', cropStartPointer: { x: e.clientX, y: e.clientY } }));
-                const onMove = (ev: MouseEvent) => { setInlineEditState(prev => { if (!prev.cropRect || prev.cropDraggingEdge !== 'bottom' || !prev.cropStartPointer) return prev; const dy = ev.clientY - prev.cropStartPointer.y; const boundBottom = prev.cropBounds ? prev.cropBounds.bottom : Infinity; const nextBottom = Math.min(boundBottom, Math.max(prev.cropRect.bottom + dy, prev.cropRect.top + 15)); return { ...prev, cropRect: { ...prev.cropRect, bottom: nextBottom }, cropStartPointer: { x: ev.clientX, y: ev.clientY } }; }); };
-                const onUp = () => { setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null })); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-                window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp); }}
-            />
-            {/* Left bar */}
-            <div className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-w-resize" style={{ width: 8, height: 15, left: inlineEditState.cropRect.left - 4, top: ((inlineEditState.cropRect.top + inlineEditState.cropRect.bottom) / 2) - 7.5 }}
-              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'left', cropStartPointer: { x: e.clientX, y: e.clientY } }));
-                const onMove = (ev: MouseEvent) => { setInlineEditState(prev => { if (!prev.cropRect || prev.cropDraggingEdge !== 'left' || !prev.cropStartPointer) return prev; const dx = ev.clientX - prev.cropStartPointer.x; const boundLeft = prev.cropBounds ? prev.cropBounds.left : 0; const nextLeft = Math.max(boundLeft, Math.min(prev.cropRect.left + dx, prev.cropRect.right - 15)); return { ...prev, cropRect: { ...prev.cropRect, left: nextLeft }, cropStartPointer: { x: ev.clientX, y: ev.clientY } }; }); };
-                const onUp = () => { setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null })); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-                window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp); }}
-            />
-            {/* Right bar */}
-            <div className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-e-resize" style={{ width: 8, height: 15, left: inlineEditState.cropRect.right - 4, top: ((inlineEditState.cropRect.top + inlineEditState.cropRect.bottom) / 2) - 7.5 }}
-              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'right', cropStartPointer: { x: e.clientX, y: e.clientY } }));
-                const onMove = (ev: MouseEvent) => { setInlineEditState(prev => { if (!prev.cropRect || prev.cropDraggingEdge !== 'right' || !prev.cropStartPointer) return prev; const dx = ev.clientX - prev.cropStartPointer.x; const boundRight = prev.cropBounds ? prev.cropBounds.right : Infinity; const nextRight = Math.min(boundRight, Math.max(prev.cropRect.right + dx, prev.cropRect.left + 15)); return { ...prev, cropRect: { ...prev.cropRect, right: nextRight }, cropStartPointer: { x: ev.clientX, y: ev.clientY } }; }); };
-                const onUp = () => { setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null })); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-                window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp); }}
-            />
-          </>
-        )}
-      </div>
-    );
-  }, [isEditingIndex, inlineEditState.tempPosition]);
+          {inlineEditState.cropActive && inlineEditState.cropRect && (
+            <>
+              <div
+                className="absolute border-2 border-dotted border-[#3D8BFF] rounded-sm pointer-events-none"
+                style={{
+                  left: inlineEditState.cropRect.left,
+                  top: inlineEditState.cropRect.top,
+                  width: Math.max(
+                    0,
+                    inlineEditState.cropRect.right -
+                      inlineEditState.cropRect.left
+                  ),
+                  height: Math.max(
+                    0,
+                    inlineEditState.cropRect.bottom -
+                      inlineEditState.cropRect.top
+                  ),
+                }}
+              />
+              {/* Top bar */}
+              <div
+                className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-n-resize"
+                style={{
+                  width: 15,
+                  height: 8,
+                  top: inlineEditState.cropRect.top - 4,
+                  left:
+                    (inlineEditState.cropRect.left +
+                      inlineEditState.cropRect.right) /
+                      2 -
+                    7.5,
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setInlineEditState((prev) => ({
+                    ...prev,
+                    cropDraggingEdge: "top",
+                    cropStartPointer: { x: e.clientX, y: e.clientY },
+                  }));
+                  const onMove = (ev: MouseEvent) => {
+                    setInlineEditState((prev) => {
+                      if (
+                        !prev.cropRect ||
+                        prev.cropDraggingEdge !== "top" ||
+                        !prev.cropStartPointer
+                      )
+                        return prev;
+                      const dy = ev.clientY - prev.cropStartPointer.y;
+                      const boundTop = prev.cropBounds
+                        ? prev.cropBounds.top
+                        : 0;
+                      const nextTop = Math.max(
+                        boundTop,
+                        Math.min(
+                          prev.cropRect.top + dy,
+                          prev.cropRect.bottom - 15
+                        )
+                      );
+                      return {
+                        ...prev,
+                        cropRect: { ...prev.cropRect, top: nextTop },
+                        cropStartPointer: { x: ev.clientX, y: ev.clientY },
+                      };
+                    });
+                  };
+                  const onUp = () => {
+                    setInlineEditState((prev) => ({
+                      ...prev,
+                      cropDraggingEdge: null,
+                      cropStartPointer: null,
+                    }));
+                    window.removeEventListener("mousemove", onMove);
+                    window.removeEventListener("mouseup", onUp);
+                  };
+                  window.addEventListener("mousemove", onMove);
+                  window.addEventListener("mouseup", onUp);
+                }}
+              />
+              {/* Bottom bar */}
+              <div
+                className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-s-resize"
+                style={{
+                  width: 15,
+                  height: 8,
+                  top: inlineEditState.cropRect.bottom - 4,
+                  left:
+                    (inlineEditState.cropRect.left +
+                      inlineEditState.cropRect.right) /
+                      2 -
+                    7.5,
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setInlineEditState((prev) => ({
+                    ...prev,
+                    cropDraggingEdge: "bottom",
+                    cropStartPointer: { x: e.clientX, y: e.clientY },
+                  }));
+                  const onMove = (ev: MouseEvent) => {
+                    setInlineEditState((prev) => {
+                      if (
+                        !prev.cropRect ||
+                        prev.cropDraggingEdge !== "bottom" ||
+                        !prev.cropStartPointer
+                      )
+                        return prev;
+                      const dy = ev.clientY - prev.cropStartPointer.y;
+                      const boundBottom = prev.cropBounds
+                        ? prev.cropBounds.bottom
+                        : Infinity;
+                      const nextBottom = Math.min(
+                        boundBottom,
+                        Math.max(
+                          prev.cropRect.bottom + dy,
+                          prev.cropRect.top + 15
+                        )
+                      );
+                      return {
+                        ...prev,
+                        cropRect: { ...prev.cropRect, bottom: nextBottom },
+                        cropStartPointer: { x: ev.clientX, y: ev.clientY },
+                      };
+                    });
+                  };
+                  const onUp = () => {
+                    setInlineEditState((prev) => ({
+                      ...prev,
+                      cropDraggingEdge: null,
+                      cropStartPointer: null,
+                    }));
+                    window.removeEventListener("mousemove", onMove);
+                    window.removeEventListener("mouseup", onUp);
+                  };
+                  window.addEventListener("mousemove", onMove);
+                  window.addEventListener("mouseup", onUp);
+                }}
+              />
+              {/* Left bar */}
+              <div
+                className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-w-resize"
+                style={{
+                  width: 8,
+                  height: 15,
+                  left: inlineEditState.cropRect.left - 4,
+                  top:
+                    (inlineEditState.cropRect.top +
+                      inlineEditState.cropRect.bottom) /
+                      2 -
+                    7.5,
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setInlineEditState((prev) => ({
+                    ...prev,
+                    cropDraggingEdge: "left",
+                    cropStartPointer: { x: e.clientX, y: e.clientY },
+                  }));
+                  const onMove = (ev: MouseEvent) => {
+                    setInlineEditState((prev) => {
+                      if (
+                        !prev.cropRect ||
+                        prev.cropDraggingEdge !== "left" ||
+                        !prev.cropStartPointer
+                      )
+                        return prev;
+                      const dx = ev.clientX - prev.cropStartPointer.x;
+                      const boundLeft = prev.cropBounds
+                        ? prev.cropBounds.left
+                        : 0;
+                      const nextLeft = Math.max(
+                        boundLeft,
+                        Math.min(
+                          prev.cropRect.left + dx,
+                          prev.cropRect.right - 15
+                        )
+                      );
+                      return {
+                        ...prev,
+                        cropRect: { ...prev.cropRect, left: nextLeft },
+                        cropStartPointer: { x: ev.clientX, y: ev.clientY },
+                      };
+                    });
+                  };
+                  const onUp = () => {
+                    setInlineEditState((prev) => ({
+                      ...prev,
+                      cropDraggingEdge: null,
+                      cropStartPointer: null,
+                    }));
+                    window.removeEventListener("mousemove", onMove);
+                    window.removeEventListener("mouseup", onUp);
+                  };
+                  window.addEventListener("mousemove", onMove);
+                  window.addEventListener("mouseup", onUp);
+                }}
+              />
+              {/* Right bar */}
+              <div
+                className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-e-resize"
+                style={{
+                  width: 8,
+                  height: 15,
+                  left: inlineEditState.cropRect.right - 4,
+                  top:
+                    (inlineEditState.cropRect.top +
+                      inlineEditState.cropRect.bottom) /
+                      2 -
+                    7.5,
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setInlineEditState((prev) => ({
+                    ...prev,
+                    cropDraggingEdge: "right",
+                    cropStartPointer: { x: e.clientX, y: e.clientY },
+                  }));
+                  const onMove = (ev: MouseEvent) => {
+                    setInlineEditState((prev) => {
+                      if (
+                        !prev.cropRect ||
+                        prev.cropDraggingEdge !== "right" ||
+                        !prev.cropStartPointer
+                      )
+                        return prev;
+                      const dx = ev.clientX - prev.cropStartPointer.x;
+                      const boundRight = prev.cropBounds
+                        ? prev.cropBounds.right
+                        : Infinity;
+                      const nextRight = Math.min(
+                        boundRight,
+                        Math.max(
+                          prev.cropRect.right + dx,
+                          prev.cropRect.left + 15
+                        )
+                      );
+                      return {
+                        ...prev,
+                        cropRect: { ...prev.cropRect, right: nextRight },
+                        cropStartPointer: { x: ev.clientX, y: ev.clientY },
+                      };
+                    });
+                  };
+                  const onUp = () => {
+                    setInlineEditState((prev) => ({
+                      ...prev,
+                      cropDraggingEdge: null,
+                      cropStartPointer: null,
+                    }));
+                    window.removeEventListener("mousemove", onMove);
+                    window.removeEventListener("mouseup", onUp);
+                  };
+                  window.addEventListener("mousemove", onMove);
+                  window.addEventListener("mouseup", onUp);
+                }}
+              />
+            </>
+          )}
+        </div>
+      );
+    },
+    [isEditingIndex, inlineEditState.tempPosition]
+  );
 
   // 이미지 편집 모달 상태
   const [imageEditModal, setImageEditModal] = React.useState<{
@@ -731,63 +1246,82 @@ function GridBElement({
     isOpen: false,
     imageUrls: [],
     selectedImageIndex: 0,
-    originalImageIndex: 0
+    originalImageIndex: 0,
   });
 
   // 여러 이미지 추가 핸들러
-  const handleImagesAdded = React.useCallback((imageUrls: string[]) => {
-    console.log("📥 GridBElement에서 여러 이미지 받음:", imageUrls);
-    console.log("📏 현재 imageCount:", imageCount);
-    
-    setCurrentImages(prev => {
-      const newImages = [...prev];
-      
-      // 받은 이미지 개수를 imageCount로 제한
-      const limitedImageUrls = imageUrls.slice(0, imageCount);
-      
-      // 받은 이미지들을 순서대로 빈 슬롯에 배치
-      let imageUrlIndex = 0;
-      for (let i = 0; i < newImages.length && imageUrlIndex < limitedImageUrls.length; i++) {
-        if (!newImages[i] || newImages[i] === "" || newImages[i] === "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
-          newImages[i] = limitedImageUrls[imageUrlIndex];
-          imageUrlIndex++;
+  const handleImagesAdded = React.useCallback(
+    (imageUrls: string[]) => {
+      console.log("📥 GridBElement에서 여러 이미지 받음:", imageUrls);
+      console.log("📏 현재 imageCount:", imageCount);
+
+      setCurrentImages((prev) => {
+        const newImages = [...prev];
+
+        // 받은 이미지 개수를 imageCount로 제한
+        const limitedImageUrls = imageUrls.slice(0, imageCount);
+
+        // 받은 이미지들을 순서대로 빈 슬롯에 배치
+        let imageUrlIndex = 0;
+        for (
+          let i = 0;
+          i < newImages.length && imageUrlIndex < limitedImageUrls.length;
+          i++
+        ) {
+          if (
+            !newImages[i] ||
+            newImages[i] === "" ||
+            newImages[i] ===
+              "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+          ) {
+            newImages[i] = limitedImageUrls[imageUrlIndex];
+            imageUrlIndex++;
+          }
         }
-      }
-      
-      // 아직 배치할 이미지가 남아있다면, 기존 이미지가 있는 슬롯도 덮어씀
-      if (imageUrlIndex < limitedImageUrls.length) {
-        for (let i = 0; i < newImages.length && imageUrlIndex < limitedImageUrls.length; i++) {
-          newImages[i] = limitedImageUrls[imageUrlIndex];
-          imageUrlIndex++;
+
+        // 아직 배치할 이미지가 남아있다면, 기존 이미지가 있는 슬롯도 덮어씀
+        if (imageUrlIndex < limitedImageUrls.length) {
+          for (
+            let i = 0;
+            i < newImages.length && imageUrlIndex < limitedImageUrls.length;
+            i++
+          ) {
+            newImages[i] = limitedImageUrls[imageUrlIndex];
+            imageUrlIndex++;
+          }
         }
-      }
-      
-      // 최종적으로 배열 길이를 imageCount로 제한
-      const finalImages = newImages.slice(0, imageCount);
-      
-      console.log("📊 GridB 이미지 배치 결과:", {
-        받은이미지: imageUrls,
-        제한된이미지: limitedImageUrls,
-        이전이미지: prev,
-        새이미지: newImages,
-        최종이미지: finalImages,
-        imageCount: imageCount
+
+        // 최종적으로 배열 길이를 imageCount로 제한
+        const finalImages = newImages.slice(0, imageCount);
+
+        console.log("📊 GridB 이미지 배치 결과:", {
+          받은이미지: imageUrls,
+          제한된이미지: limitedImageUrls,
+          이전이미지: prev,
+          새이미지: newImages,
+          최종이미지: finalImages,
+          imageCount: imageCount,
+        });
+
+        return finalImages;
       });
-      
-      return finalImages;
-    });
-  }, [imageCount]);
+    },
+    [imageCount]
+  );
 
   // 개별 이미지 추가 핸들러
-  const handleSingleImageAdded = React.useCallback((hasImage: boolean, imageIndex: number) => {
-    console.log(`📥 GridB 개별 이미지 ${imageIndex} 변경:`, hasImage);
-  }, []);
+  const handleSingleImageAdded = React.useCallback(
+    (hasImage: boolean, imageIndex: number) => {
+      console.log(`📥 GridB 개별 이미지 ${imageIndex} 변경:`, hasImage);
+    },
+    []
+  );
 
   // imageCount 변경 시 currentImages와 imagePositions 업데이트
   React.useEffect(() => {
     console.log("🔄 GridB imageCount 변경됨:", imageCount);
-    
-    setCurrentImages(prev => {
+
+    setCurrentImages((prev) => {
       const newImages = [...prev];
       // 이미지 개수에 맞게 배열 크기 조정
       while (newImages.length < imageCount) {
@@ -795,18 +1329,18 @@ function GridBElement({
       }
       // 항상 imageCount로 길이 제한
       const limitedImages = newImages.slice(0, imageCount);
-      
+
       console.log("🔄 GridB currentImages 업데이트:", {
         이전이미지: prev,
         새이미지: newImages,
         제한된이미지: limitedImages,
-        imageCount: imageCount
+        imageCount: imageCount,
       });
-      
+
       return limitedImages;
     });
 
-    setImagePositions(prev => {
+    setImagePositions((prev) => {
       const newPositions = [...prev];
       // 이미지 개수가 증가한 경우 기본 위치 정보 추가
       while (newPositions.length < imageCount) {
@@ -817,7 +1351,7 @@ function GridBElement({
     });
 
     // 이미지 메타데이터도 imageCount에 맞게 조정
-    setImageMetadata(prev => {
+    setImageMetadata((prev) => {
       // 현재 currentImages에 있는 URL들과 매칭되는 메타데이터만 유지
       return prev.filter((metadata, index) => index < imageCount);
     });
@@ -833,11 +1367,11 @@ function GridBElement({
         style: {
           gridTemplateAreas: `"left-left left-right right"`,
           gridTemplateColumns: "1fr 1fr 2fr", // 좌좌 1:1, 좌우 1:1, 우측 2 비율
-          gridTemplateRows: "1fr" // 높이는 모두 같음
-        }
+          gridTemplateRows: "1fr", // 높이는 모두 같음
+        },
       };
     }
-    
+
     // 기본 레이아웃
     switch (count) {
       case 1:
@@ -861,104 +1395,116 @@ function GridBElement({
   const imageContainerRef = React.useRef<HTMLDivElement>(null);
 
   // 개별 이미지 셀 크기 측정 함수 - 특정 인덱스의 이미지 크기 계산
-  const measureImageCellSize = React.useCallback((imageIndex: number) => {
-    if (imageContainerRef.current) {
-      const containerRect = imageContainerRef.current.getBoundingClientRect();
-      
-      // 그리드 gap 크기 (CSS에서 gap-1 = 4px)
-      const gap = 4;
-      
-      // 이미지 개수에 따른 개별 셀 크기 계산
-      let cellWidth = containerRect.width;
-      let cellHeight = containerRect.height;
-      let cellX = containerRect.left;
-      let cellY = containerRect.top;
-      
-      // 합친 경우(isExpanded)이고 이미지가 3개일 때 특별한 레이아웃
-      if (isExpanded && imageCount === 3) {
-        const leftWidth = (containerRect.width * 2) / 3; // 좌측 전체 너비 (66.67%)
-        const rightWidth = containerRect.width / 3; // 우측 너비 (33.33%)
-        const halfWidth = leftWidth / 2; // 좌측 반쪽 너비
-        
-        switch (imageIndex) {
-          case 0: // 좌좌
-            cellWidth = halfWidth;
-            cellHeight = containerRect.height;
-            cellX = containerRect.left;
-            cellY = containerRect.top;
-            break;
-          case 1: // 좌우
-            cellWidth = halfWidth - gap;
-            cellHeight = containerRect.height;
-            cellX = containerRect.left + halfWidth + gap;
-            cellY = containerRect.top;
-            break;
-          case 2: // 우측
-            cellWidth = rightWidth - gap;
-            cellHeight = containerRect.height;
-            cellX = containerRect.left + leftWidth + gap;
-            cellY = containerRect.top;
-            break;
+  const measureImageCellSize = React.useCallback(
+    (imageIndex: number) => {
+      if (imageContainerRef.current) {
+        const containerRect = imageContainerRef.current.getBoundingClientRect();
+
+        // 그리드 gap 크기 (CSS에서 gap-1 = 4px)
+        const gap = 4;
+
+        // 이미지 개수에 따른 개별 셀 크기 계산
+        let cellWidth = containerRect.width;
+        let cellHeight = containerRect.height;
+        let cellX = containerRect.left;
+        let cellY = containerRect.top;
+
+        // 합친 경우(isExpanded)이고 이미지가 3개일 때 특별한 레이아웃
+        if (isExpanded && imageCount === 3) {
+          const leftWidth = (containerRect.width * 2) / 3; // 좌측 전체 너비 (66.67%)
+          const rightWidth = containerRect.width / 3; // 우측 너비 (33.33%)
+          const halfWidth = leftWidth / 2; // 좌측 반쪽 너비
+
+          switch (imageIndex) {
+            case 0: // 좌좌
+              cellWidth = halfWidth;
+              cellHeight = containerRect.height;
+              cellX = containerRect.left;
+              cellY = containerRect.top;
+              break;
+            case 1: // 좌우
+              cellWidth = halfWidth - gap;
+              cellHeight = containerRect.height;
+              cellX = containerRect.left + halfWidth + gap;
+              cellY = containerRect.top;
+              break;
+            case 2: // 우측
+              cellWidth = rightWidth - gap;
+              cellHeight = containerRect.height;
+              cellX = containerRect.left + leftWidth + gap;
+              cellY = containerRect.top;
+              break;
+          }
+        } else {
+          // 기본 레이아웃
+          switch (imageCount) {
+            case 1:
+              // 단일 이미지는 전체 영역 사용
+              break;
+            case 2:
+              // 2개 이미지는 가로로 분할 (grid-cols-2)
+              cellWidth = (containerRect.width - gap) / 2;
+              cellX = containerRect.left + imageIndex * (cellWidth + gap);
+              break;
+            case 3:
+              // 3개 이미지는 가로로 분할 (grid-cols-3)
+              cellWidth = (containerRect.width - gap * 2) / 3;
+              cellX = containerRect.left + imageIndex * (cellWidth + gap);
+              break;
+            case 4:
+              // 2x2 그리드 (grid-cols-2)
+              cellWidth = (containerRect.width - gap) / 2;
+              cellHeight = (containerRect.height - gap) / 2;
+              cellX = containerRect.left + (imageIndex % 2) * (cellWidth + gap);
+              cellY =
+                containerRect.top +
+                Math.floor(imageIndex / 2) * (cellHeight + gap);
+              break;
+            case 6:
+              // 3x2 그리드 (grid-cols-3)
+              cellWidth = (containerRect.width - gap * 2) / 3;
+              cellHeight = (containerRect.height - gap) / 2;
+              cellX = containerRect.left + (imageIndex % 3) * (cellWidth + gap);
+              cellY =
+                containerRect.top +
+                Math.floor(imageIndex / 3) * (cellHeight + gap);
+              break;
+            case 9:
+              // 3x3 그리드 (grid-cols-3)
+              cellWidth = (containerRect.width - gap * 2) / 3;
+              cellHeight = (containerRect.height - gap * 2) / 3;
+              cellX = containerRect.left + (imageIndex % 3) * (cellWidth + gap);
+              cellY =
+                containerRect.top +
+                Math.floor(imageIndex / 3) * (cellHeight + gap);
+              break;
+          }
         }
-      } else {
-        // 기본 레이아웃
-        switch (imageCount) {
-          case 1:
-            // 단일 이미지는 전체 영역 사용
-            break;
-          case 2:
-            // 2개 이미지는 가로로 분할 (grid-cols-2)
-            cellWidth = (containerRect.width - gap) / 2;
-            cellX = containerRect.left + (imageIndex * (cellWidth + gap));
-            break;
-          case 3:
-            // 3개 이미지는 가로로 분할 (grid-cols-3)
-            cellWidth = (containerRect.width - gap * 2) / 3;
-            cellX = containerRect.left + (imageIndex * (cellWidth + gap));
-            break;
-          case 4:
-            // 2x2 그리드 (grid-cols-2)
-            cellWidth = (containerRect.width - gap) / 2;
-            cellHeight = (containerRect.height - gap) / 2;
-            cellX = containerRect.left + ((imageIndex % 2) * (cellWidth + gap));
-            cellY = containerRect.top + (Math.floor(imageIndex / 2) * (cellHeight + gap));
-            break;
-          case 6:
-            // 3x2 그리드 (grid-cols-3)
-            cellWidth = (containerRect.width - gap * 2) / 3;
-            cellHeight = (containerRect.height - gap) / 2;
-            cellX = containerRect.left + ((imageIndex % 3) * (cellWidth + gap));
-            cellY = containerRect.top + (Math.floor(imageIndex / 3) * (cellHeight + gap));
-            break;
-          case 9:
-            // 3x3 그리드 (grid-cols-3)
-            cellWidth = (containerRect.width - gap * 2) / 3;
-            cellHeight = (containerRect.height - gap * 2) / 3;
-            cellX = containerRect.left + ((imageIndex % 3) * (cellWidth + gap));
-            cellY = containerRect.top + (Math.floor(imageIndex / 3) * (cellHeight + gap));
-            break;
-        }
+
+        const targetFrame = {
+          width: Math.round(cellWidth),
+          height: Math.round(cellHeight),
+          x: Math.round(cellX),
+          y: Math.round(cellY),
+        };
+
+        console.log(`📏 GridB 이미지 ${imageIndex} 실제 측정된 셀 크기:`, {
+          imageCount,
+          isExpanded,
+          imageIndex,
+          containerSize: {
+            width: containerRect.width,
+            height: containerRect.height,
+          },
+          cellSize: targetFrame,
+        });
+
+        return targetFrame;
       }
-      
-      const targetFrame = {
-        width: Math.round(cellWidth),
-        height: Math.round(cellHeight),
-        x: Math.round(cellX),
-        y: Math.round(cellY)
-      };
-      
-      console.log(`📏 GridB 이미지 ${imageIndex} 실제 측정된 셀 크기:`, {
-        imageCount,
-        isExpanded,
-        imageIndex,
-        containerSize: { width: containerRect.width, height: containerRect.height },
-        cellSize: targetFrame
-      });
-      
-      return targetFrame;
-    }
-    return undefined;
-  }, [imageCount, isExpanded]);
+      return undefined;
+    },
+    [imageCount, isExpanded]
+  );
 
   // 모든 이미지의 기본 크기 (이전 함수와의 호환성을 위해 유지)
   const measureSingleImageCellSize = React.useCallback(() => {
@@ -968,107 +1514,113 @@ function GridBElement({
   // 컴포넌트 마운트 후와 리사이즈 시 크기 측정
   React.useEffect(() => {
     measureSingleImageCellSize();
-    
+
     const handleResize = () => {
       measureSingleImageCellSize();
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, [measureSingleImageCellSize, isExpanded, imageCount]);
 
   // 특정 이미지 인덱스의 영역 크기를 계산하여 비율 반환
-  const getImageAreaRatio = React.useCallback((imageIndex: number = 0) => {
-    // 실제 측정된 크기가 있으면 그것을 사용
-    const actualFrame = measureImageCellSize(imageIndex);
-    if (actualFrame) {
-      return {
-        width: actualFrame.width,
-        height: actualFrame.height,
-        aspectRatio: actualFrame.width / actualFrame.height
-      };
-    }
-    
-    // 실제 측정 크기가 없을 때만 추정 크기 사용 (fallback)
-    let baseWidth = 180; // 기본 카드 폭
-    let baseHeight = 120; // 기본 카드 높이
-    
-    // isExpanded인 경우 폭이 더 넓어짐
-    if (isExpanded) {
-      baseWidth *= 2; // 대략 2배 넓어짐
-    }
-    
-    // imageCount에 따른 개별 이미지 크기 계산
-    let imageWidth = baseWidth;
-    let imageHeight = baseHeight;
-    
-    if (isExpanded && imageCount === 3) {
-      // 특별한 3개 이미지 레이아웃
-      if (imageIndex === 0 || imageIndex === 1) {
-        // 좌측 이미지들
-        imageWidth = baseWidth / 3; // 전체 너비의 1/3
+  const getImageAreaRatio = React.useCallback(
+    (imageIndex: number = 0) => {
+      // 실제 측정된 크기가 있으면 그것을 사용
+      const actualFrame = measureImageCellSize(imageIndex);
+      if (actualFrame) {
+        return {
+          width: actualFrame.width,
+          height: actualFrame.height,
+          aspectRatio: actualFrame.width / actualFrame.height,
+        };
+      }
+
+      // 실제 측정 크기가 없을 때만 추정 크기 사용 (fallback)
+      let baseWidth = 180; // 기본 카드 폭
+      let baseHeight = 120; // 기본 카드 높이
+
+      // isExpanded인 경우 폭이 더 넓어짐
+      if (isExpanded) {
+        baseWidth *= 2; // 대략 2배 넓어짐
+      }
+
+      // imageCount에 따른 개별 이미지 크기 계산
+      let imageWidth = baseWidth;
+      let imageHeight = baseHeight;
+
+      if (isExpanded && imageCount === 3) {
+        // 특별한 3개 이미지 레이아웃
+        if (imageIndex === 0 || imageIndex === 1) {
+          // 좌측 이미지들
+          imageWidth = baseWidth / 3; // 전체 너비의 1/3
+        } else {
+          // 우측 이미지
+          imageWidth = (baseWidth * 2) / 3; // 전체 너비의 2/3
+        }
       } else {
-        // 우측 이미지
-        imageWidth = (baseWidth * 2) / 3; // 전체 너비의 2/3
+        switch (imageCount) {
+          case 1:
+            // 단일 이미지는 전체 영역 사용
+            break;
+          case 2:
+            // 2개 이미지는 가로로 분할
+            imageWidth = baseWidth / 2 - 4; // gap 고려
+            break;
+          case 3:
+            // 3개 이미지는 가로로 분할
+            imageWidth = baseWidth / 3 - 4; // gap 고려
+            break;
+          case 4:
+            // 2x2 그리드
+            imageWidth = baseWidth / 2 - 4; // gap 고려
+            imageHeight = baseHeight / 2 - 4; // gap 고려
+            break;
+          case 6:
+            // 3x2 그리드
+            imageWidth = baseWidth / 3 - 4; // gap 고려
+            imageHeight = baseHeight / 2 - 4; // gap 고려
+            break;
+          case 9:
+            // 3x3 그리드
+            imageWidth = baseWidth / 3 - 4; // gap 고려
+            imageHeight = baseHeight / 3 - 4; // gap 고려
+            break;
+        }
       }
-    } else {
-      switch (imageCount) {
-        case 1:
-          // 단일 이미지는 전체 영역 사용
-          break;
-        case 2:
-          // 2개 이미지는 가로로 분할
-          imageWidth = baseWidth / 2 - 4; // gap 고려
-          break;
-        case 3:
-          // 3개 이미지는 가로로 분할
-          imageWidth = baseWidth / 3 - 4; // gap 고려
-          break;
-        case 4:
-          // 2x2 그리드
-          imageWidth = baseWidth / 2 - 4; // gap 고려
-          imageHeight = baseHeight / 2 - 4; // gap 고려
-          break;
-        case 6:
-          // 3x2 그리드
-          imageWidth = baseWidth / 3 - 4; // gap 고려
-          imageHeight = baseHeight / 2 - 4; // gap 고려
-          break;
-        case 9:
-          // 3x3 그리드
-          imageWidth = baseWidth / 3 - 4; // gap 고려
-          imageHeight = baseHeight / 3 - 4; // gap 고려
-          break;
-      }
-    }
-    
-    return {
-      width: imageWidth,
-      height: imageHeight,
-      aspectRatio: imageWidth / imageHeight
-    };
-  }, [measureImageCellSize, isExpanded, imageCount]);
+
+      return {
+        width: imageWidth,
+        height: imageHeight,
+        aspectRatio: imageWidth / imageHeight,
+      };
+    },
+    [measureImageCellSize, isExpanded, imageCount]
+  );
 
   // 키워드 입력 (소형 Input)
   const [keywords, setKeywords] = React.useState("");
   // LLM 생성/설명 텍스트 (description-area textarea)
   const [descriptionText, setDescriptionText] = React.useState("");
-  
+
   // Grid content store에서 해당 그리드의 playSubjectText 값 변경 시 descriptionText 업데이트 (초기화 반영)
   React.useEffect(() => {
     if (gridId && gridContents[gridId]) {
       const storePlaySubjectText = gridContents[gridId].playSubjectText || "";
       console.log(`🔄 GridBElement ${gridId} store playSubjectText 변경됨:`, {
         storeValue: storePlaySubjectText,
-        currentDescription: descriptionText
+        currentDescription: descriptionText,
       });
-      
+
       // store에서 값이 초기화된 경우 descriptionText도 초기화
       if (storePlaySubjectText === "" && descriptionText !== "") {
         setDescriptionText("");
       } else if (storePlaySubjectText !== descriptionText) {
         setDescriptionText(storePlaySubjectText);
-        if (typeof storePlaySubjectText === 'string' && storePlaySubjectText.trim() !== '') {
+        if (
+          typeof storePlaySubjectText === "string" &&
+          storePlaySubjectText.trim() !== ""
+        ) {
           setHasClickedAIGenerate(true);
           setIsDescriptionExpanded(true);
           // 스토어의 AI 생성 플래그도 업데이트
@@ -1077,7 +1629,7 @@ function GridBElement({
       }
     }
   }, [gridContents, gridId, descriptionText]);
-  
+
   // 툴바 상태 관리
   const [toolbarState, setToolbarState] = React.useState({
     show: false,
@@ -1087,12 +1639,17 @@ function GridBElement({
   const [isHovered, setIsHovered] = React.useState(false);
   const isHoveredRef = React.useRef(false);
   const hoverTimerRef = React.useRef<NodeJS.Timeout | null>(null);
-  const [toolbarPosition, setToolbarPosition] = React.useState({ left: 0, top: 0 });
+  const [toolbarPosition, setToolbarPosition] = React.useState({
+    left: 0,
+    top: 0,
+  });
   const containerRef = React.useRef<HTMLDivElement | null>(null);
 
   // Default images if none provided - imageCount에 맞게 동적으로 생성
   const defaultImages = React.useMemo(() => {
-    return Array(imageCount).fill("https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg");
+    return Array(imageCount).fill(
+      "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+    );
   }, [imageCount]);
 
   const displayImages = images.length > 0 ? images : defaultImages;
@@ -1101,21 +1658,28 @@ function GridBElement({
   React.useEffect(() => {
     if (gridId && currentImages.length > 0) {
       // 기본 이미지가 아닌 실제 업로드된 이미지들만 필터링
-      const validImages = currentImages.filter(img => 
-        img && img !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+      const validImages = currentImages.filter(
+        (img) =>
+          img &&
+          img !==
+            "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
       );
       updateImages(gridId, validImages);
     }
   }, [currentImages, gridId, updateImages]);
 
   // 키워드 입력 변경 (store에 반영하지 않음)
-  const handleKeywordChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleKeywordChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     const newValue = e.target.value;
     setKeywords(newValue);
   };
 
   // description textarea 변경 (store에 반영)
-  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleDescriptionChange = (
+    e: React.ChangeEvent<HTMLTextAreaElement>
+  ) => {
     const newValue = e.target.value;
     setDescriptionText(newValue);
     if (gridId) {
@@ -1128,22 +1692,27 @@ function GridBElement({
     console.log("🤖 GridB AI 생성 조건 체크:", {
       profileId,
       이미지개수: getCurrentImageCount(),
-      키워드: keywords?.trim()
+      키워드: keywords?.trim(),
     });
-    
+
     // profileId 체크 - 로그인 상태 확인
     if (!profileId) {
       console.log("❌ AI 생성 조건 실패: 로그인 필요");
-      addToast({ message: '로그인 후 사용해주세요.' });
+      addToast({ message: "로그인 후 사용해주세요." });
       return;
     }
 
     // 그리드에서 이미지의 data-id 값들 수집
     const photoDriveItemKeys: string[] = [];
     currentImages.forEach((imageUrl) => {
-      if (imageUrl && imageUrl !== "" && imageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
+      if (
+        imageUrl &&
+        imageUrl !== "" &&
+        imageUrl !==
+          "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+      ) {
         const driveItemKey = getDriveItemKeyByImageUrl(imageUrl);
-        if (driveItemKey && !driveItemKey.startsWith('local_')) {
+        if (driveItemKey && !driveItemKey.startsWith("local_")) {
           photoDriveItemKeys.push(driveItemKey);
         }
       }
@@ -1151,31 +1720,31 @@ function GridBElement({
 
     if (photoDriveItemKeys.length === 0) {
       console.log("❌ AI 생성 조건 실패: 유효한 이미지가 없음");
-      addToast({ message: '먼저 이미지를 업로드해주세요.' });
+      addToast({ message: "먼저 이미지를 업로드해주세요." });
       return;
     }
 
     // searchParams에서 age 값 가져오기
-    const ageParam = searchParams?.get('age');
+    const ageParam = searchParams?.get("age");
     const age = ageParam ? parseInt(ageParam, 10) : 3; // 기본값: 3 (6세)
 
     const requestData = {
       profileId,
       subject: "놀이 활동", // GridB는 categoryValue가 없으므로 기본값 사용
       age,
-      startsAt: new Date().toISOString().split('T')[0], // 오늘 날짜
-      endsAt: new Date().toISOString().split('T')[0], // 오늘 날짜
+      startsAt: new Date().toISOString().split("T")[0], // 오늘 날짜
+      endsAt: new Date().toISOString().split("T")[0], // 오늘 날짜
       photoDriveItemKeys,
-      keywords: keywords.trim() || "" // 현재 입력된 키워드 사용
+      keywords: keywords.trim() || "", // 현재 입력된 키워드 사용
     };
 
     console.log("GridB LLM API 호출 데이터:", requestData);
 
     try {
-      const response = await fetch('/api/ai/v2/report/type-b/analyze-image', {
-        method: 'POST',
+      const response = await fetch("/api/ai/v2/report/type-b/analyze-image", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(requestData),
       });
@@ -1183,30 +1752,30 @@ function GridBElement({
       if (!response.ok) {
         const errorData = await response.json();
         console.log("API 오류:", errorData);
-        showAlert({ message: 'AI 생성에 실패했습니다. 다시 시도해주세요.' });
+        showAlert({ message: "AI 생성에 실패했습니다. 다시 시도해주세요." });
         return;
       }
 
-      const result = await response.json() as any;
+      const result = (await response.json()) as any;
       console.log("GridB LLM API 응답:", result);
 
       // API 응답 구조에서 텍스트 추출
       let generatedText = "";
-      
+
       console.log("응답 구조 분석:", {
         hasSuccess: !!result.success,
         hasData: !!result.data,
         hasDataResult: !!result.data?.result,
         hasDataResultContents: !!result.data?.result?.contents,
-        fullResponse: result
+        fullResponse: result,
       });
-      
+
       if (result.success && result.data?.result?.contents) {
         // type-b API 응답 구조: { success: true, data: { result: { contents: "..." } } }
         generatedText = result.data.result.contents;
       } else if (result.success && result.data?.contents) {
         generatedText = result.data.contents;
-      } else if (result.data && typeof result.data === 'string') {
+      } else if (result.data && typeof result.data === "string") {
         generatedText = result.data;
       } else if (result.data && result.data.content) {
         generatedText = result.data.content;
@@ -1215,16 +1784,17 @@ function GridBElement({
       } else if (result.contents) {
         // 직접 contents 필드가 있는 경우
         generatedText = result.contents;
-      } else if (typeof result === 'string') {
+      } else if (typeof result === "string") {
         generatedText = result;
       } else {
         console.warn("예상하지 못한 응답 구조:", result);
-        generatedText = "AI 텍스트 생성에 성공했지만 내용을 추출할 수 없습니다."; // 기본값
+        generatedText =
+          "AI 텍스트 생성에 성공했지만 내용을 추출할 수 없습니다."; // 기본값
       }
 
       // 생성된 텍스트를 description으로 업데이트
       setDescriptionText(generatedText);
-      
+
       // Grid content store에도 업데이트 (gridId가 있을 때만)
       if (gridId) {
         updatePlaySubject(gridId, generatedText);
@@ -1232,52 +1802,63 @@ function GridBElement({
         updateAiGenerated(gridId, true);
       }
 
-      addToast({ message: 'AI 텍스트가 생성되었습니다.' });
-
+      addToast({ message: "AI 텍스트가 생성되었습니다." });
     } catch (error) {
       console.log("API 호출 오류:", error);
-      showAlert({ message: 'AI 생성 중 오류가 발생했습니다.' });
+      showAlert({ message: "AI 생성 중 오류가 발생했습니다." });
     }
-  }, [profileId, currentImages, getDriveItemKeyByImageUrl, searchParams, keywords, gridId, updatePlaySubject, updateAiGenerated, getCurrentImageCount, showAlert, addToast]);
+  }, [
+    profileId,
+    currentImages,
+    getDriveItemKeyByImageUrl,
+    searchParams,
+    keywords,
+    gridId,
+    updatePlaySubject,
+    updateAiGenerated,
+    getCurrentImageCount,
+    showAlert,
+    addToast,
+  ]);
 
   const handleAIGenerate = () => {
     console.log("🎯 GridB AI 생성 버튼 클릭됨");
     console.log("현재 isDescriptionExpanded:", isDescriptionExpanded);
     console.log("현재 이미지 개수:", getCurrentImageCount());
-    
+
     // 추가 조건 체크 (안전장치)
     if (getCurrentImageCount() === 0) {
       console.log("❌ AI 생성 실패: 이미지가 없음");
-      addToast({ message: '먼저 이미지를 업로드해주세요.' });
+      addToast({ message: "먼저 이미지를 업로드해주세요." });
       return;
     }
-    
+
     // AI 생성 버튼을 클릭했다고 표시
     setHasClickedAIGenerate(true);
-    
+
     // 로딩 상태 시작
     setIsLoading(true);
-    
+
     // description-area를 확장된 textarea로 변경
     setIsDescriptionExpanded(true);
     console.log("setIsDescriptionExpanded(true) 호출됨");
-    
+
     // LLM API 호출
     callLLMAPI().finally(() => {
       // 로딩 상태 종료 (성공/실패 관계없이)
       setIsLoading(false);
     });
-    
+
     if (onAIGenerate) {
       onAIGenerate();
     }
   };
 
   const handleImageUpload = () => {
-    console.log('GridB 이미지 업로드 버튼 클릭됨');
+    console.log("GridB 이미지 업로드 버튼 클릭됨");
     // 새로운 이미지 업로드 모달 열기
     handleOpenUploadModal();
-    
+
     // 기존 핸들러도 호출 (필요시)
     if (onImageUpload) {
       onImageUpload();
@@ -1286,18 +1867,18 @@ function GridBElement({
 
   // 텍스트 파일 업로드 핸들러
   const handleTextFileUpload = () => {
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = '.txt';
-    fileInput.style.display = 'none';
-    
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = ".txt";
+    fileInput.style.display = "none";
+
     fileInput.onchange = (event) => {
       const target = event.target as HTMLInputElement;
       const file = target.files?.[0];
-      
-      if (file && file.type === 'text/plain') {
+
+      if (file && file.type === "text/plain") {
         const reader = new FileReader();
-        
+
         reader.onload = (e) => {
           const content = e.target?.result as string;
           if (content) {
@@ -1305,34 +1886,47 @@ function GridBElement({
             setKeywords(content);
           }
         };
-        
-        reader.readAsText(file, 'UTF-8');
+
+        reader.readAsText(file, "UTF-8");
       } else {
-        alert('텍스트 파일(.txt)만 업로드 가능합니다.');
+        alert("텍스트 파일(.txt)만 업로드 가능합니다.");
       }
-      
+
       document.body.removeChild(fileInput);
     };
-    
+
     document.body.appendChild(fileInput);
     fileInput.click();
   };
 
   // 이미지 더블클릭 시 인라인 편집 시작
   const handleImageAdjustClick = (imageIndex: number, imageUrl: string) => {
-    if (imageUrl && imageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
+    if (
+      imageUrl &&
+      imageUrl !==
+        "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+    ) {
       beginInlineEdit(imageIndex);
     }
   };
 
   // ImageEditModal에서 편집된 이미지 적용 핸들러
-  const handleImageEditApply = (processedImages: { imageUrls: string[]; imagePositions: any[] }) => {
-    console.log("📸 GridB 편집된 이미지 데이터 받음:", processedImages.imageUrls);
-    console.log("📸 GridB 편집된 이미지 위치 데이터:", processedImages.imagePositions);
-    
+  const handleImageEditApply = (processedImages: {
+    imageUrls: string[];
+    imagePositions: any[];
+  }) => {
+    console.log(
+      "📸 GridB 편집된 이미지 데이터 받음:",
+      processedImages.imageUrls
+    );
+    console.log(
+      "📸 GridB 편집된 이미지 위치 데이터:",
+      processedImages.imagePositions
+    );
+
     // 편집된 이미지들로 교체
     if (processedImages.imageUrls && processedImages.imageUrls.length > 0) {
-      setCurrentImages(prev => {
+      setCurrentImages((prev) => {
         const newImages = [...prev];
         processedImages.imageUrls.forEach((editedUrl, index) => {
           if (index < newImages.length) {
@@ -1344,13 +1938,13 @@ function GridBElement({
     }
 
     // 모달 닫기
-    setImageEditModal(prev => ({ ...prev, isOpen: false }));
+    setImageEditModal((prev) => ({ ...prev, isOpen: false }));
   };
 
   // ImageEditModal에서 이미지 순서 변경 핸들러
   const handleImageOrderChange = (newOrder: string[]) => {
     console.log("🔄 GridB 이미지 순서 변경:", newOrder);
-    setCurrentImages(prev => {
+    setCurrentImages((prev) => {
       const newImages = [...prev];
       // 유효한 이미지들만 새로운 순서로 교체
       newOrder.forEach((imageUrl, index) => {
@@ -1363,165 +1957,201 @@ function GridBElement({
   };
 
   // 개별 이미지의 배경 제거 API 호출 함수
-  const removeBackgroundForSingleImage = React.useCallback(async (imageIndex: number, imageUrl: string, driveItemKey: string) => {
-    try {
-      setImageRemoveLoadingStates(prev => ({ ...prev, [imageIndex]: true }));
-      
-      const response = await fetch('/api/ai/v1/remove-background', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'accept': '*/*'
-        },
-        body: JSON.stringify({
-          profileId,
-          driveItemKeys: [driveItemKey], // 단일 이미지만 처리
-          threshold: 0.8,
-          responseWithFolder: false
-        })
-      });
+  const removeBackgroundForSingleImage = React.useCallback(
+    async (imageIndex: number, imageUrl: string, driveItemKey: string) => {
+      try {
+        setImageRemoveLoadingStates((prev) => ({
+          ...prev,
+          [imageIndex]: true,
+        }));
 
-      if (!response.ok) {
-        console.log(`GridB 이미지 ${imageIndex + 1} 배경 제거 실패`);
-        return null;
-      }
+        const response = await fetch("/api/ai/v1/remove-background", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            accept: "*/*",
+          },
+          body: JSON.stringify({
+            profileId,
+            driveItemKeys: [driveItemKey], // 단일 이미지만 처리
+            threshold: 0.8,
+            responseWithFolder: false,
+          }),
+        });
 
-      const result = await response.json();
-      console.log(`🖼️ GridB 이미지 ${imageIndex + 1} 배경 제거 API 응답:`, result);
-
-      // 응답에서 새로운 이미지 정보 추출
-      if (result?.result) {
-        const processedImage = Array.isArray(result.result) ? result.result[0] : result.result;
-        
-        if (processedImage?.driveItemKey && processedImage?.thumbUrl) {
-          const newDriveItemKey = processedImage.driveItemKey;
-          const newThumbUrl = processedImage.thumbUrl;
-          
-          // 이미지 교체
-          setCurrentImages(prev => {
-            const newImages = [...prev];
-            newImages[imageIndex] = newThumbUrl;
-            console.log(`🖼️ GridB 이미지 ${imageIndex + 1} 배경 제거 완료:`, {
-              원본: prev[imageIndex],
-              신규: newThumbUrl,
-              원본DriveItemKey: driveItemKey,
-              신규DriveItemKey: newDriveItemKey
-            });
-            return newImages;
-          });
-
-          // 이미지 메타데이터도 업데이트
-          setImageMetadata(prev => {
-            const newMetadata = [...prev];
-            // 해당 인덱스의 메타데이터 업데이트
-            const metaIndex = newMetadata.findIndex(meta => meta.url === imageUrl);
-            if (metaIndex >= 0) {
-              newMetadata[metaIndex] = {
-                url: newThumbUrl,
-                driveItemKey: newDriveItemKey
-              };
-            } else {
-              // 새로운 메타데이터 추가
-              newMetadata.push({
-                url: newThumbUrl,
-                driveItemKey: newDriveItemKey
-              });
-            }
-            return newMetadata;
-          });
-          
-          return true; // 성공
+        if (!response.ok) {
+          console.log(`GridB 이미지 ${imageIndex + 1} 배경 제거 실패`);
+          return null;
         }
+
+        const result = await response.json();
+        console.log(
+          `🖼️ GridB 이미지 ${imageIndex + 1} 배경 제거 API 응답:`,
+          result
+        );
+
+        // 응답에서 새로운 이미지 정보 추출
+        if (result?.result) {
+          const processedImage = Array.isArray(result.result)
+            ? result.result[0]
+            : result.result;
+
+          if (processedImage?.driveItemKey && processedImage?.thumbUrl) {
+            const newDriveItemKey = processedImage.driveItemKey;
+            const newThumbUrl = processedImage.thumbUrl;
+
+            // 이미지 교체
+            setCurrentImages((prev) => {
+              const newImages = [...prev];
+              newImages[imageIndex] = newThumbUrl;
+              console.log(`🖼️ GridB 이미지 ${imageIndex + 1} 배경 제거 완료:`, {
+                원본: prev[imageIndex],
+                신규: newThumbUrl,
+                원본DriveItemKey: driveItemKey,
+                신규DriveItemKey: newDriveItemKey,
+              });
+              return newImages;
+            });
+
+            // 이미지 메타데이터도 업데이트
+            setImageMetadata((prev) => {
+              const newMetadata = [...prev];
+              // 해당 인덱스의 메타데이터 업데이트
+              const metaIndex = newMetadata.findIndex(
+                (meta) => meta.url === imageUrl
+              );
+              if (metaIndex >= 0) {
+                newMetadata[metaIndex] = {
+                  url: newThumbUrl,
+                  driveItemKey: newDriveItemKey,
+                };
+              } else {
+                // 새로운 메타데이터 추가
+                newMetadata.push({
+                  url: newThumbUrl,
+                  driveItemKey: newDriveItemKey,
+                });
+              }
+              return newMetadata;
+            });
+
+            return true; // 성공
+          }
+        }
+
+        return false; // 실패
+      } catch (error) {
+        console.log(`GridB 이미지 ${imageIndex + 1} 배경 제거 오류:`, error);
+        return false;
+      } finally {
+        setImageRemoveLoadingStates((prev) => ({
+          ...prev,
+          [imageIndex]: false,
+        }));
       }
-      
-      return false; // 실패
-    } catch (error) {
-      console.log(`GridB 이미지 ${imageIndex + 1} 배경 제거 오류:`, error);
-      return false;
-    } finally {
-      setImageRemoveLoadingStates(prev => ({ ...prev, [imageIndex]: false }));
-    }
-  }, [profileId, setCurrentImages, setImageMetadata]);
+    },
+    [profileId, setCurrentImages, setImageMetadata]
+  );
 
   // 모든 이미지의 배경 제거 API 호출 함수 (병렬 처리)
   const callRemoveBackgroundAPI = React.useCallback(async () => {
     if (!profileId) {
-      addToast({ message: '로그인 후 사용해주세요.' });
+      addToast({ message: "로그인 후 사용해주세요." });
       return;
     }
 
     // 현재 이미지들에서 유효한 이미지와 driveItemKey 수집
-    const validImages: Array<{index: number, url: string, driveItemKey: string}> = [];
-    
+    const validImages: Array<{
+      index: number;
+      url: string;
+      driveItemKey: string;
+    }> = [];
+
     currentImages.forEach((imageUrl, index) => {
-      if (imageUrl && imageUrl !== "" && imageUrl !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
+      if (
+        imageUrl &&
+        imageUrl !== "" &&
+        imageUrl !==
+          "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+      ) {
         const driveItemKey = getDriveItemKeyByImageUrl(imageUrl);
-        if (driveItemKey && !driveItemKey.startsWith('local_')) {
+        if (driveItemKey && !driveItemKey.startsWith("local_")) {
           validImages.push({ index, url: imageUrl, driveItemKey });
         }
       }
     });
 
     if (validImages.length === 0) {
-      addToast({ message: '배경 제거에 필요한 정보가 없습니다.' });
+      addToast({ message: "배경 제거에 필요한 정보가 없습니다." });
       return;
     }
 
-    console.log(`🖼️ GridB ${validImages.length}개 이미지의 배경 제거 시작:`, validImages);
+    console.log(
+      `🖼️ GridB ${validImages.length}개 이미지의 배경 제거 시작:`,
+      validImages
+    );
 
     try {
       setIsRemoveBackgroundLoading(true);
-      
+
       // 모든 이미지에 대해 병렬로 배경 제거 처리
-      const promises = validImages.map(({index, url, driveItemKey}) => 
+      const promises = validImages.map(({ index, url, driveItemKey }) =>
         removeBackgroundForSingleImage(index, url, driveItemKey)
       );
-      
-      const results = await Promise.all(promises);
-      
-      // 성공한 이미지 개수 계산
-      const successCount = results.filter(result => result === true).length;
-      
-      if (successCount > 0) {
-        addToast({ message: `${successCount}개 이미지의 배경 제거가 완료되었습니다.` });
-      } else {
-        showAlert({ message: '배경 제거된 이미지를 찾을 수 없습니다.' });
-      }
 
+      const results = await Promise.all(promises);
+
+      // 성공한 이미지 개수 계산
+      const successCount = results.filter((result) => result === true).length;
+
+      if (successCount > 0) {
+        addToast({
+          message: `${successCount}개 이미지의 배경 제거가 완료되었습니다.`,
+        });
+      } else {
+        showAlert({ message: "배경 제거된 이미지를 찾을 수 없습니다." });
+      }
     } catch (error) {
-      console.log('GridB 배경 제거 API 호출 오류:', error);
-      showAlert({ message: '배경 제거 중 오류가 발생했습니다.' });
+      console.log("GridB 배경 제거 API 호출 오류:", error);
+      showAlert({ message: "배경 제거 중 오류가 발생했습니다." });
     } finally {
       setIsRemoveBackgroundLoading(false);
     }
-  }, [profileId, currentImages, getDriveItemKeyByImageUrl, addToast, showAlert, removeBackgroundForSingleImage]);
+  }, [
+    profileId,
+    currentImages,
+    getDriveItemKeyByImageUrl,
+    addToast,
+    showAlert,
+    removeBackgroundForSingleImage,
+  ]);
 
   // 텍스트 새로고침 핸들러 - LLM API 호출
   const handleTextRefresh = (event: React.MouseEvent) => {
     event.stopPropagation(); // 이벤트 전파 방지
-    
+
     console.log("🔄 GridB 텍스트 새로고침 조건 체크:", {
       profileId,
       currentImageCount: getCurrentImageCount(),
-      키워드: keywords?.trim()
+      키워드: keywords?.trim(),
     });
-    
+
     // LLM 호출 조건 확인
     if (!profileId) {
       console.log("❌ 새로고침 조건 실패: 로그인 필요");
-      addToast({ message: '로그인 후 사용해주세요.' });
+      addToast({ message: "로그인 후 사용해주세요." });
       return;
     }
 
     if (getCurrentImageCount() === 0) {
       console.log("❌ 새로고침 조건 실패: 이미지가 없음");
-      addToast({ message: '먼저 이미지를 업로드해주세요.' });
+      addToast({ message: "먼저 이미지를 업로드해주세요." });
       return;
     }
-    
+
     // 로딩 상태 시작
     setIsLoading(true);
-    
+
     // LLM API 호출
     callLLMAPI().finally(() => {
       // 로딩 상태 종료 (성공/실패 관계없이)
@@ -1538,29 +2168,29 @@ function GridBElement({
   // 개별 이미지 삭제 핸들러
   const handleImageDelete = (imageIndex: number, event: React.MouseEvent) => {
     event.stopPropagation(); // 이벤트 전파 방지
-    
-    setCurrentImages(prev => {
+
+    setCurrentImages((prev) => {
       const deletedImageUrl = prev[imageIndex];
       const newImages = [...prev];
       newImages[imageIndex] = ""; // 해당 인덱스의 이미지를 빈 문자열로 설정
-      
+
       // 이미지 메타데이터에서도 해당 URL을 가진 메타데이터 삭제
       if (deletedImageUrl) {
-        setImageMetadata(prevMetadata => 
-          prevMetadata.filter(metadata => metadata.url !== deletedImageUrl)
+        setImageMetadata((prevMetadata) =>
+          prevMetadata.filter((metadata) => metadata.url !== deletedImageUrl)
         );
       }
-      
+
       console.log(`🗑️ GridB 이미지 ${imageIndex} 삭제:`, {
         이전이미지: prev,
         새이미지: newImages,
-        삭제된URL: deletedImageUrl
+        삭제된URL: deletedImageUrl,
       });
       return newImages;
     });
-    
+
     // 해당 인덱스의 이미지 위치 정보도 초기화
-    setImagePositions(prev => {
+    setImagePositions((prev) => {
       const newPositions = [...prev];
       if (newPositions[imageIndex]) {
         newPositions[imageIndex] = { x: 0, y: 0, scale: 1 };
@@ -1572,7 +2202,7 @@ function GridBElement({
   // 이미지가 아닌 영역 클릭 핸들러 - 툴바 표시 및 기존 선택 로직
   const handleNonImageClick = (event: React.MouseEvent) => {
     event.stopPropagation(); // 이벤트 전파 방지
-    
+
     // 툴바 표시
     setToolbarState({
       show: true,
@@ -1583,7 +2213,7 @@ function GridBElement({
       const rect = containerRef.current.getBoundingClientRect();
       setToolbarPosition({ left: rect.left + 8, top: rect.bottom + 8 });
     }
-    
+
     // 기존 선택 로직 유지
     if (onSelectChange) {
       onSelectChange(!isSelected);
@@ -1637,26 +2267,28 @@ function GridBElement({
   // 툴바 아이콘 클릭 핸들러
   const handleToolbarIconClick = (iconIndex: number, data?: any) => {
     console.log(`툴바 아이콘 ${iconIndex} 클릭됨, Grid ${index}`, data);
-    
+
     // 이미지 개수 변경 처리
-    if (data && data.action === 'changeImageCount') {
-      console.log(`그리드 ${data.gridId}의 이미지 개수를 ${data.count}개로 변경`);
+    if (data && data.action === "changeImageCount") {
+      console.log(
+        `그리드 ${data.gridId}의 이미지 개수를 ${data.count}개로 변경`
+      );
       setImageCount(data.count);
       // 부모 컴포넌트에 이미지 개수 변경 알림
       if (onImageCountChange) {
         onImageCountChange(data.count);
       }
     }
-    
+
     // 사진 배경 제거 처리 (인덱스 3) - 새로운 배경 제거 API 사용
     if (iconIndex === 3) {
       console.log(`GridB 그리드 ${index}의 배경 제거 API 호출`);
       callRemoveBackgroundAPI();
-      
+
       // 툴바 숨기기
       handleHideToolbar();
     }
-    
+
     // 사진 틀 삭제 처리 (인덱스 4)
     if (iconIndex === 4) {
       console.log(`그리드 ${index}의 사진 틀 삭제 - 숨김 처리`);
@@ -1664,11 +2296,11 @@ function GridBElement({
       if (onDelete) {
         onDelete();
       }
-      
+
       // 툴바 숨기기
       handleHideToolbar();
     }
-    
+
     // 여기에 각 아이콘별 로직 구현
   };
 
@@ -1677,17 +2309,20 @@ function GridBElement({
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
       // 현재 GridBElement 외부 클릭 시 툴바 숨기기
-      if (!target.closest(`[data-grid-id="${gridId}"]`) && !target.closest('.grid-edit-toolbar')) {
+      if (
+        !target.closest(`[data-grid-id="${gridId}"]`) &&
+        !target.closest(".grid-edit-toolbar")
+      ) {
         handleHideToolbar();
       }
     };
 
     if (toolbarState.show) {
-      document.addEventListener('click', handleClickOutside);
+      document.addEventListener("click", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener("click", handleClickOutside);
     };
   }, [toolbarState.show, gridId]);
 
@@ -1711,87 +2346,94 @@ function GridBElement({
 
     if (toolbarState.show) {
       updateToolbarPosition();
-      window.addEventListener('scroll', updateToolbarPosition, true);
-      window.addEventListener('resize', updateToolbarPosition);
+      window.addEventListener("scroll", updateToolbarPosition, true);
+      window.addEventListener("resize", updateToolbarPosition);
     }
 
     return () => {
-      window.removeEventListener('scroll', updateToolbarPosition, true);
-      window.removeEventListener('resize', updateToolbarPosition);
+      window.removeEventListener("scroll", updateToolbarPosition, true);
+      window.removeEventListener("resize", updateToolbarPosition);
     };
   }, [toolbarState.show]);
 
   // 툴바 표시 상태 또는 기존 선택 상태에 따른 border 스타일 결정
   const borderClass = isSaved
-    ? ''
-    : ((toolbarState.show || isSelected)
-      ? 'border-solid border-primary border-2'
-      : 'border-dashed border-zinc-400');
+    ? ""
+    : toolbarState.show || isSelected
+      ? "border-solid border-primary border-2"
+      : "border-dashed border-zinc-400";
 
   return (
     <div className="relative w-full h-full">
       <div
         ref={containerRef}
-        className={`relative overflow-hidden px-2.5 py-2.5 bg-white rounded-2xl ${isSaved ? 'border-0' : `border ${borderClass}`} w-full h-full flex flex-col ${className} gap-y-1.5 cursor-pointer`}
+        className={`relative overflow-hidden px-2.5 py-2.5 bg-white rounded-2xl ${isSaved ? "border-0" : `border ${borderClass}`} w-full h-full flex flex-col ${className} gap-y-1.5 cursor-pointer`}
         style={style}
         onClick={handleNonImageClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         data-grid-id={gridId}
       >
-        
-
         {/* 이미지 그리드 - 계산된 높이로 설정하여 공간 최적화 */}
-        <div 
+        <div
           ref={dropRef}
           className={`grid gap-1 w-full relative ${getImageGridLayout(imageCount).className}`}
-          style={{ 
-            height: 'calc(100% - 100px)', // 전체 높이에서 하단 입력 영역(100px) 제외
-            backgroundColor: canDrop && isOver ? '#f0f0f0' : 'transparent',
-            transition: 'background-color 0.2s ease',
-            ...getImageGridLayout(imageCount).style
+          style={{
+            height: "110px",
+            backgroundColor: canDrop && isOver ? "#f0f0f0" : "transparent",
+            transition: "background-color 0.2s ease",
+            ...getImageGridLayout(imageCount).style,
           }}
         >
-
           {currentImages.map((imageSrc, index) => {
             // 합친 경우이고 이미지가 3개일 때 각 이미지의 grid-area 지정
             let gridAreaStyle = {};
             if (isExpanded && imageCount === 3) {
               switch (index) {
                 case 0:
-                  gridAreaStyle = { gridArea: 'left-left' };
+                  gridAreaStyle = { gridArea: "left-left" };
                   break;
                 case 1:
-                  gridAreaStyle = { gridArea: 'left-right' };
+                  gridAreaStyle = { gridArea: "left-right" };
                   break;
                 case 2:
-                  gridAreaStyle = { gridArea: 'right' };
+                  gridAreaStyle = { gridArea: "right" };
                   break;
               }
             }
-            
+
             return (
-              <div 
-                key={index}
-                className="w-full h-full"
-              >
-                <div 
-                  className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
+              <div key={index} className="w-full h-full">
+                <div
+                  className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-[110px] border border-dashed border-[#AAACB4] rounded-md"
                   style={gridAreaStyle}
                   onClick={(e) => {
                     // 클릭 시에도 크기 측정
                     measureImageCellSize(index);
-                    if (!imageSrc || imageSrc === "" || imageSrc === "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
+                    if (
+                      !imageSrc ||
+                      imageSrc === "" ||
+                      imageSrc ===
+                        "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+                    ) {
                       handleOpenUploadModal();
                     }
                     handleImageClick(e);
                   }}
                 >
-                  {imageSrc && imageSrc !== "" && imageSrc !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
+                  {imageSrc &&
+                  imageSrc !== "" &&
+                  imageSrc !==
+                    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                     <div
-                      className={`absolute inset-0 ${isEditingIndex(index) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} rounded-md cursor-pointer group`}
-                      onDoubleClick={(e) => { e.stopPropagation(); beginInlineEdit(index); }}
-                      ref={(el) => { imageContainerRefs.current[index] = el; }}
+                      className={`absolute inset-0 ${isEditingIndex(index) ? "overflow-visible border-2 border-primary" : "overflow-hidden"} rounded-md cursor-pointer group`}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        beginInlineEdit(index);
+                      }}
+                      ref={(el) => {
+                        imageContainerRefs.current[index] = el;
+                      }}
                     >
                       <img
                         src={imageSrc}
@@ -1801,11 +2443,16 @@ function GridBElement({
                           transform: isEditingIndex(index)
                             ? `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${inlineEditState.tempPosition.scale})`
                             : `translate(${imagePositions[index]?.x || 0}px, ${imagePositions[index]?.y || 0}px) scale(${imagePositions[index]?.scale || 1})`,
-                          transformOrigin: 'center'
+                          transformOrigin: "center",
                         }}
                         data-id={getDriveItemKeyByImageUrl(imageSrc)}
-                        onDoubleClick={(e) => { e.stopPropagation(); beginInlineEdit(index); }}
-                        onMouseDown={isEditingIndex(index) ? onEditMouseDown : undefined}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          beginInlineEdit(index);
+                        }}
+                        onMouseDown={
+                          isEditingIndex(index) ? onEditMouseDown : undefined
+                        }
                         draggable={false}
                       />
                       {renderResizeHandles(index)}
@@ -1814,24 +2461,32 @@ function GridBElement({
                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 rounded-md">
                           <div className="flex flex-col items-center gap-1">
                             <Loader size="sm" />
-                            <div className="text-white text-xs">배경 제거 중...</div>
+                            <div className="text-white text-xs">
+                              배경 제거 중...
+                            </div>
                           </div>
                         </div>
                       )}
                       {/* X 삭제 버튼 */}
                       <button
-                        className={`absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0] ${isSaved ? 'invisible pointer-events-none' : ''}`}
+                        className={`absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0] ${isSaved ? "invisible pointer-events-none" : ""}`}
                         onClick={(e) => handleImageDelete(index, e)}
                         title="이미지 삭제"
                       >
                         <IoClose className="w-4 h-4 text-black" />
                       </button>
                       {/* 메모 인디케이터 */}
-                      <MemoIndicator 
-                        show={Boolean(getDriveItemKeyByImageUrl(imageSrc) && memoStatuses[getDriveItemKeyByImageUrl(imageSrc) || ''])}
+                      <MemoIndicator
+                        show={Boolean(
+                          getDriveItemKeyByImageUrl(imageSrc) &&
+                            memoStatuses[
+                              getDriveItemKeyByImageUrl(imageSrc) || ""
+                            ]
+                        )}
                         driveItemKey={getDriveItemKeyByImageUrl(imageSrc)}
                         onMemoClick={() => {
-                          const driveItemKey = getDriveItemKeyByImageUrl(imageSrc);
+                          const driveItemKey =
+                            getDriveItemKeyByImageUrl(imageSrc);
                           if (driveItemKey) {
                             openMemoModal(driveItemKey);
                           }
@@ -1842,32 +2497,25 @@ function GridBElement({
                     <>
                       <div
                         className="absolute inset-0 w-full h-full rounded-md"
-                        style={{ backgroundColor: '#F9FAFB', border: '1px dashed #AAACB4' }}
+                        style={{ backgroundColor: "#F9FAFB" }}
                       />
-                      {/* Black overlay - 이미지가 없을 때만 표시 */}
-                      <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-                        {/* Upload icon */}
-                        <Image
-                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                          width={20}
-                          height={20}
-                          className="object-contain mb-2"
-                          alt="Upload icon"
-                        />
-                        {/* Upload text */}
-                        <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
-                          이미지를 드래그하거나<br />클릭하여 업로드
+                      {/* Overlay - GridAElement와 동일한 안내 UI (클릭 불가) */}
+                      <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center opacity-100 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
+                        <div className="w-[26px] h-[26px] bg-[#E5E7EC] rounded-full flex items-center justify-center">
+                          <Image
+                            src="/report/upload.svg"
+                            width={16}
+                            height={16}
+                            className="object-contain"
+                            alt="Upload icon"
+                            unoptimized={true}
+                          />
                         </div>
-                        {/* File select button */}
-                        <button 
-                          className="bg-primary text-white text-[9px] px-2 py-1 rounded hover:bg-primary/80 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenUploadModal();
-                          }}
-                        >
-                          파일선택
-                        </button>
+                        <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
+                          이미지를 드래그하거나
+                          <br />
+                          클릭하여 업로드
+                        </div>
                       </div>
                     </>
                   )}
@@ -1886,24 +2534,15 @@ function GridBElement({
           </div>
         ) : isDescriptionExpanded ? (
           // 확장된 textarea 모드
-          <div className={`flex overflow-hidden flex-col px-1 py-1 w-full leading-none bg-white rounded-md h-[100px] justify-center flex-shrink-0 relative transition-colors ${
-            isSaved ? '' : (isTextareaFocused ? 'border border-solid border-primary' : 'border border-dashed border-zinc-400')
-          }`}>
-            {/* 새로고침 버튼 - 우측 상단 */}
-            <button
-              onClick={handleTextRefresh}
-              className={`absolute top-2 right-3 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-sm transition-colors z-10 ${isSaved ? 'invisible pointer-events-none' : ''}`}
-              title="텍스트 새로고침"
-            >
-              <Image
-                src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/refresh.svg"
-                width={20}
-                height={20}
-                alt="Refresh"
-                className="object-contain"
-              />
-            </button>
-            
+          <div
+            className={`flex overflow-hidden flex-col px-1 py-1 w-full leading-none bg-white rounded-md h-[100px] justify-center flex-shrink-0 relative transition-colors ${
+              isSaved
+                ? ""
+                : isTextareaFocused
+                  ? "border border-solid border-primary"
+                  : "border border-dashed border-zinc-400"
+            }`}
+          >
             <textarea
               value={descriptionText}
               onChange={handleDescriptionChange}
@@ -1911,170 +2550,291 @@ function GridBElement({
               onBlur={() => setIsTextareaFocused(false)}
               placeholder={placeholderText}
               className="w-full h-full px-1 py-0.5  text-xs tracking-tight bg-white border-0 text-zinc-600 placeholder-zinc-400 shadow-none rounded-md focus:ring-0 focus:outline-none resize-none flex-1 scrollbar-hide description-area"
-              style={{ 
-                borderRadius: '6px', 
-                fontSize: '12px', 
-                lineHeight: '1.2', 
-                scrollbarWidth: 'none', /* Firefox */
-                msOverflowStyle: 'none' /* IE and Edge */
+              style={{
+                borderRadius: "6px",
+                fontSize: "12px",
+                lineHeight: "1.2",
+                scrollbarWidth: "none" /* Firefox */,
+                msOverflowStyle: "none" /* IE and Edge */,
               }}
               onClick={handleImageClick}
             />
-            
-            {/* 글자수 카운팅 - 우측하단 */}
+
+            {/* 글자수 + 새로고침 - 우측하단 */}
             {hasClickedAIGenerate && !isSaved && (
-              <div className="absolute bottom-2 right-3 text-[9px] font-medium text-primary">
-                ({descriptionText.length}/200)
+              <div className="absolute bottom-2 right-3 flex items-center gap-2 z-10">
+                <div className="text-[12px] text-right">
+                  <span className="text-black">{descriptionText.length}</span>
+                  <span className="text-[#B3B3B3]"> / 150</span>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleTextRefresh(e);
+                    if (onAIGenerate) onAIGenerate();
+                  }}
+                  className="ml-auto"
+                  title="새로 생성"
+                >
+                  <MdRefresh className="w-4 h-4 text-black" />
+                </button>
               </div>
             )}
           </div>
         ) : (
-          // 기본 모드
-          <div className={`flex overflow-hidden flex-col items-center px-2 py-2 w-full leading-none bg-white rounded-md ${isSaved ? '' : 'border border-dashed border-zinc-400'} h-[100px] justify-center flex-shrink-0 relative`}>
-            <div className="flex gap-1.5 w-full mb-1.5"> 
-              <Input
-                type="text"
-                value={keywords}
-                onChange={handleKeywordChange}
-                placeholder={placeholderText}
-                className={`h-[26px] min-h-[26px] max-h-[26px] px-2 py-1 text-xs tracking-tight bg-white ${isSaved ? '' : 'border border-dashed border-zinc-400'} text-zinc-600 placeholder-zinc-400 flex-1 shadow-none rounded-md focus:ring-0 focus:outline-none focus:border-primary resize-none`}
-                style={{ borderRadius: '6px', fontSize: '10px', lineHeight: '1.2' }}
-                onClick={handleImageClick} // Input 클릭 시에도 이벤트 전파 방지
-              />
-              <button
-                onClick={(e) => {
-                  e.stopPropagation(); // 이벤트 전파 방지
-                  handleTextFileUpload();
-                }}
-                className={`flex overflow-hidden justify-center items-center w-[26px] h-[26px] bg-[#979797] ${isSaved ? '' : 'border border-dashed border-zinc-400'} rounded-md hover:bg-[#979797]/80 transition-colors ${isSaved ? 'invisible pointer-events-none' : ''}`}
-                title="텍스트 파일 업로드"
-              >
-                <Image
-                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload.svg"
-                  className="object-contain"
-                  width={14}
-                  height={14}
-                  alt="Upload icon"
-                />
-              </button>
+          // 기본 모드 (GridAElement와 동일 UI, category 입력 제외)
+          <div
+            className="w-full h-full flex flex-col gap-y-2"
+          >
+            <div
+              className={`description-area flex overflow-hidden flex-col px-2 py-2 w-full leading-none bg-[#F9FAFB] rounded-md ${isSaved ? "border-none" : "border border-dashed border-zinc-400"} flex-1 relative`}
+            >
+              {/* 저장 상태일 때는 읽기 전용 텍스트 표시, 편집 상태일 때는 입력 영역 표시 */}
+              {isSaved ? (
+                descriptionText && (
+                  <div className="w-full mb-1.5 px-2 py-1 text-xs tracking-tight text-zinc-600 min-h-[26px]">
+                    {descriptionText}
+                  </div>
+                )
+              ) : (
+                <div className="flex items-center justify-center gap-1">
+                  <textarea
+                    value={keywords}
+                    onChange={handleKeywordChange}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onDragStart={(e) => e.preventDefault()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    onKeyUp={(e) => e.stopPropagation()}
+                    onKeyPress={(e) => e.stopPropagation()}
+                    placeholder={placeholderText}
+                    className="h-[26px] min-h-[26px] max-h-[26px] text-xs tracking-tight bg-[#F9FAFB] border-none placeholder-zinc-400 flex-1 shadow-none rounded-md "
+                    style={{
+                      borderRadius: "6px",
+                      fontSize: "13px",
+                      lineHeight: "1",
+                    }}
+                    onClick={handleImageClick}
+                    draggable={false}
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTextFileUpload();
+                    }}
+                    className="flex overflow-hidden justify-center items-center w-[26px] h-[26px] "
+                    title="텍스트 파일 업로드"
+                  >
+                    <Image
+                      src="/report/upload2.svg"
+                      className="object-contain"
+                      width={14}
+                      height={14}
+                      alt="Upload icon"
+                      unoptimized={true}
+                    />
+                  </button>
+                </div>
+              )}
+
+              {/* 글자수 + 새로고침 - 우측하단 (저장 상태가 아닐 때만 표시) */}
+              {!isSaved && hasClickedAIGenerate && (
+                <div className="absolute bottom-2 right-3 flex items-center gap-2 z-10">
+                  <div className="text-[12px] text-right">
+                    <span className="text-black">{descriptionText.length}</span>
+                    <span className="text-[#B3B3B3]"> / 150</span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTextRefresh(e);
+                      if (onAIGenerate) onAIGenerate();
+                    }}
+                    className="ml-auto"
+                    title="새로 생성"
+                  >
+                    <MdRefresh className="w-4 h-4 text-black" />
+                  </button>
+                </div>
+              )}
             </div>
-            
-            {/* AI 생성 버튼 - 별도 줄에 배치 */}
-            <div className={`flex w-full mb-1.5 justify-center ${isSaved ? 'invisible pointer-events-none' : ''}`}>
+            {!isSaved && (
               <button
                 onClick={(e) => {
-                  e.stopPropagation(); // 이벤트 전파 방지
-                  if (!isLoading && getCurrentImageCount() > 0) {
-                    handleAIGenerate();
-                  }
+                  e.stopPropagation();
+                  handleAIGenerate();
                 }}
-                disabled={isLoading || getCurrentImageCount() === 0}
-                className={`flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight rounded-md flex justify-center items-center w-[54px] h-[26px] self-start transition-all ${
-                  isLoading || getCurrentImageCount() === 0 
-                    ? 'cursor-not-allowed bg-gray-400 text-gray-300' 
-                    : 'text-white bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90'
-                }`}
+                disabled={(() => {
+                  const hasImages = getCurrentImageCount() > 0;
+                  const isNotLoading = !isLoading;
+                  const disabled = !hasImages || !isNotLoading;
+                  return disabled;
+                })()}
+                className={`flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight rounded-md justify-center items-center w-[90px] h-[34px] self-end transition-all ${(() => {
+                  const hasImages = getCurrentImageCount() > 0;
+                  const isNotLoading = !isLoading;
+                  return !hasImages || !isNotLoading
+                    ? "cursor-not-allowed bg-[#F5F5F5] text-[#B3B3B3] border border-solid border-[#CCCCCC]"
+                    : "text-black bg-white hover:opacity-90 border border-solid border-[#CCCCCC]";
+                })()}`}
               >
                 {isLoading ? (
                   <Loader size="sm" className="text-white" />
                 ) : (
-                  <>
+                  <div className="flex items-center gap-x-1 ">
                     <Image
-                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/leaf.svg"
-                      className={`${getCurrentImageCount() === 0 ? 'opacity-50' : ''}`}
-                      width={11}
-                      height={11}
+                      src="/report/create.svg"
+                      className={`object-contain ${(() => {
+                        const hasImages = getCurrentImageCount() > 0;
+                        const isNotLoading = !isLoading;
+                        return !hasImages || !isNotLoading
+                          ? "filter brightness-0 saturate-100 opacity-70"
+                          : "filter brightness-0 saturate-100";
+                      })()}`}
+                      style={(() => {
+                        const hasImages = getCurrentImageCount() > 0;
+                        const isNotLoading = !isLoading;
+                        return !hasImages || !isNotLoading
+                          ? {
+                              filter:
+                                "brightness(0) saturate(100%) invert(70%) sepia(0%) saturate(0%) hue-rotate(229deg) brightness(96%) contrast(89%)",
+                            }
+                          : { filter: "brightness(0) saturate(100%)" };
+                      })()}
+                      width={14}
+                      height={14}
                       alt="AI icon"
+                      unoptimized={true}
                     />
-                    <div className="text-[10px] tracking-[-0.03em]">AI 생성</div>
-                  </>
+                    <span
+                      className={`text-[13px] tracking-[-0.03em] ${(() => {
+                        const hasImages = getCurrentImageCount() > 0;
+                        const isNotLoading = !isLoading;
+                        return !hasImages || !isNotLoading
+                          ? "text-[#B3B3B3]"
+                          : "text-black";
+                      })()}`}
+                    >
+                      AI 생성
+                    </span>
+                  </div>
                 )}
               </button>
-            </div>
-
-            {/* 글자수 카운팅 - 우측하단 */}
-            {hasClickedAIGenerate && !isSaved && (
-              <div className="absolute bottom-2 right-3 text-[9px] font-medium text-primary">
-                ({descriptionText.length}/200)
-              </div>
             )}
-
-
-
-            
           </div>
         )}
 
         {children && <div className="mt-1 flex-shrink-0">{children}</div>}
       </div>
-      
+
       {/* GridEditToolbar - Portal로 렌더링하여 최상위에 위치 (GridAElement 참고) */}
-      {!isSaved && toolbarState.show && typeof window !== 'undefined' && ReactDOM.createPortal(
-        <div 
-          className="grid-edit-toolbar fixed"
-          style={{
-            zIndex: 9999,
-            pointerEvents: 'auto',
-            left: toolbarPosition.left,
-            top: toolbarPosition.top,
-          }}
-          onMouseEnter={() => {
-            if (hoverTimerRef.current) {
-              clearTimeout(hoverTimerRef.current);
-              hoverTimerRef.current = null;
-            }
-            isHoveredRef.current = true;
-          }}
-          onMouseLeave={() => {
-            isHoveredRef.current = false;
-            const timer = setTimeout(() => {
-              if (!isHoveredRef.current) {
-                setToolbarState({
-                  show: false,
-                  isExpanded: false,
-                });
+      {!isSaved &&
+        toolbarState.show &&
+        typeof window !== "undefined" &&
+        ReactDOM.createPortal(
+          <div
+            className="grid-edit-toolbar fixed"
+            style={{
+              zIndex: 9999,
+              pointerEvents: "auto",
+              left: toolbarPosition.left,
+              top: toolbarPosition.top,
+            }}
+            onMouseEnter={() => {
+              if (hoverTimerRef.current) {
+                clearTimeout(hoverTimerRef.current);
+                hoverTimerRef.current = null;
               }
-              hoverTimerRef.current = null;
-            }, 3000);
-            hoverTimerRef.current = timer;
-          }}
-        >
-          <GridEditToolbar
-            show={toolbarState.show}
-            isExpanded={toolbarState.isExpanded}
-            position={{ left: "0", top: "0" }}
-            onIconClick={handleToolbarIconClick}
-            targetGridId={gridId}
-            targetIsExpanded={isExpanded}
-          />
-        </div>,
-        document.body
-      )}
+              isHoveredRef.current = true;
+            }}
+            onMouseLeave={() => {
+              isHoveredRef.current = false;
+              const timer = setTimeout(() => {
+                if (!isHoveredRef.current) {
+                  setToolbarState({
+                    show: false,
+                    isExpanded: false,
+                  });
+                }
+                hoverTimerRef.current = null;
+              }, 3000);
+              hoverTimerRef.current = timer;
+            }}
+          >
+            <GridEditToolbar
+              show={toolbarState.show}
+              isExpanded={toolbarState.isExpanded}
+              position={{ left: "0", top: "0" }}
+              onIconClick={handleToolbarIconClick}
+              targetGridId={gridId}
+              targetIsExpanded={isExpanded}
+            />
+          </div>,
+          document.body
+        )}
 
       {/* 인라인 편집 컨트롤 포털 */}
-      {inlineEditState.active && typeof window !== 'undefined' && ReactDOM.createPortal(
-        <div className="fixed z-[10000]" style={{ left: 0, top: 0, pointerEvents: 'none' }}>
+      {inlineEditState.active &&
+        typeof window !== "undefined" &&
+        ReactDOM.createPortal(
           <div
-            className="absolute -translate-x-1/2 flex gap-2"
-            style={{ left: (imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().left || 0) + ((imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().width || 0) / 2), top: (imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().bottom || 0) + 8 }}
+            className="fixed z-[10000]"
+            style={{ left: 0, top: 0, pointerEvents: "none" }}
           >
-            <div className="bg-white shadow rounded-md px-2 py-1 border border-gray-200 flex gap-2" style={{ pointerEvents: 'auto' }}>
-              {!inlineEditState.cropActive ? (
-                <Button color="line" size="small" onClick={beginCrop}>크롭 시작</Button>
-              ) : (
-                <>
-                  <Button color="primary" size="small" onClick={finishCropAndUpload}>크롭 완료</Button>
-                  <Button color="gray" size="small" onClick={cancelCrop}>크롭 취소</Button>
-                </>
-              )}
-              <Button color="primary" size="small" onClick={endInlineEditConfirm}>확인</Button>
-              <Button color="gray" size="small" onClick={endInlineEditCancel}>취소</Button>
+            <div
+              className="absolute -translate-x-1/2 flex gap-2"
+              style={{
+                left:
+                  (imageContainerRefs.current[
+                    inlineEditState.imageIndex ?? -1
+                  ]?.getBoundingClientRect().left || 0) +
+                  (imageContainerRefs.current[
+                    inlineEditState.imageIndex ?? -1
+                  ]?.getBoundingClientRect().width || 0) /
+                    2,
+                top:
+                  (imageContainerRefs.current[
+                    inlineEditState.imageIndex ?? -1
+                  ]?.getBoundingClientRect().bottom || 0) + 8,
+              }}
+            >
+              <div
+                className="bg-white shadow rounded-md px-2 py-1 border border-gray-200 flex gap-2"
+                style={{ pointerEvents: "auto" }}
+              >
+                {!inlineEditState.cropActive ? (
+                  <Button color="line" size="small" onClick={beginCrop}>
+                    크롭 시작
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      color="primary"
+                      size="small"
+                      onClick={finishCropAndUpload}
+                    >
+                      크롭 완료
+                    </Button>
+                    <Button color="gray" size="small" onClick={cancelCrop}>
+                      크롭 취소
+                    </Button>
+                  </>
+                )}
+                <Button
+                  color="primary"
+                  size="small"
+                  onClick={endInlineEditConfirm}
+                >
+                  확인
+                </Button>
+                <Button color="gray" size="small" onClick={endInlineEditCancel}>
+                  취소
+                </Button>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
-      
+          </div>,
+          document.body
+        )}
+
       {/* 이미지 업로드 모달 */}
       {isUploadModalOpen && (
         <UploadModal
@@ -2083,7 +2843,7 @@ function GridBElement({
           onConfirm={handleConfirmUploadModal}
           setItemData={handleSetItemData}
           isMultiUpload
-          allowsFileTypes={['IMAGE']}
+          allowsFileTypes={["IMAGE"]}
           isUploadS3
           isReturnS3UploadedItemData
         />
@@ -2101,4 +2861,4 @@ function GridBElement({
   );
 }
 
-export default GridBElement; 
+export default GridBElement;

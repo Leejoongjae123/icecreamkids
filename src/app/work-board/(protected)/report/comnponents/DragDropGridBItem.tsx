@@ -31,7 +31,7 @@ function DragDropGridBItem({
   isExpanded,
   isHidden,
   images = [],
-  placeholderText = "ex) 아이들과 촉감놀이를 했어요",
+  placeholderText = "(선택)놀이 키워드 입력 또는 메모 파일 업로드",
   imageCount,
   onImageCountChange,
   isPrintHidden,
