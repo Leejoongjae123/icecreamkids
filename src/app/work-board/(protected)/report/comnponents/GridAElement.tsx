@@ -1751,7 +1751,7 @@ function GridAElement({
       categoryValue,
       categoryValueTrimmed: categoryValue?.trim(),
       categoryValueLength: categoryValue?.length,
-      isValidCategory: categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요"
+      isValidCategory: categoryValue && categoryValue.trim() !== "" && categoryValue !== "Text"
     });
     
     // profileId 체크 - 로그인 상태 확인
@@ -1762,7 +1762,7 @@ function GridAElement({
     }
     
     // categoryValue 체크 - 타이틀 입력 상태 확인
-    if (!categoryValue || categoryValue.trim() === "" || categoryValue === "타이틀을 입력해주세요") {
+    if (!categoryValue || categoryValue.trim() === "" || categoryValue === "Text") {
       console.log("❌ AI 생성 조건 실패: 타이틀이 유효하지 않음");
       addToast({ message: '먼저 타이틀을 입력해주세요.' });
       return;
@@ -1877,7 +1877,7 @@ function GridAElement({
     console.log("현재 이미지 개수:", getCurrentImageCount());
     
     // 추가 조건 체크 (안전장치)
-    if (!categoryValue || categoryValue.trim() === "" || categoryValue === "타이틀을 입력해주세요") {
+    if (!categoryValue || categoryValue.trim() === "" || categoryValue === "Text") {
       console.log("❌ AI 생성 실패: 카테고리 값이 유효하지 않음");
       addToast({ message: '먼저 타이틀을 입력해주세요.' });
       return;
@@ -2030,11 +2030,11 @@ function GridAElement({
       categoryValue,
       categoryValueTrimmed: categoryValue?.trim(),
       currentImageCount: getCurrentImageCount(),
-      isValidCategory: categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요"
+      isValidCategory: categoryValue && categoryValue.trim() !== "" && categoryValue !== "Text"
     });
     
     // LLM 호출 조건 확인
-    if (!profileId || !categoryValue || categoryValue.trim() === "" || categoryValue === "타이틀을 입력해주세요") {
+    if (!profileId || !categoryValue || categoryValue.trim() === "" || categoryValue === "Text") {
       console.log("❌ 새로고침 조건 실패: 타이틀이 유효하지 않음");
       addToast({ message: '먼저 타이틀을 입력해주세요.' });
       return;
@@ -2495,7 +2495,7 @@ function GridAElement({
                 onBlur={handleCategoryBlur}
                 onMouseDown={(e) => e.stopPropagation()} // 드래그 이벤트 방지
                 onDragStart={(e) => e.preventDefault()} // 드래그 시작 방지
-                placeholder="타이틀을 입력해주세요"
+                placeholder="Text"
                 className="text-[16px] font-bold text-primary bg-transparent border-0 p-0 h-auto leading-tight focus:ring-0 focus-visible:ring-0 focus:outline-none focus:border-primary shadow-none min-w-[60px] w-auto placeholder:text-gray-400 focus:text-primary"
                 style={{ 
                   borderRadius: '0px',
@@ -2512,7 +2512,7 @@ function GridAElement({
                   categoryValue ? 'text-primary' : 'text-gray-400'
                 }`}
               >
-                {categoryValue || "타이틀을 입력해주세요"}
+                {categoryValue || "Text"}
               </div>
             )}
           </div>
@@ -3198,16 +3198,16 @@ function GridAElement({
         {isLoading ? (
           // 로딩 중일 때
           <div className={`description-area gap-y-3 flex flex-col items-center justify-center px-2 py-2 w-full leading-none ${
-            isSaved && hasAiGeneratedContent ? 'bg-white' : 'bg-white'
-          } rounded-md border border-dashed border-zinc-400 min-h-[90px] flex-1 mt-1`}>
+            isSaved && hasAiGeneratedContent ? 'bg-[F9FAFB]' : 'bg-[#F9FAFB]'
+          } rounded-md border border-dashed border-zinc-400 flex-1 mt-1`}>
             <Loader size="default" />
             <div className="text-[#B4B4B4] text-xs">내용을 생성중입니다...</div>
           </div>
         ) : isDescriptionExpanded ? (
           // 확장된 textarea 모드
           <div className={`description-area flex overflow-hidden flex-col px-2 py-2 w-full leading-none ${
-            isSaved ? 'bg-white' : 'bg-white'
-          } rounded-md min-h-[90px] flex-1 mt-1 relative transition-colors ${
+            isSaved ? 'bg-[F9FAFB]' : 'bg-[#F9FAFB]'
+          } rounded-md  flex-1 mt-1 relative transition-colors ${
             isSaved ? 'border-none' : (isTextareaFocused ? 'border border-solid border-primary' : 'border border-dashed border-zinc-400')
           }`}>
             {/* 상단 버튼들 - 우측 상단 (저장 상태가 아닐 때만 표시) */}
@@ -3259,7 +3259,7 @@ function GridAElement({
                 className="w-full h-full px-2 py-1 pr-8 text-xs tracking-tight bg-white border-0 text-zinc-600 placeholder-zinc-400 shadow-none rounded-md focus:ring-0 focus:outline-none resize-none flex-1 scrollbar-hide"
                 style={{ 
                   borderRadius: '6px', 
-                  fontSize: '12px', 
+                  fontSize: '13px', 
                   lineHeight: '1.4', 
                   minHeight: '74px',
                   scrollbarWidth: 'none', /* Firefox */
@@ -3279,12 +3279,12 @@ function GridAElement({
           </div>
         ) : (
           // 기본 모드
-          <div className="flex w-full gap-1.5 mt-1">
+          <div className="flex w-full gap-1.5 mt-1 flex-col">
             <div className={`description-area flex overflow-hidden flex-col px-2 py-2 w-full leading-none ${
-              isSaved ? 'bg-white' : 'bg-white'
+              isSaved ? 'bg-[F9FAFB]' : 'bg-[#F9FAFB]'
             } rounded-md ${
               isSaved ? 'border-none' : 'border border-dashed border-zinc-400'
-            } min-h-[90px] flex-1 relative`}>
+            }  flex-1 relative`}>
               {/* 삭제 버튼 - 우측 상단 (저장 상태가 아닐 때만 표시) */}
               {onDelete && !isSaved && (
                 <button
@@ -3304,7 +3304,7 @@ function GridAElement({
                   </div>
                 )
               ) : (
-                <>
+                <div className="flex items-center justify-center gap-1">
                   <Input
                     value={keywords}
                     onChange={handleKeywordChange}
@@ -3314,8 +3314,8 @@ function GridAElement({
                     onKeyUp={(e) => e.stopPropagation()} // 키업 이벤트 전파 방지
                     onKeyPress={(e) => e.stopPropagation()} // 키프레스 이벤트 전파 방지
                     placeholder={placeholderText}
-                    className="h-[26px] min-h-[26px] max-h-[26px] px-2 py-1 text-xs tracking-tight bg-white border-none placeholder-zinc-400 flex-1 shadow-none rounded-md focus:ring-0 focus:outline-none resize-none mb-1.5"
-                    style={{ borderRadius: '6px', fontSize: '10px', lineHeight: '1.2' }}
+                    className="h-[26px] min-h-[26px] max-h-[26px] text-xs tracking-tight bg-[#F9FAFB] border-none placeholder-zinc-400 flex-1 shadow-none rounded-md "
+                    style={{ borderRadius: '6px', fontSize: '13px', lineHeight: '1' }}
                     onClick={handleImageClick}
                     draggable={false} // 드래그 완전 비활성화
                   />
@@ -3324,11 +3324,11 @@ function GridAElement({
                       e.stopPropagation(); // 이벤트 전파 방지
                       handleTextFileUpload();
                     }}
-                    className="flex overflow-hidden justify-center items-center w-[26px] h-[26px] bg-[#979797] border border-dashed border-zinc-400 rounded-md hover:bg-[#979797]/80 transition-colors mb-1.5 self-start"
+                    className="flex overflow-hidden justify-center items-center w-[26px] h-[26px] "
                     title="텍스트 파일 업로드"
                   >
                     <Image
-                      src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/upload.svg"
+                      src="/report/upload2.svg"
                       className="object-contain"
                       width={14}
                       height={14}
@@ -3336,7 +3336,7 @@ function GridAElement({
                       unoptimized={true}
                     />
                   </button>
-                </>
+                </div>
               )}
               
               {/* 글자수 카운팅 - 우측하단 (저장 상태가 아닐 때만 표시) */}
@@ -3353,51 +3353,59 @@ function GridAElement({
                   handleAIGenerate();
                 }}
                 disabled={(() => {
-                  const hasValidCategory = categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요";
+                  const hasValidCategory = categoryValue && categoryValue.trim() !== "" && categoryValue !== "Text";
                   const hasImages = getCurrentImageCount() > 0;
                   const isNotLoading = !isLoading;
                   const disabled = !hasValidCategory || !hasImages || !isNotLoading;
-                  
-                  console.log("🔘 AI 생성 버튼 상태:", {
-                    hasValidCategory,
-                    hasImages,
-                    isNotLoading,
-                    disabled,
-                    categoryValue,
-                    imageCount: getCurrentImageCount()
-                  });
+                
                   
                   return disabled;
                 })()}
-                className={`flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight rounded-md justify-center items-center w-[54px] h-[26px] self-start transition-all ${
+                className={`flex overflow-hidden gap-0.5 text-xs font-semibold tracking-tight rounded-md justify-center items-center w-[90px] h-[34px] self-end transition-all ${
                   (() => {
-                    const hasValidCategory = categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요";
+                    const hasValidCategory = categoryValue && categoryValue.trim() !== "" && categoryValue !== "Text";
                     const hasImages = getCurrentImageCount() > 0;
                     const isNotLoading = !isLoading;
                     return (!hasValidCategory || !hasImages || !isNotLoading)
-                      ? 'cursor-not-allowed bg-gray-400 text-gray-300' 
-                      : 'text-white bg-gradient-to-r from-[#FA8C3D] via-[#FF8560] to-[#FAB83D] hover:opacity-90';
+                      ? 'cursor-not-allowed bg-[#F5F5F5] text-[#B3B3B3] border border-solid border-[#CCCCCC]'  
+                      : 'text-black bg-white hover:opacity-90 border border-solid border-[#CCCCCC]';
                   })()
                 }`}
               >
                 {isLoading ? (
                   <Loader size="sm" className="text-white" />
                 ) : (
-                  <>
+                  <div className="flex items-center gap-x-1 ">
                     <Image
                       src="/report/create.svg"
                       className={`object-contain ${(() => {
-                        const hasValidCategory = categoryValue && categoryValue.trim() !== "" && categoryValue !== "타이틀을 입력해주세요";
+                        const hasValidCategory = categoryValue && categoryValue.trim() !== "" && categoryValue !== "Text";
                         const hasImages = getCurrentImageCount() > 0;
-                        return (!hasValidCategory || !hasImages) ? 'opacity-50' : '';
+                        const isNotLoading = !isLoading;
+                        return (!hasValidCategory || !hasImages || !isNotLoading) 
+                          ? 'filter brightness-0 saturate-100 opacity-70' 
+                          : 'filter brightness-0 saturate-100';
                       })()}`}
-                      width={12}
-                      height={12}
+                      style={(() => {
+                        const hasValidCategory = categoryValue && categoryValue.trim() !== "" && categoryValue !== "Text";
+                        const hasImages = getCurrentImageCount() > 0;
+                        const isNotLoading = !isLoading;
+                        return (!hasValidCategory || !hasImages || !isNotLoading)
+                          ? { filter: 'brightness(0) saturate(100%) invert(70%) sepia(0%) saturate(0%) hue-rotate(229deg) brightness(96%) contrast(89%)' }
+                          : { filter: 'brightness(0) saturate(100%)' };
+                      })()}
+                      width={14}
+                      height={14}
                       alt="AI icon"
                       unoptimized={true}
                     />
-                    <div className="text-[10px] tracking-[-0.03em]">AI 생성</div>
-                  </>
+                    <span className={`text-[13px] tracking-[-0.03em] ${(() => {
+                      const hasValidCategory = categoryValue && categoryValue.trim() !== "" && categoryValue !== "Text";
+                      const hasImages = getCurrentImageCount() > 0;
+                      const isNotLoading = !isLoading;
+                      return (!hasValidCategory || !hasImages || !isNotLoading) ? 'text-[#B3B3B3]' : 'text-black';
+                    })()}`}>AI 생성</span>
+                  </div>
                 )}
               </button>
             )}
