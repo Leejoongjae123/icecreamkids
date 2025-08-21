@@ -1955,6 +1955,13 @@ function GridAElement({
     isExpanded: false,
   });
 
+  // 업로드 모달 열림 시 툴바 자동 닫기
+  React.useEffect(() => {
+    if (isUploadModalOpen) {
+      setToolbarState({ show: false, isExpanded: false });
+    }
+  }, [isUploadModalOpen]);
+
   // hover 상태 관리
   const [isHovered, setIsHovered] = React.useState(false);
   const isHoveredRef = React.useRef(false);
@@ -3052,7 +3059,7 @@ function GridAElement({
                       <img
                         src={currentImages[imageIndex]}
                         alt={`Image ${imageIndex + 1}`}
-                        className="absolute inset-0 w-full h-full object-cover rounded-md image-target"
+                        className="absolute inset-0 w-full h-full object-contain rounded-md image-target"
                         style={{
                           transform: isEditingIndex(imageIndex)
                             ? `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${inlineEditState.tempPosition.scale})`
@@ -3178,7 +3185,7 @@ function GridAElement({
                         src={currentImages[imageIndex]}
                         alt={`Image ${imageIndex + 1}`}
                         fill
-                        className="object-cover rounded-md"
+                        className="object-contain rounded-md"
                         style={{
                           transform: isEditingIndex(imageIndex)
                             ? `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${inlineEditState.tempPosition.scale})`
@@ -3309,7 +3316,7 @@ function GridAElement({
                     <img
                       src={currentImages[0]}
                       alt="Image 1"
-                      className="absolute inset-0 w-full h-full object-cover rounded-md"
+                      className="absolute inset-0 w-full h-full object-contain rounded-md"
                       style={{
                         transform: isEditingIndex(0)
                           ? `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${inlineEditState.tempPosition.scale})`
@@ -3418,7 +3425,7 @@ function GridAElement({
                       <img
                         src={currentImages[1]}
                         alt="Image 2"
-                        className="absolute inset-0 w-full h-full object-cover rounded-md"
+                        className="absolute inset-0 w-full h-full object-contain rounded-md"
                         style={{
                           transform: isEditingIndex(1)
                             ? `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${inlineEditState.tempPosition.scale})`
@@ -3543,7 +3550,7 @@ function GridAElement({
                       <img
                         src={currentImages[2]}
                         alt="Image 3"
-                        className="absolute inset-0 w-full h-full object-cover rounded-md"
+                        className="absolute inset-0 w-full h-full object-contain rounded-md"
                         style={{
                           transform: isEditingIndex(2)
                             ? `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${inlineEditState.tempPosition.scale})`
@@ -3708,7 +3715,7 @@ function GridAElement({
                         src={imageSrc}
                         alt={`Image ${index + 1}`}
                         fill
-                        className="object-cover rounded-md"
+                        className="object-contain rounded-md"
                         style={{
                           transform: isEditingIndex(index)
                             ? `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${inlineEditState.tempPosition.scale})`

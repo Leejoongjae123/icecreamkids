@@ -20,6 +20,7 @@ export interface DragDropGridCItemProps {
   isOverlay?: boolean;
   style?: React.CSSProperties;
   isAnimating?: boolean;
+  isUploadModalOpen?: boolean;
 }
 
 function DragDropGridCItem({
@@ -38,6 +39,7 @@ function DragDropGridCItem({
   isOverlay = false,
   style,
   isAnimating = false,
+  isUploadModalOpen,
 }: DragDropGridCItemProps) {
   const {
     attributes,
@@ -101,6 +103,7 @@ function DragDropGridCItem({
         onImageUpload={onImageUpload}
         onClipPathChange={onClipPathChange}
         onIntegratedUpload={onIntegratedUpload}
+        isUploadModalOpen={isUploadModalOpen}
       />
     </div>
   );

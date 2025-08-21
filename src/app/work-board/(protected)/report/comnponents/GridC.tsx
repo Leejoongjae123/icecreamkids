@@ -1085,6 +1085,7 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
                   onIntegratedUpload={handleOpenIntegratedUpload}
                   style={computedStyle}
                   isAnimating={isAnimating}
+                  isUploadModalOpen={isUploadModalOpen}
                 />
               );
             })}

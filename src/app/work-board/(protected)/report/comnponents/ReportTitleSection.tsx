@@ -543,7 +543,7 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                   <Image
                     src={currentImageUrl}
                     fill
-                    className="object-cover"
+                    className="object-contain"
                     alt="Uploaded image"
                   />
                 </div>

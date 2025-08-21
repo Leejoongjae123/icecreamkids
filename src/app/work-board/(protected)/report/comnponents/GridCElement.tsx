@@ -35,6 +35,7 @@ interface GridCElementProps {
   onImageUpload: (gridId: string, imageUrl: string, driveItemKey?: string) => void;
   onClipPathChange?: (gridId: string, clipPathData: ClipPathItem) => void;
   onIntegratedUpload?: () => void; // 통합 업로드 핸들러
+  isUploadModalOpen?: boolean; // 업로드 모달 열림 여부 (툴바 자동 닫기용)
 }
 
 function GridCElement({
@@ -53,6 +54,7 @@ function GridCElement({
   onImageUpload,
   onClipPathChange,
   onIntegratedUpload,
+  isUploadModalOpen,
 }: GridCElementProps) {
   const [activityKeyword, setActivityKeyword] = React.useState("");
   const [isInputFocused, setIsInputFocused] = React.useState(false);
@@ -127,6 +129,13 @@ function GridCElement({
     show: false,
     isExpanded: false,
   });
+
+  // 업로드 모달 열림 시 툴바 자동 닫기
+  React.useEffect(() => {
+    if (isUploadModalOpen) {
+      setToolbarState({ show: false, isExpanded: false });
+    }
+  }, [isUploadModalOpen]);
   
   // 그리드 개별 클리핑 해제 상태 (true면 이 그리드만 클리핑 해제)
   const [isLocalClippingDisabled, setIsLocalClippingDisabled] = React.useState<boolean>(false);
@@ -1020,7 +1029,7 @@ function GridCElement({
             <img
               src={hasImage ? currentImageUrl : NO_IMAGE_URL}
               alt="GridC image"
-              className="absolute inset-0 w-full h-full object-cover rounded-md select-none"
+              className="absolute inset-0 w-full h-full object-contain rounded-md select-none"
               style={{
                 transform: inlineEditState.active
                   ? `translate(${inlineEditState.temp.x || 0}px, ${inlineEditState.temp.y || 0}px) scale(${inlineEditState.temp.scale || 1})`

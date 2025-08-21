@@ -1635,6 +1635,13 @@ function GridBElement({
     show: false,
     isExpanded: false,
   });
+
+  // 업로드 모달 열림 시 툴바 자동 닫기
+  React.useEffect(() => {
+    if (isUploadModalOpen) {
+      setToolbarState({ show: false, isExpanded: false });
+    }
+  }, [isUploadModalOpen]);
   // hover 및 포털 위치 상태 (GridAElement와 동일 패턴)
   const [isHovered, setIsHovered] = React.useState(false);
   const isHoveredRef = React.useRef(false);
@@ -2438,7 +2445,7 @@ function GridBElement({
                       <img
                         src={imageSrc}
                         alt={`Image ${index + 1}`}
-                        className="absolute inset-0 w-full h-full object-cover rounded-md"
+                        className="absolute inset-0 w-full h-full object-contain rounded-md"
                         style={{
                           transform: isEditingIndex(index)
                             ? `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${inlineEditState.tempPosition.scale})`
