@@ -507,17 +507,17 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
 
   return (
     <div
-      className={`flex flex-row w-full justify-between h-[84px] ${className}`}
+      className={`flex flex-row w-full justify-between h-[72px] ${className}`}
     >
       <div
-        className="relative title-image-container w-[132px]"
+        className="relative title-image-container w-[84px]"
         ref={imageContainerRef}
       >
         {isImageContainerVisible ? (
           <>
             <div
               ref={dropRef}
-              className={`flex flex-col w-[132px] h-full border rounded-[15px] transition-colors cursor-pointer ${
+              className={`flex flex-col w-full h-full border rounded-[15px] transition-colors cursor-pointer ${
                 isSaved ? 'bg-transparent border-transparent' : 'bg-white'
               } ${
                 !isSaved && (
@@ -648,7 +648,7 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
               <div
                 ref={contentRef}
                 contentEditable
-                className={`w-full outline-none text-center font-medium ${fontSize} transition-all duration-200 leading-tight`}
+                className={`w-[401px] outline-none text-center font-medium ${fontSize} transition-all duration-200 leading-tight`}
                 onFocus={handleFocus}
                 onBlur={handleBlur}
                 onInput={handleInput}
@@ -738,7 +738,7 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
       </div>
 
       <div
-        className="relative flex flex-col w-[107px] gap-y-2 title-date-container"
+        className="relative flex flex-col w-[108px] gap-y-2 title-date-container"
         ref={dateContainerRef}
       >
         {isDateContainerVisible ? (

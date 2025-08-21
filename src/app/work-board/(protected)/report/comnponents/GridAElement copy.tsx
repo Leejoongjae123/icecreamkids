@@ -2472,12 +2472,9 @@ function GridAElement({
                     </div>
                   ) : (
                     <>
-                      <Image
-                        src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
-                        alt="No image"
-                        fill
-                        className="object-cover rounded-md"
-                        unoptimized={true}
+                      <div
+                        className="absolute inset-0 w-full h-full rounded-md"
+                        style={{ backgroundColor: '#F9FAFB', border: '1px dashed #AAACB4' }}
                       />
                       {/* Black overlay - 이미지가 없을 때만 표시 */}
                       <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
