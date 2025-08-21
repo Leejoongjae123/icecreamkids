@@ -28,6 +28,7 @@ import { DriveItemMemoUpdateRequest } from "@/service/file/schemas";
 import { IEditMemoData } from "@/components/modal/memo-edit/types";
 import { useSearchParams } from "next/navigation";
 import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
+import { useGridToolbarStore } from "@/hooks/store/useGridToolbarStore";
 
 interface GridAElementProps {
   index: number;
@@ -1379,37 +1380,57 @@ function GridAElement({
     processUploadedFiles,
   } = useImageUpload({
     uploadedFiles,
-    onFilesUpload: (files: File[] | any[]) => {
-      console.log("📥 이미지 업로드 완료:", files);
-
+    onFilesUpload: async (files: File[] | any[]) => {
+      // SmartFolderItemResult[] (자료보드 선택) 또는 File[] (로컬 드롭/선택)
       const imageUrls: string[] = [];
       const metadata: { url: string; driveItemKey?: string }[] = [];
 
-      files.forEach((item) => {
-        if (item instanceof File) {
-          // File 타입인 경우
-          const fileUrl = URL.createObjectURL(item);
-          imageUrls.push(fileUrl);
-          metadata.push({
-            url: fileUrl,
-            driveItemKey: `local_${Date.now()}_${Math.random()}`,
-          });
-          setUploadedFiles((prev) => [...prev, item]);
-        } else if (item && typeof item === "object" && item.thumbUrl) {
-          // SmartFolderItemResult 타입인 경우
-          imageUrls.push(item.thumbUrl);
-          metadata.push({
-            url: item.thumbUrl,
-            driveItemKey: item.driveItemKey,
-          });
+      // 1) 자료보드 선택(이미 업로드된 항목)
+      const smartItems = files.filter((f: any) => !(f instanceof File));
+      smartItems.forEach((item: any) => {
+        const url = item?.thumbUrl || item?.driveItemResult?.thumbUrl;
+        if (url) {
+          imageUrls.push(url);
+          metadata.push({ url, driveItemKey: item?.driveItemKey });
         }
       });
 
-      // 이미지 메타데이터 업데이트
-      setImageMetadata((prev) => [...prev, ...metadata]);
+      // 2) 로컬 파일 업로드 처리 (S3 업로드 후 thumbUrl/driveItemKey 반영)
+      const localFiles = files.filter((f: any) => f instanceof File) as File[];
+      if (localFiles.length > 0) {
+        const uploadResults = await Promise.all(
+          localFiles.map(async (file) => {
+            const res = await postFile({
+              file,
+              fileType: "IMAGE",
+              taskType: "ETC",
+              source: "FILE",
+              // 이미지의 경우 UploadModal과 동일하게 썸네일도 함께 업로드해 thumbUrl 생성
+              thumbFile: file,
+            });
+            // 업로드 성공 시 SmartFolderItemResult 예상
+            if (res && !Array.isArray(res)) {
+              const anyRes = res as any;
+              const url = anyRes?.thumbUrl || anyRes?.driveItemResult?.thumbUrl;
+              const key = anyRes?.driveItemKey || anyRes?.driveItemResult?.driveItemKey;
+              if (url) {
+                imageUrls.push(url);
+                metadata.push({ url, driveItemKey: key });
+              }
+              // 중복 체크 기준 유지를 위해 업로드한 파일을 기록
+              setUploadedFiles((prev) => [...prev, file]);
+            }
+          })
+        );
+        void uploadResults; // eslint 방지
+      }
 
-      // 이미지 URL들을 currentImages에 추가
-      handleImagesAdded(imageUrls);
+      if (metadata.length > 0) {
+        setImageMetadata((prev) => [...prev, ...metadata]);
+      }
+      if (imageUrls.length > 0) {
+        handleImagesAdded(imageUrls);
+      }
     },
     maxDataLength: imageCount, // 현재 이미지 개수만큼 제한
   });
@@ -1420,6 +1441,33 @@ function GridAElement({
       drop(dropRef);
     }
   }, [drop]);
+
+  // 네이티브 파일 드래그앤드롭 지원 (react-dnd 외부 파일 허용 없이도 동작)
+  React.useEffect(() => {
+    const el = dropRef.current;
+    if (!el) return;
+
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const files = Array.from(e.dataTransfer?.files || []);
+      if (files.length > 0) {
+        // useImageUpload 내부 필터/제한 로직 재사용
+        processUploadedFiles(files as File[]);
+      }
+    };
+
+    el.addEventListener("dragover", onDragOver as any);
+    el.addEventListener("drop", onDrop as any);
+    return () => {
+      el.removeEventListener("dragover", onDragOver as any);
+      el.removeEventListener("drop", onDrop as any);
+    };
+  }, [processUploadedFiles]);
 
   // 이미지 URL로 driveItemKey 찾기
   const getDriveItemKeyByImageUrl = React.useCallback(
@@ -1954,6 +2002,15 @@ function GridAElement({
     show: false,
     isExpanded: false,
   });
+  // 툴바 내부 모달 열림 상태 (모달 열림 동안 포털 유지)
+  const [toolbarModalOpen, setToolbarModalOpen] = React.useState(false);
+  // 전역 툴바 닫기 신호 구독
+  const { lastCloseAllAt } = useGridToolbarStore();
+  React.useEffect(() => {
+    if (lastCloseAllAt > 0 && toolbarState.show) {
+      setToolbarState({ show: false, isExpanded: false });
+    }
+  }, [lastCloseAllAt]);
 
   // 업로드 모달 열림 시 툴바 자동 닫기
   React.useEffect(() => {
@@ -3077,16 +3134,20 @@ function GridAElement({
                         draggable={false}
                       />
                       {/* Hover overlay - 이미지가 있을 때만 표시 */}
-                      <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
-                        <Image
-                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                          width={20}
-                          height={20}
-                          className="object-contain mb-2"
-                          alt="Upload icon"
-                          unoptimized={true}
-                        />
-                        <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                      <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
+                        {/* Upload icon */}
+                        <div className="flex items-center justify-center rounded-full bg-[#E5E7EC] w-[26px] h-[26px]">
+                          <Image
+                            src="/report/upload.svg"
+                            width={16}
+                            height={16}
+                            className="object-contain"
+                            alt="Upload icon"
+                            unoptimized={true}
+                          />
+                        </div>
+                        {/* Upload text */}
+                        <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
                           이미지를 드래그하거나
                           <br />
                           클릭하여 업로드
@@ -3120,18 +3181,23 @@ function GridAElement({
                     <>
                       <div
                         className="absolute inset-0 w-full h-full rounded-md"
-                        style={{ backgroundColor: "#F9FAFB" }}
+                        style={{
+                          backgroundColor: "#F9FAFB",
+                          border: "1px dashed #AAACB4",
+                        }}
                       />
-                      <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-100 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
-                        <Image
-                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                          width={20}
-                          height={20}
-                          className="object-cover mb-2"
-                          alt="Upload icon"
-                          unoptimized={true}
-                        />
-                        <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                      <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center opacity-100 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
+                        <div className="flex items-center justify-center rounded-full bg-[#E5E7EC] w-[26px] h-[26px]">
+                          <Image
+                            src="/report/upload.svg"
+                            width={16}
+                            height={16}
+                            className="object-contain"
+                            alt="Upload icon"
+                            unoptimized={true}
+                          />
+                        </div>
+                        <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
                           이미지를 드래그하거나
                           <br />
                           클릭하여 업로드
@@ -3203,16 +3269,18 @@ function GridAElement({
                         }
                       />
                       {/* Hover overlay - 이미지가 있을 때만 표시 */}
-                      <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
-                        <Image
-                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                          width={20}
-                          height={20}
-                          className="object-contain mb-2"
-                          alt="Upload icon"
-                          unoptimized={true}
-                        />
-                        <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                      <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
+                        <div className="flex items-center justify-center rounded-full bg-[#E5E7EC] w-[26px] h-[26px]">
+                          <Image
+                            src="/report/upload.svg"
+                            width={16}
+                            height={16}
+                            className="object-contain"
+                            alt="Upload icon"
+                            unoptimized={true}
+                          />
+                        </div>
+                        <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
                           이미지를 드래그하거나
                           <br />
                           클릭하여 업로드
@@ -3244,18 +3312,23 @@ function GridAElement({
                     <>
                       <div
                         className="absolute inset-0 w-full h-full rounded-md"
-                        style={{ backgroundColor: "#F9FAFB" }}
+                        style={{
+                          backgroundColor: "#F9FAFB",
+                          border: "1px dashed #AAACB4",
+                        }}
                       />
-                      <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-100 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
-                        <Image
-                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                          width={20}
-                          height={20}
-                          className="object-cover mb-2"
-                          alt="Upload icon"
-                          unoptimized={true}
-                        />
-                        <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                      <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center opacity-100 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
+                        <div className="flex items-center justify-center rounded-full bg-[#E5E7EC] w-[26px] h-[26px]">
+                          <Image
+                            src="/report/upload.svg"
+                            width={16}
+                            height={16}
+                            className="object-contain"
+                            alt="Upload icon"
+                            unoptimized={true}
+                          />
+                        </div>
+                        <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
                           이미지를 드래그하거나
                           <br />
                           클릭하여 업로드
@@ -3293,7 +3366,7 @@ function GridAElement({
             {/* 왼쪽: 첫 번째 이미지 */}
             <div className="flex-1 h-full">
               <div
-                className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
+                className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full border border-dashed border-[#AAACB4] rounded-md"
                 onClick={(e) => {
                   measureImageCellSize(0);
                   if (!currentImages[0] || currentImages[0] === "") {
@@ -3304,7 +3377,7 @@ function GridAElement({
               >
                 {currentImages[0] && currentImages[0] !== "" ? (
                   <div
-                    className={`absolute inset-0 ${isEditingIndex(0) ? "overflow-visible border-2 border-primary" : "overflow-hidden"} ${inlineEditState.active && !isEditingIndex(0) ? "bg-black/20" : ""} rounded-md cursor-pointer `}
+                    className={`rounded-md absolute inset-0 ${isEditingIndex(0) ? "overflow-visible border-2 border-primary" : "overflow-hidden"} ${inlineEditState.active && !isEditingIndex(0) ? "bg-black/20" : ""} rounded-md cursor-pointer `}
                     onDoubleClick={(e) => {
                       e.stopPropagation();
                       beginInlineEdit(0);
@@ -3377,16 +3450,18 @@ function GridAElement({
                       style={{ backgroundColor: "#F9FAFB" }}
                     />
                     {/* Black overlay - 이미지가 없을 때만 표시 */}
-                    <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-100 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
-                      <Image
-                        src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                        width={20}
-                        height={20}
-                        className="object-cover mb-2"
-                        alt="Upload icon"
-                        unoptimized={true}
-                      />
-                      <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                    <div className="absolute inset-0  rounded-md flex flex-col items-center justify-center opacity-100 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
+                      <div className="flex items-center justify-center rounded-full bg-[#E5E7EC] w-[26px] h-[26px]">
+                        <Image
+                          src="/report/upload.svg"
+                          width={16}
+                          height={16}
+                          className="object-contain"
+                          alt="Upload icon"
+                          unoptimized={true}
+                        />
+                      </div>
+                      <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
                         이미지를 드래그하거나
                         <br />
                         클릭하여 업로드
@@ -3439,16 +3514,18 @@ function GridAElement({
                         draggable={false}
                       />
                       {/* Hover overlay - 이미지가 있을 때만 표시 */}
-                      <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
-                        <Image
-                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                          width={20}
-                          height={20}
-                          className="object-contain mb-2"
-                          alt="Upload icon"
-                          unoptimized={true}
-                        />
-                        <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                      <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
+                        <div className="flex items-center justify-center rounded-full bg-[#E5E7EC] w-[26px] h-[26px]">
+                          <Image
+                            src="/report/upload.svg"
+                            width={16}
+                            height={16}
+                            className="object-contain"
+                            alt="Upload icon"
+                            unoptimized={true}
+                          />
+                        </div>
+                        <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
                           이미지를 드래그하거나
                           <br />
                           클릭하여 업로드
@@ -3501,19 +3578,24 @@ function GridAElement({
                     <>
                       <div
                         className="absolute inset-0 w-full h-full rounded-md"
-                        style={{ backgroundColor: "#F9FAFB" }}
+                        style={{
+                          backgroundColor: "#F9FAFB",
+                          border: "1px dashed #AAACB4",
+                        }}
                       />
                       {/* Black overlay - 이미지가 없을 때 기본 표시 */}
-                      <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-100 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
-                        <Image
-                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                          width={20}
-                          height={20}
-                          className="object-contain mb-2"
-                          alt="Upload icon"
-                          unoptimized={true}
-                        />
-                        <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                      <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center opacity-100 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
+                        <div className="flex items-center justify-center rounded-full bg-[#E5E7EC] w-[26px] h-[26px]">
+                          <Image
+                            src="/report/upload.svg"
+                            width={16}
+                            height={16}
+                            className="object-contain"
+                            alt="Upload icon"
+                            unoptimized={true}
+                          />
+                        </div>
+                        <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
                           이미지를 드래그하거나
                           <br />
                           클릭하여 업로드
@@ -3564,16 +3646,18 @@ function GridAElement({
                         draggable={false}
                       />
                       {/* Hover overlay - 이미지가 있을 때만 표시 */}
-                      <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
-                        <Image
-                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                          width={20}
-                          height={20}
-                          className="object-contain mb-2"
-                          alt="Upload icon"
-                          unoptimized={true}
-                        />
-                        <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                      <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
+                        <div className="flex items-center justify-center rounded-full bg-[#E5E7EC] w-[26px] h-[26px]">
+                          <Image
+                            src="/report/upload.svg"
+                            width={16}
+                            height={16}
+                            className="object-contain"
+                            alt="Upload icon"
+                            unoptimized={true}
+                          />
+                        </div>
+                        <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
                           이미지를 드래그하거나
                           <br />
                           클릭하여 업로드
@@ -3626,19 +3710,24 @@ function GridAElement({
                     <>
                       <div
                         className="absolute inset-0 w-full h-full rounded-md"
-                        style={{ backgroundColor: "#F9FAFB" }}
+                        style={{
+                          backgroundColor: "#F9FAFB",
+                          border: "1px dashed #AAACB4",
+                        }}
                       />
                       {/* Black overlay - 이미지가 없을 때만 표시 */}
-                      <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md flex flex-col items-center justify-center opacity-100 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
-                        <Image
-                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                          width={20}
-                          height={20}
-                          className="object-contain mb-2"
-                          alt="Upload icon"
-                          unoptimized={true}
-                        />
-                        <div className="text-white text-[8px] font-medium text-center mb-2 px-1">
+                      <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center opacity-100 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
+                        <div className="flex items-center justify-center rounded-full bg-[#E5E7EC] w-[26px] h-[26px]">
+                          <Image
+                            src="/report/upload.svg"
+                            width={16}
+                            height={16}
+                            className="object-contain"
+                            alt="Upload icon"
+                            unoptimized={true}
+                          />
+                        </div>
+                        <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
                           이미지를 드래그하거나
                           <br />
                           클릭하여 업로드
@@ -4063,7 +4152,7 @@ function GridAElement({
       </div>
 
       {/* GridEditToolbar - Portal로 렌더링하여 최상위에 위치 */}
-      {toolbarState.show &&
+      {(toolbarState.show || toolbarModalOpen) &&
         typeof window !== "undefined" &&
         ReactDOM.createPortal(
           <div
@@ -4106,6 +4195,8 @@ function GridAElement({
               position={{ left: "0", top: "0" }}
               onIconClick={handleToolbarIconClick}
               targetGridId={gridId}
+              onRequestHideToolbar={handleHideToolbar}
+              onModalStateChange={setToolbarModalOpen}
             />
           </div>,
           document.body

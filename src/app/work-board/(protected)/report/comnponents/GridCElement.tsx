@@ -18,6 +18,7 @@ import useKeywordExpansionStore from "@/hooks/store/useKeywordExpansionStore";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/store/useToastStore";
 import { useAlertStore } from "@/hooks/store/useAlertStore";
+import { useGridToolbarStore } from "@/hooks/store/useGridToolbarStore";
 
 interface GridCElementProps {
   index: number;
@@ -129,6 +130,15 @@ function GridCElement({
     show: false,
     isExpanded: false,
   });
+  // 툴바 내부 모달 열림 상태 (모달 열림 동안 포털 유지)
+  const [toolbarModalOpen, setToolbarModalOpen] = React.useState(false);
+  // 전역 툴바 닫기 신호 구독
+  const { lastCloseAllAt } = useGridToolbarStore();
+  React.useEffect(() => {
+    if (lastCloseAllAt > 0 && toolbarState.show) {
+      setToolbarState({ show: false, isExpanded: false });
+    }
+  }, [lastCloseAllAt]);
 
   // 업로드 모달 열림 시 툴바 자동 닫기
   React.useEffect(() => {
@@ -1107,7 +1117,7 @@ function GridCElement({
       </div>
 
       {/* GridEditToolbar - element 하단 좌측에 위치 (클리핑 활성화 시에만) */}
-      {toolbarState.show && effectiveClippingEnabled && !inlineEditState.active && typeof window !== 'undefined' && ReactDOM.createPortal(
+      {(toolbarState.show || toolbarModalOpen) && effectiveClippingEnabled && !inlineEditState.active && typeof window !== 'undefined' && ReactDOM.createPortal(
         <div 
           className="grid-edit-toolbar fixed"
           style={{
@@ -1143,6 +1153,8 @@ function GridCElement({
             position={{ left: "0", top: "0" }}
             onIconClick={handleToolbarIconClick}
             targetGridId={gridId}
+            onRequestHideToolbar={handleHideToolbar}
+            onModalStateChange={setToolbarModalOpen}
           />
         </div>,
         document.body

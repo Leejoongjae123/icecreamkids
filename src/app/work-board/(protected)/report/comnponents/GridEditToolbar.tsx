@@ -15,6 +15,7 @@ import { MdPhotoLibrary } from "react-icons/md";
 import { clipPathItems } from "../dummy/svgData";
 import { DecorationItemRemote } from "./types";
 import  useUserStore  from "@/hooks/store/useUserStore";
+import { useGridToolbarStore } from "@/hooks/store/useGridToolbarStore";
 interface GridEditToolbarProps {
   show: boolean;
   isExpanded: boolean;
@@ -27,6 +28,8 @@ interface GridEditToolbarProps {
   limitedMode?: boolean; // 제한된 모드 - 특정 아이콘만 표시
   allowedIcons?: number[]; // 표시할 아이콘 인덱스 배열
   targetIsExpanded?: boolean; // 대상 그리드의 확장 상태 (B타입에서 사용)
+  onRequestHideToolbar?: () => void; // 모달/액션 이후 부모에 툴바 숨김 요청
+  onModalStateChange?: (open: boolean) => void; // 모달 열림 상태 부모에 전달
 }
 
 const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
@@ -38,6 +41,8 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
   limitedMode = false,
   allowedIcons = [0, 1, 2], // 기본값: 텍스트 스티커, 꾸미기 스티커, 표 추가
   targetIsExpanded = false,
+  onRequestHideToolbar,
+  onModalStateChange,
 }) => {
   const searchParams = useSearchParams();
   const type = searchParams.get("type");
@@ -47,6 +52,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
   const [isImageCountModalOpen, setIsImageCountModalOpen] = useState(false);
   const [internalExpanded, setInternalExpanded] = useState(false);
   const { userInfo } = useUserStore();
+  const { triggerCloseAll } = useGridToolbarStore();
 
   const profileId = userInfo?.id ?? 0;
   // 디버깅용 useEffect
@@ -114,27 +120,45 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
         // 이미지 개수 선택 모달 열기
         console.log("이미지 개수 선택 클릭, 모달 열기");
         setIsImageCountModalOpen(true);
+        onModalStateChange?.(true);
+        // 모달이 열린 뒤 툴바 숨김 요청 (부모는 포털 유지)
+        setTimeout(() => onRequestHideToolbar?.(), 0);
+        // 전역으로 모든 툴바 닫기 브로드캐스트
+        setTimeout(() => triggerCloseAll(), 0);
       } else {
         // 사진틀 변경 클릭 시 모달 열기
         console.log("사진틀 변경 클릭, 모달 열기");
         setIsPhotoFrameModalOpen(true);
+        onModalStateChange?.(true);
+        setTimeout(() => onRequestHideToolbar?.(), 0);
+        setTimeout(() => triggerCloseAll(), 0);
       }
     } else if (index === 1) {
       // 텍스트 스티커 클릭 시 모달 열기
       console.log("텍스트 스티커 클릭, 모달 열기");
       setIsTextStickerModalOpen(true);
+      onModalStateChange?.(true);
+      setTimeout(() => onRequestHideToolbar?.(), 0);
+      setTimeout(() => triggerCloseAll(), 0);
     } else if (index === 2) {
       // 꾸미기 스티커 클릭 시 모달 열기
       console.log("꾸미기 스티커 클릭, 모달 열기");
       setIsDecorationStickerModalOpen(true);
+      onModalStateChange?.(true);
+      setTimeout(() => onRequestHideToolbar?.(), 0);
+      setTimeout(() => triggerCloseAll(), 0);
     } else {
       onIconClick(index);
+      // 모달이 없는 즉시 실행 액션은 바로 숨김 요청
+      setTimeout(() => onRequestHideToolbar?.(), 0);
+      setTimeout(() => triggerCloseAll(), 0);
     }
   };
 
   // 모달 핸들러들
   const handleModalClose = () => {
     setIsPhotoFrameModalOpen(false);
+    onModalStateChange?.(false);
   };
 
   const handlePhotoFrameApply = (selectedFrame: number) => {
@@ -175,6 +199,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
 
   const handleTextStickerModalClose = () => {
     setIsTextStickerModalOpen(false);
+    onModalStateChange?.(false);
   };
 
   const handleTextStickerApply = (selectedSticker: number) => {
@@ -185,6 +210,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
 
   const handleDecorationStickerModalClose = () => {
     setIsDecorationStickerModalOpen(false);
+    onModalStateChange?.(false);
   };
 
   const handleDecorationStickerApply = (selectedSticker: DecorationItemRemote) => {
@@ -195,6 +221,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
 
   const handleImageCountModalClose = () => {
     setIsImageCountModalOpen(false);
+    onModalStateChange?.(false);
   };
 
   const handleImageCountApply = (count: number) => {
@@ -210,69 +237,67 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
     }
   };
 
-  if (!show) {
-    return null;
-  }
-
   return (
     <>
-      <div
-        className="absolute z-[100]"
-        style={{
-          left: position.left,
-          top: position.top,
-        }}
-      >
+      {show && (
         <div
-          className="relative flex items-center justify-center"
-          style={{ width: containerWidth, height: "38px" }}
+          className="absolute z-[100]"
+          style={{
+            left: position.left,
+            top: position.top,
+          }}
         >
-          {[...Array(iconCount)].map((_, index) => (
-            <Tooltip key={index}>
-              <TooltipTrigger asChild>
-                <div
-                  className="w-[38px] h-[38px] bg-primary hover:opacity-80 rounded-full absolute flex items-center justify-center cursor-pointer hover:-translate-y-1 z-[101]"
-                  style={{
-                    left: `${index * (38 + 12)}px`,
-                    opacity: internalExpanded ? 1 : 0,
-                    transform: internalExpanded ? "scale(1) translateY(0)" : "scale(0.3) translateY(10px)",
-                    transition: "opacity 0.4s ease-out, transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s ease-in-out",
-                    transitionDelay: internalExpanded ? `${index * 100}ms` : "0ms",
-                    zIndex: 101,
-                  }}
-                  onClick={() => handleIconClick(index)}
+          <div
+            className="relative flex items-center justify-center"
+            style={{ width: containerWidth, height: "38px" }}
+          >
+            {[...Array(iconCount)].map((_, index) => (
+              <Tooltip key={index}>
+                <TooltipTrigger asChild>
+                  <div
+                    className="w-[38px] h-[38px] bg-primary hover:opacity-80 rounded-full absolute flex items-center justify-center cursor-pointer hover:-translate-y-1 z-[101]"
+                    style={{
+                      left: `${index * (38 + 12)}px`,
+                      opacity: internalExpanded ? 1 : 0,
+                      transform: internalExpanded ? "scale(1) translateY(0)" : "scale(0.3) translateY(10px)",
+                      transition: "opacity 0.4s ease-out, transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s ease-in-out",
+                      transitionDelay: internalExpanded ? `${index * 100}ms` : "0ms",
+                      zIndex: 101,
+                    }}
+                    onClick={() => handleIconClick(index)}
+                  >
+                    {limitedMode ? (
+                      <Image
+                        src={limitedIconUrls[index]}
+                        alt={`limited-icon-${index}`}
+                        width={18}
+                        height={18}
+                        className="object-contain"
+                      />
+                    ) : index === 0 && (type === "A" || type === "B") ? (
+                      <MdPhotoLibrary size={18} className="text-white" />
+                    ) : (
+                      <Image
+                        src={`https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix${index + 1}.svg`}
+                        alt={`fix${index + 1}`}
+                        width={18}
+                        height={18}
+                        className="object-contain"
+                      />
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="bottom"
+                  className="bg-primary text-white text-sm px-2 py-1 z-[102]"
                 >
-                  {limitedMode ? (
-                    <Image
-                      src={limitedIconUrls[index]}
-                      alt={`limited-icon-${index}`}
-                      width={18}
-                      height={18}
-                      className="object-contain"
-                    />
-                  ) : index === 0 && (type === "A" || type === "B") ? (
-                    <MdPhotoLibrary size={18} className="text-white" />
-                  ) : (
-                    <Image
-                      src={`https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix${index + 1}.svg`}
-                      alt={`fix${index + 1}`}
-                      width={18}
-                      height={18}
-                      className="object-contain"
-                    />
-                  )}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent
-                side="bottom"
-                className="bg-primary text-white text-sm px-2 py-1 z-[102]"
-              >
-                {currentTooltipTexts[index]}
-              </TooltipContent>
-            </Tooltip>
-          ))}
+                  {currentTooltipTexts[index]}
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Photo Frame Modal */}
       <PhotoFrameModal

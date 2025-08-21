@@ -28,6 +28,7 @@ import { IEditMemoData } from "@/components/modal/memo-edit/types";
 import { useSearchParams } from "next/navigation";
 import useS3FileUpload from "@/hooks/useS3FileUpload";
 import { useImageEditModalStore } from "@/hooks/store/useImageEditModalStore";
+import { useGridToolbarStore } from "@/hooks/store/useGridToolbarStore";
 
 interface GridBElementProps {
   index: number;
@@ -1635,6 +1636,15 @@ function GridBElement({
     show: false,
     isExpanded: false,
   });
+  // 툴바 내부 모달 열림 상태 (모달 열림 동안 포털 유지)
+  const [toolbarModalOpen, setToolbarModalOpen] = React.useState(false);
+  // 전역 툴바 닫기 신호 구독
+  const { lastCloseAllAt } = useGridToolbarStore();
+  React.useEffect(() => {
+    if (lastCloseAllAt > 0 && toolbarState.show) {
+      setToolbarState({ show: false, isExpanded: false });
+    }
+  }, [lastCloseAllAt]);
 
   // 업로드 모달 열림 시 툴바 자동 닫기
   React.useEffect(() => {
@@ -2735,7 +2745,7 @@ function GridBElement({
 
       {/* GridEditToolbar - Portal로 렌더링하여 최상위에 위치 (GridAElement 참고) */}
       {!isSaved &&
-        toolbarState.show &&
+        (toolbarState.show || toolbarModalOpen) &&
         typeof window !== "undefined" &&
         ReactDOM.createPortal(
           <div
@@ -2774,6 +2784,8 @@ function GridBElement({
               onIconClick={handleToolbarIconClick}
               targetGridId={gridId}
               targetIsExpanded={isExpanded}
+              onRequestHideToolbar={handleHideToolbar}
+              onModalStateChange={setToolbarModalOpen}
             />
           </div>,
           document.body
