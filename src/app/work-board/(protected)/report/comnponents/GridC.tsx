@@ -710,78 +710,68 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
   // 다중 이미지 업로드 핸들러 - 1번째부터 순차적으로 새롭게 할당
   const handleMultipleImageUpload = React.useCallback((files: File[] | any[]) => {
     const defaultImage = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
-    
-    console.log('📥 GridC 다중 이미지 업로드 시작:', {
-      파일수: files.length,
-      그리드수: items.length
-    });
-    
+    console.log('📥 GridC 다중 이미지 업로드 시작:', { 파일수: files.length, 그리드수: items.length });
+
     setItems(prevItems => {
       const updatedItems = [...prevItems];
       const uploadedCount = { success: 0, total: files.length };
-      
-      // 1번째 그리드부터 순차적으로 이미지 배정 (기존 이미지가 있어도 덮어쓰기)
-      for (let i = 0; i < Math.min(files.length, updatedItems.length); i++) {
-        const file = files[i];
-        let imageUrl = "";
-        let driveItemKey = "";
-        
+
+      // 1) 선택된 아이템(배열 인덱스)을 우선 대상으로 사용, 없으면 전체 인덱스
+      const selectedArrayIndices: number[] = prevItems.reduce((arr: number[], item, idx) => {
+        if (selectedItems.has(item.id)) arr.push(idx);
+        return arr;
+      }, []);
+      const allIndices = prevItems.map((_, idx) => idx);
+      const baseTargets = selectedArrayIndices.length > 0 ? selectedArrayIndices : allIndices;
+
+      // 2) 타겟 인덱스 순서대로 파일 배정, 초과분은 나머지 인덱스에 연속 배정
+      const assignedIndices = new Set<number>();
+      let filePtr = 0;
+      const maxAssignable = Math.min(files.length, updatedItems.length);
+
+      const assignAtIndex = (idx: number, file: any) => {
+        let imageUrl = ""; let driveItemKey = "";
         if (file instanceof File) {
-          // File 타입인 경우
           imageUrl = URL.createObjectURL(file);
           driveItemKey = `local_${Date.now()}_${Math.random()}`;
         } else if (file && typeof file === 'object' && file.thumbUrl) {
-          // SmartFolderItemResult 타입인 경우
           imageUrl = file.thumbUrl;
           driveItemKey = file.driveItemKey || `external_${Date.now()}_${Math.random()}`;
         }
-        
-        if (imageUrl) {
-          // 기존 이미지가 있어도 새로운 이미지로 덮어쓰기
-          updatedItems[i] = { ...updatedItems[i], imageUrl, driveItemKey };
-          
-          // GridCStore에 이미지 정보 저장 (optional)
-          try {
-            setImage(updatedItems[i].id, driveItemKey);
-          } catch (error) {
-            console.log('GridCStore 저장 실패:', error);
-          }
-          
-          uploadedCount.success++;
-          
-          console.log(`📷 이미지 ${i + 1}/${files.length} 배정 완료:`, {
-            gridId: updatedItems[i].id,
-            gridIndex: i,
-            imageUrl: imageUrl.substring(0, 50) + '...',
-            덮어쓰기: updatedItems[i].imageUrl !== defaultImage
-          });
+        if (!imageUrl) return false;
+        updatedItems[idx] = { ...updatedItems[idx], imageUrl, driveItemKey };
+        try { setImage(updatedItems[idx].id, driveItemKey); } catch (_) {}
+        uploadedCount.success++;
+        assignedIndices.add(idx);
+        console.log(`📷 이미지 배정 완료 idx=${idx}:`, { gridId: updatedItems[idx].id, imageUrl: imageUrl.substring(0,50)+'...' });
+        return true;
+      };
+
+      // 우선 대상에 배정
+      for (; filePtr < maxAssignable && filePtr < baseTargets.length; filePtr++) {
+        const idx = baseTargets[filePtr];
+        assignAtIndex(idx, files[filePtr]);
+      }
+      // 남은 파일을 나머지 인덱스에 배정
+      if (filePtr < maxAssignable) {
+        const remainingTargets = allIndices.filter(i => !assignedIndices.has(i));
+        let rPtr = 0;
+        while (filePtr < maxAssignable && rPtr < remainingTargets.length) {
+          assignAtIndex(remainingTargets[rPtr], files[filePtr]);
+          filePtr++; rPtr++;
         }
       }
-      
-      // 업로드된 파일 수가 그리드 수보다 많은 경우 알림
+
       const notAssignedCount = Math.max(0, files.length - updatedItems.length);
-      
-      console.log('✅ GridC 다중 이미지 업로드 완료:', {
-        성공: uploadedCount.success,
-        전체: uploadedCount.total,
-        배정안됨: notAssignedCount,
-        새롭게할당됨: `1번째부터 ${uploadedCount.success}번째까지`
-      });
-      
-      // 이미지가 업로드되면 첫 번째 아이템만 키워드 영역 확장
+      console.log('✅ GridC 다중 이미지 업로드 완료:', { 성공: uploadedCount.success, 전체: uploadedCount.total, 배정안됨: notAssignedCount });
+
       if (uploadedCount.success > 0) {
-        const imageGridIds = updatedItems
-          .filter(item => item.imageUrl && item.imageUrl !== defaultImage)
-          .map(item => item.id);
-        
-        if (imageGridIds.length > 0) {
-          expandFirstImageGrid(imageGridIds);
-        }
+        const imageGridIds = updatedItems.filter(it => it.imageUrl && it.imageUrl !== defaultImage).map(it => it.id);
+        if (imageGridIds.length > 0) expandFirstImageGrid(imageGridIds);
       }
-      
       return updatedItems;
     });
-  }, [items.length]);
+  }, [items.length, selectedItems]);
 
   // 통합 업로드 모달 열기 핸들러
   const handleOpenIntegratedUpload = React.useCallback(() => {

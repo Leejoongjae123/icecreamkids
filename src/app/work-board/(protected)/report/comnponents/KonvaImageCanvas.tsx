@@ -106,7 +106,7 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
   const [clippedImage, setClippedImage] = useState<HTMLImageElement | null>(null);
 
     // placeholder 이미지 여부 판별
-    const NO_IMAGE_URL = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
+    const NO_IMAGE_URL = "/images/bg_noimage_folder.png";
     const isPlaceholder = imageUrl === NO_IMAGE_URL;
 
 
@@ -269,75 +269,10 @@ const KonvaImageCanvas = forwardRef<KonvaImageCanvasRef, KonvaImageCanvasProps>(
         }
       };
 
-      imageObj.onerror = (error) => {
-        console.log('❌ 이미지 로드 실패, CORS 없이 재시도:', { imageUrl, error });
-
-        // crossOrigin 제거 후 재시도
-        const retryImageObj = new window.Image();
-        
-        retryImageObj.onload = () => {
-            console.log('✅ CORS 없이 이미지 로드 성공');
-            const imgWidth = retryImageObj.width;
-            const imgHeight = retryImageObj.height;
-            
-            // 동일한 로드 로직 적용
-            let scale: number;
-            if (isPlaceholder) {
-              const scaleX = canvasSize.width / imgWidth;
-              const scaleY = canvasSize.height / imgHeight;
-              scale = Math.max(scaleX, scaleY);
-            } else {
-              const scaleX = (canvasSize.width * 0.8) / imgWidth;
-              const scaleY = (canvasSize.height * 0.8) / imgHeight;
-              scale = Math.min(scaleX, scaleY);
-            }
-            
-            const x = canvasSize.width / 2;
-            const y = canvasSize.height / 2;
-            
-            const imageData = {
-              x,
-              y,
-              scale,
-              width: imgWidth,
-              height: imgHeight
-            };
-            
-            setInitialImageData(imageData);
-            setKonvaImage(retryImageObj);
-            setIsLoading(false);
-            
-            if (imageTransformData && 
-                imageTransformData.width === imgWidth && 
-                imageTransformData.height === imgHeight) {
-              setImagePosition({ x: imageTransformData.x, y: imageTransformData.y });
-              setImageScale(imageTransformData.scale);
-              
-              if (onImageTransformUpdate) {
-                onImageTransformUpdate(imageTransformData);
-              }
-            } else {
-              setImagePosition({ x, y });
-              setImageScale(scale);
-              
-              if (onImageTransformUpdate) {
-                onImageTransformUpdate({
-                  x,
-                  y,
-                  scale,
-                  width: imgWidth,
-                  height: imgHeight
-                });
-              }
-            }
-        };
-        
-        retryImageObj.onerror = () => {
-          console.log('❌ 재시도도 실패, 로딩 종료');
-          setIsLoading(false);
-        };
-        
-        retryImageObj.src = imageUrl;
+      imageObj.onerror = () => {
+        // CORS 미지원 원격 이미지는 캔버스를 오염시켜 전체 캡처를 실패하게 만듭니다.
+        // 재시도(anonymous 미설정) 로딩을 제거하여 tainted canvas를 방지합니다.
+        setIsLoading(false);
       };
 
       imageObj.src = imageUrl;

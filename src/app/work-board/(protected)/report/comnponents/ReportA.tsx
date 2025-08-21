@@ -524,68 +524,61 @@ function ReportAContent() {
               {isSaved && (
                 <Button
                   size="sm"
-                  className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+                  className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[13px] text-black shadow-none font-semibold h-[34px] w-[80px] border-solid border-[1px] border-[#CCCCCC]"
                   onClick={handleEdit}
                 >
                   <Image
-                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/edit.svg"
+                    src="/report/edit.svg"
                     alt="edit"
-                    width={16}
-                    height={16}
+                    width={14}
+                    height={14}
                   />
                   편집
                 </Button>
               )}
               <Button
                 size="sm"
-                className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+                className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[13px] text-black shadow-none font-semibold h-[34px] w-[80px] border-solid border-[1px] border-[#CCCCCC]"
                 onClick={handlePrint}
                 disabled={!isSaved}
               >
                 <Image
-                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/print.svg"
+                  src="/report/print.svg"
                   alt="print"
-                  width={16}
-                  height={16}
+                  width={14}
+                  height={14}
                 />
                 인쇄
               </Button>
 
               <Button
                 size="sm"
-                className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+                className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[13px] text-black shadow-none font-semibold h-[34px] w-[80px] border-solid border-[1px] border-[#CCCCCC]"
               >
                 <Image
-                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/share.svg"
+                  src="/report/share.svg"
                   alt="share"
-                  width={16}
-                  height={16}
+                  width={14}
+                  height={14}
                 />
                 공유
               </Button>
               <Button
                 size="sm"
-                className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+                className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[13px] text-black shadow-none font-semibold h-[34px] w-[80px] border-solid border-[1px] border-[#CCCCCC]"
                 onClick={handleDownload}
                 disabled={!isSaved}
               >
                 <Image
-                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/download.svg"
+                  src="/report/download.svg"
                   alt="download"
-                  width={16}
-                  height={16}
+                  width={14}
+                  height={14}
                 />
                 다운로드
               </Button>
               {/* 임시 테스트 버튼 */}
-              <Button
-                size="sm"
-                className="gap-1 bg-orange-100 hover:bg-orange-200 text-[14px] text-orange-700 shadow-none font-semibold h-[34px]"
-                onClick={handlePreview}
-                disabled={!isSaved}
-              >
-                미리보기
-              </Button>
+
               <Button
                 size="sm"
                 className={`gap-1 font-semibold h-[34px] ${
@@ -599,10 +592,9 @@ function ReportAContent() {
                 🖱️ {isTracking ? '마우스 위치 추적 중지' : '마우스 위치 추적'}
               </Button>
               <Button
-                size="sm"
-                className={`font-semibold h-[34px] ${
+                className={`gap-1 font-semibold w-[80px] h-[34px] text-[13px] shadow-none ${
                   isSaved
-                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    ? "bg-gray-300 hover:bg-gray-300 text-gray-500 cursor-not-allowed"
                     : "bg-primary hover:bg-primary/80 text-white"
                 }`}
                 onClick={isSaved ? undefined : handleSave}

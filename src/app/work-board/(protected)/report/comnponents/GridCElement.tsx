@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 import { ChevronDown } from "lucide-react";
 import AddPictureClipping from "./AddPictureClipping";
-import KonvaImageCanvas, { KonvaImageCanvasRef } from "./KonvaImageCanvas";
+// Konva 기반 캔버스는 사용하지 않음 (CSS 기반 편집으로 전환)
 import GridEditToolbar from "./GridEditToolbar";
 import { Loader } from "@/components/ui/loader";
 import { ClipPathItem } from "../dummy/types";
@@ -81,7 +81,7 @@ function GridCElement({
   const { isExpanded, expandOnlyOne, setExpanded } = useKeywordExpansionStore();
   const isRecommendedKeywordsExpanded = isExpanded(gridId);
   
-  // placeholder 이미지 URL
+  // 기본 배경 이미지 (GridAElement와 동일한 웹 호스팅 이미지)
   const NO_IMAGE_URL = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
 
 
@@ -93,8 +93,16 @@ function GridCElement({
   // 현재 이미지의 driveItemKey 상태를 명시적으로 관리 (prop으로 받은 값으로 초기화)
   const [currentImageDriveItemKey, setCurrentImageDriveItemKey] = React.useState<string>(driveItemKey || "");
 
-  // KonvaImageCanvas ref
-  const konvaCanvasRef = React.useRef<KonvaImageCanvasRef>(null);
+  // 인라인 편집 상태 (CSS 기반)
+  const [inlineEditState, setInlineEditState] = React.useState<{
+    active: boolean;
+    temp: { x: number; y: number; scale: number };
+    cropActive: boolean;
+    cropRect?: { left: number; top: number; right: number; bottom: number } | null;
+    cropDraggingEdge?: 'left' | 'right' | 'top' | 'bottom' | null;
+    cropStartPointer?: { x: number; y: number } | null;
+    cropBounds?: { left: number; top: number; right: number; bottom: number } | null;
+  }>({ active: false, temp: { x: 0, y: 0, scale: 1 }, cropActive: false, cropRect: null, cropDraggingEdge: null, cropStartPointer: null, cropBounds: null });
   
   // canvas-container ref 및 크기 상태
   const canvasContainerRef = React.useRef<HTMLDivElement>(null);
@@ -107,13 +115,11 @@ function GridCElement({
   // 배경 제거 로딩 상태 관리
   const [isRemoveBackgroundLoading, setIsRemoveBackgroundLoading] = React.useState(false);
 
-  // 이미지 변환 정보 상태 (위치, 스케일 동기화용)
+  // 이미지 변환 정보 상태 (위치, 스케일)
   const [imageTransformData, setImageTransformData] = React.useState<{
     x: number;
     y: number;
     scale: number;
-    width: number;
-    height: number;
   } | null>(null);
 
   // 툴바 상태 관리
@@ -127,19 +133,12 @@ function GridCElement({
   // 전역 설정과 개별 해제 상태를 합쳐서 실제 적용 여부 계산
   const effectiveClippingEnabled = isClippingEnabled && !isLocalClippingDisabled;
   
-  // 더블클릭 편집 진입 시 외부 영역 어둡게 오버레이용 rect 상태 (뷰포트 기준 여백)
-  const [overlayRect, setOverlayRect] = React.useState<{
-    top: number;
-    left: number;
-    right: number;
-    bottom: number;
-    radius?: number;
-  } | null>(null);
-  // 외부 포털 컨트롤에서 사용하는 크롭 모드 상태
-  const [isExternalClippingMode, setIsExternalClippingMode] = React.useState<boolean>(false);
+  // 외부 오버레이는 CSS 기반에서 사용하지 않음
   
   // 툴바 위치 상태
   const [toolbarPosition, setToolbarPosition] = React.useState({ left: 0, top: 0 });
+  // 인라인 편집 포털 위치 상태 (그리드 바로 하단에 배치)
+  const [editPortalPosition, setEditPortalPosition] = React.useState<{ left: number; top: number }>({ left: 0, top: 0 });
 
   // 이미지가 있는지 확인하는 헬퍼 함수
   const hasImage = currentImageUrl && currentImageUrl !== NO_IMAGE_URL;
@@ -213,21 +212,6 @@ function GridCElement({
 
     // 클리핑이 활성화되어 있을 때만 툴바 표시 (개별 해제 상태 고려)
     if (effectiveClippingEnabled) {
-      // 툴바 표시 전에 현재 이미지 상태를 저장
-      if (konvaCanvasRef.current) {
-        const currentImageData = konvaCanvasRef.current.getImageData();
-        if (currentImageData) {
-          console.log("툴바 표시 전 현재 이미지 상태 저장:", currentImageData);
-          setImageTransformData({
-            x: currentImageData.x,
-            y: currentImageData.y,
-            scale: currentImageData.scale,
-            width: currentImageData.width,
-            height: currentImageData.height
-          });
-        }
-      }
-      
       // 툴바 위치 업데이트
       if (canvasContainerRef.current) {
         const rect = canvasContainerRef.current.getBoundingClientRect();
@@ -273,63 +257,28 @@ function GridCElement({
     hoverTimerRef.current = timer;
   };
 
-  // 더블클릭 시 해당 그리드만 클리핑 해제하고 편집 모드 진입
+  // 더블클릭 시 인라인 편집 모드 진입
   const handleDoubleClick = (event: React.MouseEvent) => {
     event.stopPropagation();
-    if (hasImage) {
-      setIsLocalClippingDisabled(true);
-      setToolbarState({ show: false, isExpanded: false });
-    }
+    if (!hasImage) return;
+    setToolbarState({ show: false, isExpanded: false });
+    const base = imageTransformData || { x: 0, y: 0, scale: 1 };
+    setInlineEditState(prev => ({
+      ...prev,
+      active: true,
+      temp: { x: base.x || 0, y: base.y || 0, scale: base.scale || 1 },
+      cropActive: false,
+      cropRect: null,
+      cropDraggingEdge: null,
+      cropStartPointer: null,
+      cropBounds: null,
+    }));
   };
 
-  // 수정 완료: 해당 그리드의 로컬 클리핑 해제 상태를 복구하여 편집 모드 종료
-  const handleFinishEdit = React.useCallback(() => {
-    setIsLocalClippingDisabled(false);
-    setOverlayRect(null);
-    setIsExternalClippingMode(false);
-  }, []);
+  // (미사용) 기존 Konva 편집 종료 핸들러 제거됨
 
-  // 더블클릭 편집 진입 시 현재 캔버스 영역을 제외한 화면을 어둡게 처리하기 위한 오버레이 위치 계산
+  // 인라인 편집 컨테이너 ref
   const outerContainerRef = React.useRef<HTMLDivElement>(null);
-
-  const updateOverlayRect = React.useCallback(() => {
-    if (typeof window === 'undefined') return;
-    const el = outerContainerRef.current || canvasContainerRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const viewportWidth = window.innerWidth || 0;
-    const viewportHeight = window.innerHeight || 0;
-    const top = Math.max(0, rect.top);
-    const left = Math.max(0, rect.left);
-    const right = Math.max(0, viewportWidth - rect.right);
-    const bottom = Math.max(0, viewportHeight - rect.bottom);
-
-    let radius = 0;
-    try {
-      const style = window.getComputedStyle(el);
-      const parsePx = (v: string) => (v && v.endsWith('px') ? parseFloat(v) : 0);
-      const rTL = parsePx(style.borderTopLeftRadius);
-      const rTR = parsePx(style.borderTopRightRadius);
-      const rBL = parsePx(style.borderBottomLeftRadius);
-      const rBR = parsePx(style.borderBottomRightRadius);
-      radius = Math.max(rTL, rTR, rBL, rBR);
-    } catch (_) {}
-
-    setOverlayRect({ top, left, right, bottom, radius });
-  }, []);
-
-  // 오버레이 위치 갱신: 편집 진입/스크롤/리사이즈 시 따라가도록 처리
-  React.useEffect(() => {
-    if (!isLocalClippingDisabled) return;
-    updateOverlayRect();
-    const handle = () => updateOverlayRect();
-    window.addEventListener('resize', handle);
-    window.addEventListener('scroll', handle, true);
-    return () => {
-      window.removeEventListener('resize', handle);
-      window.removeEventListener('scroll', handle, true);
-    };
-  }, [isLocalClippingDisabled, updateOverlayRect]);
 
   // 체크박스 변경 핸들러
   const handleCheckboxChange = (checked: boolean | "indeterminate") => {
@@ -376,7 +325,7 @@ function GridCElement({
     } catch (_) {}
     
     // 이미지 변환 데이터 초기화
-    setImageTransformData(null);
+    setImageTransformData({ x: 0, y: 0, scale: 1 });
     
     // 부모 컴포넌트에 이미지 제거 알림
     if (onImageUpload) {
@@ -494,7 +443,7 @@ function GridCElement({
     };
   }, [isSelected]); // isSelected가 변경될 때마다 재실행
 
-  // AddPictureClipping용 이미지 추가 핸들러
+  // 이미지 추가 핸들러
   const handleImageAdded = (hasImage: boolean, imageUrl?: string, driveItemKey?: string) => {
     if (hasImage && imageUrl) {
       console.log("🖼️ GridC handleImageAdded:", {
@@ -540,73 +489,61 @@ function GridCElement({
     }
   };
 
-  // 이미지 이동 핸들러 (KonvaImageCanvas에서 호출)
-  const handleImageMove = React.useCallback((x: number, y: number) => {
-    console.log("이미지 이동:", { x, y, gridId });
-    
-    // 현재 이미지 데이터 업데이트
-    if (konvaCanvasRef.current) {
-      const currentImageData = konvaCanvasRef.current.getImageData();
-      if (currentImageData) {
-        setImageTransformData({
-          x: currentImageData.x,
-          y: currentImageData.y,
-          scale: currentImageData.scale,
-          width: currentImageData.width || 0,
-          height: currentImageData.height || 0
-        });
-      }
-    }
-  }, [gridId]);
+  // 인라인 편집 드래그/리사이즈
+  const suppressClickRef = React.useRef<boolean>(false);
+  const onEditMouseDown = React.useCallback((e: React.MouseEvent) => {
+    if (!inlineEditState.active) return;
+    e.preventDefault(); e.stopPropagation();
+    const start = { x: e.clientX, y: e.clientY };
+    suppressClickRef.current = false;
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.clientX - start.x; const dy = ev.clientY - start.y;
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) suppressClickRef.current = true;
+      setInlineEditState(prev => ({ ...prev, temp: { x: prev.temp.x + dx, y: prev.temp.y + dy, scale: prev.temp.scale } }));
+      start.x = ev.clientX; start.y = ev.clientY;
+    };
+    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [inlineEditState.active]);
 
-  // 이미지 변환 데이터 업데이트 핸들러
-  const handleImageTransformUpdate = React.useCallback((transformData: {
-    x: number;
-    y: number;
-    scale: number;
-    width: number;
-    height: number;
-  }) => {
-    // console.log("이미지 변환 데이터 업데이트:", transformData);
-    setImageTransformData(transformData);
-  }, []);
+  const onResizeHandleDown = React.useCallback((e: React.MouseEvent) => {
+    if (!inlineEditState.active) return;
+    e.preventDefault(); e.stopPropagation();
+    const start = { x: e.clientX, y: e.clientY };
+    const onMove = (ev: MouseEvent) => {
+      const dy = ev.clientY - start.y; const dx = ev.clientX - start.x;
+      const delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+      setInlineEditState(prev => ({ ...prev, temp: { ...prev.temp, scale: Math.max(0.2, Math.min(5, prev.temp.scale + delta * 0.005)) } }));
+      start.x = ev.clientX; start.y = ev.clientY;
+    };
+    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [inlineEditState.active]);
 
-  // 크롭된 이미지 업데이트 핸들러
-  const handleCroppedImageUpdate = React.useCallback((croppedImageUrl: string) => {
-    console.log("🎯 크롭된 이미지 업데이트:", {
-      gridId,
-      이전이미지: currentImageUrl,
-      새이미지: croppedImageUrl.substring(0, 50) + '...'
-    });
-    
-    // 현재 이미지 URL을 크롭된 이미지로 업데이트
-    setCurrentImageUrl(croppedImageUrl);
-    
-    // 이미지 메타데이터 업데이트
-    const croppedKey = `cropped_${Date.now()}_${Math.random()}`;
-    setImageMetadata([{ url: croppedImageUrl, driveItemKey: croppedKey }]);
-    setImage(gridId, croppedKey);
-    
-    // 현재 이미지의 driveItemKey 명시적으로 설정
-    setCurrentImageDriveItemKey(croppedKey);
-    
-    // 부모 컴포넌트에 크롭된 이미지 전달
-    if (onImageUpload) {
-      onImageUpload(gridId, croppedImageUrl, croppedKey);
-    }
-    
-    console.log("✅ 크롭된 이미지 적용 완료:", {
-      gridId,
-      croppedKey,
-      croppedImageUrl: croppedImageUrl.substring(0, 50) + '...'
-    });
-  }, [gridId, currentImageUrl, setImage, onImageUpload]);
+  const renderResizeHandles = React.useCallback(() => {
+    if (!inlineEditState.active) return null;
+    const s = inlineEditState.temp.scale || 1;
+    const overlayTransform = `translate(${inlineEditState.temp.x}px, ${inlineEditState.temp.y}px) scale(${s})`;
+    const handleScaleStyle: React.CSSProperties = { transform: `scale(${1 / s})`, transformOrigin: 'center' };
+    return (
+      <div className="absolute inset-0 z-50 pointer-events-none" style={{ transform: overlayTransform, transformOrigin: 'center' }}>
+        <div data-handle="true" className="absolute -top-2 -left-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nwse-resize pointer-events-auto" style={handleScaleStyle} onMouseDown={onResizeHandleDown} />
+        <div data-handle="true" className="absolute -top-2 -right-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nesw-resize pointer-events-auto" style={handleScaleStyle} onMouseDown={onResizeHandleDown} />
+        <div data-handle="true" className="absolute -bottom-2 -left-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nesw-resize pointer-events-auto" style={handleScaleStyle} onMouseDown={onResizeHandleDown} />
+        <div data-handle="true" className="absolute -bottom-2 -right-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nwse-resize pointer-events-auto" style={handleScaleStyle} onMouseDown={onResizeHandleDown} />
+      </div>
+    );
+  }, [inlineEditState.active, inlineEditState.temp, onResizeHandleDown]);
 
-  // 이미지 위치 초기화
-  const handleResetImagePosition = React.useCallback(() => {
-    if (konvaCanvasRef.current) {
-      konvaCanvasRef.current.resetImagePosition();
-    }
+  const confirmInlineEdit = React.useCallback(() => {
+    setImageTransformData({ ...(inlineEditState.temp) });
+    setInlineEditState(prev => ({ ...prev, active: false, cropActive: false, cropRect: null, cropDraggingEdge: null, cropStartPointer: null, cropBounds: null }));
+  }, [inlineEditState.temp]);
+
+  const cancelInlineEdit = React.useCallback(() => {
+    setInlineEditState(prev => ({ ...prev, active: false, cropActive: false, cropRect: null, cropDraggingEdge: null, cropStartPointer: null, cropBounds: null }));
   }, []);
 
   // 배경 제거 API 호출 함수
@@ -725,7 +662,7 @@ function GridCElement({
           }
           
           // 이미지 변환 데이터 초기화 (새로운 이미지이므로)
-          setImageTransformData(null);
+          setImageTransformData({ x: 0, y: 0, scale: 1 });
           
           console.log("✅ GridC 배경제거 이미지 상태 업데이트 완료:", {
             gridId,
@@ -751,25 +688,7 @@ function GridCElement({
 
   // 툴바 숨기기 핸들러
   const handleHideToolbar = () => {
-    // 툴바 숨기기 전에 현재 이미지 상태를 저장
-    if (konvaCanvasRef.current) {
-      const currentImageData = konvaCanvasRef.current.getImageData();
-      if (currentImageData) {
-        console.log("툴바 숨기기 전 현재 이미지 상태 저장:", currentImageData);
-        setImageTransformData({
-          x: currentImageData.x,
-          y: currentImageData.y,
-          scale: currentImageData.scale,
-          width: currentImageData.width,
-          height: currentImageData.height
-        });
-      }
-    }
-
-    setToolbarState({
-      show: false,
-      isExpanded: false,
-    });
+    setToolbarState({ show: false, isExpanded: false });
   };
 
   // 툴바 아이콘 클릭 핸들러
@@ -873,6 +792,24 @@ function GridCElement({
       }
     };
   }, []);
+
+  // 인라인 편집 포털 위치 업데이트 (스크롤/리사이즈 대응)
+  React.useEffect(() => {
+    if (!inlineEditState.active) return;
+    const update = () => {
+      if (canvasContainerRef.current) {
+        const rect = canvasContainerRef.current.getBoundingClientRect();
+        setEditPortalPosition({ left: rect.left + rect.width / 2, top: rect.bottom + 8 });
+      }
+    };
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [inlineEditState.active]);
 
   // 드래그 상태에 따른 스타일
   const containerClass = isDragging
@@ -1011,8 +948,8 @@ function GridCElement({
         ref={outerContainerRef}
         className={`relative w-full h-full ${!effectiveClippingEnabled ? "bg-white rounded-xl" : "bg-transparent"} ${containerClass} ${isDragging ? "opacity-100" : ""} transition-all duration-200 ${!isDragging && effectiveClippingEnabled ? "cursor-grab active:cursor-grabbing" : ""} ${borderClass}`}
         data-grid-id={gridId}
-        {...(isDragging || !effectiveClippingEnabled ? {} : dragAttributes)}
-        {...(isDragging || !effectiveClippingEnabled ? {} : dragListeners)}
+        {...(isDragging || !effectiveClippingEnabled || inlineEditState.active ? {} : dragAttributes)}
+        {...(isDragging || !effectiveClippingEnabled || inlineEditState.active ? {} : dragListeners)}
         onClick={handleContainerClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -1049,7 +986,7 @@ function GridCElement({
           </defs>
         </svg>
 
-        {/* 항상 표시되는 Canvas 영역 */}
+        {/* 이미지 영역 (CSS 기반) */}
         <div 
           ref={canvasContainerRef}
           className="relative w-full h-full canvas-container"
@@ -1072,27 +1009,34 @@ function GridCElement({
               </div>
             </div>
           )}
-          {/* KonvaImageCanvas - 항상 표시 */}
-          <div data-id={currentImageDriveItemKey}>
-            <KonvaImageCanvas
-              ref={konvaCanvasRef}
-              imageUrl={hasImage ? currentImageUrl : NO_IMAGE_URL}
-              containerWidth={containerSize.width}
-              containerHeight={containerSize.height}
-              isClippingEnabled={effectiveClippingEnabled}
-              onImageMove={handleImageMove}
-              onImageTransformUpdate={handleImageTransformUpdate}
-              onCroppedImageUpdate={handleCroppedImageUpdate}
-              clipPath={effectiveClippingEnabled ? clipPathData.pathData : undefined}
-              gridId={gridId}
-              imageTransformData={imageTransformData}
-              onFinishEdit={handleFinishEdit}
-              useExternalControls={isLocalClippingDisabled}
+          {/* CSS 기반 이미지 및 인라인 편집 */}
+          <div className="absolute inset-0" data-id={currentImageDriveItemKey}
+            style={{
+              WebkitClipPath: effectiveClippingEnabled && !inlineEditState.active ? `url(#clip-${clipPathData.id}-${gridId})` : undefined,
+              clipPath: effectiveClippingEnabled && !inlineEditState.active ? `url(#clip-${clipPathData.id}-${gridId})` : undefined,
+              overflow: inlineEditState.active ? 'visible' : undefined,
+            }}
+          >
+            <img
+              src={hasImage ? currentImageUrl : NO_IMAGE_URL}
+              alt="GridC image"
+              className="absolute inset-0 w-full h-full object-cover rounded-md select-none"
+              style={{
+                transform: inlineEditState.active
+                  ? `translate(${inlineEditState.temp.x || 0}px, ${inlineEditState.temp.y || 0}px) scale(${inlineEditState.temp.scale || 1})`
+                  : (imageTransformData ? `translate(${(imageTransformData.x || 0)}px, ${(imageTransformData.y || 0)}px) scale(${(imageTransformData.scale || 1)})` : undefined),
+                transformOrigin: 'center',
+                userSelect: 'none'
+              }}
+              draggable={false}
+              onMouseDown={inlineEditState.active ? onEditMouseDown : undefined}
+              onDoubleClick={handleDoubleClick}
             />
+            {inlineEditState.active && renderResizeHandles()}
           </div>
 
           {/* 이미지가 있을 때 X 삭제 버튼 표시 */}
-          {hasImage && (
+          {hasImage && !inlineEditState.active && (
             <button
               className="absolute top-2 right-2 bg-white w-6 h-6 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0] z-20 hover:bg-red-50 transition-colors"
               onClick={handleImageDelete}
@@ -1154,7 +1098,7 @@ function GridCElement({
       </div>
 
       {/* GridEditToolbar - element 하단 좌측에 위치 (클리핑 활성화 시에만) */}
-      {toolbarState.show && effectiveClippingEnabled && typeof window !== 'undefined' && ReactDOM.createPortal(
+      {toolbarState.show && effectiveClippingEnabled && !inlineEditState.active && typeof window !== 'undefined' && ReactDOM.createPortal(
         <div 
           className="grid-edit-toolbar fixed"
           style={{
@@ -1195,102 +1139,9 @@ function GridCElement({
         document.body
       )}
 
-      {/* 더블클릭 편집 진입 시(해당 그리드만 클리핑 해제) 현재 캔버스 영역을 제외한 나머지 화면 어둡게 처리 - 라운드 코너 반영 */}
-      {isLocalClippingDisabled && overlayRect && typeof window !== 'undefined' && ReactDOM.createPortal(
-        (() => {
-          const vw = window.innerWidth || 0;
-          const vh = window.innerHeight || 0;
-          const holeX = overlayRect.left;
-          const holeY = overlayRect.top;
-          const holeW = vw - overlayRect.left - overlayRect.right;
-          const holeH = vh - overlayRect.top - overlayRect.bottom;
-          const r = overlayRect.radius || 0;
-          const maskId = `dim-mask-${gridId}`;
-          return (
-            <>
-              {/* 시각적 암전 레이어 (홀 포함) - 전역 클릭 비차단 */}
-              <svg className="fixed inset-0 z-[10000] pointer-events-none" width={vw} height={vh} style={{ display: 'block' }}>
-                <defs>
-                  <mask id={maskId}>
-                    <rect x="0" y="0" width={vw} height={vh} fill="white" />
-                    <rect x={holeX} y={holeY} width={holeW} height={holeH} rx={r} ry={r} fill="black" />
-                  </mask>
-                </defs>
-                <rect x="0" y="0" width={vw} height={vh} fill="rgba(0,0,0,0.2)" mask={`url(#${maskId})`} />
-              </svg>
-              {/* 클릭 차단 레이어(보이지 않음): 홀 주변 4영역만 포인터 차단 */}
-              <div className="fixed inset-0 z-[10001]" style={{ pointerEvents: 'none' }}>
-                {/* 상단 */}
-                <div
-                  className="absolute"
-                  style={{ left: 0, right: 0, top: 0, height: overlayRect.top, pointerEvents: 'auto' }}
-                />
-                {/* 하단 */}
-                <div
-                  className="absolute"
-                  style={{ left: 0, right: 0, bottom: 0, height: overlayRect.bottom, pointerEvents: 'auto' }}
-                />
-                {/* 좌측 */}
-                <div
-                  className="absolute"
-                  style={{ left: 0, top: overlayRect.top, bottom: overlayRect.bottom, width: overlayRect.left, pointerEvents: 'auto' }}
-                />
-                {/* 우측 */}
-                <div
-                  className="absolute"
-                  style={{ right: 0, top: overlayRect.top, bottom: overlayRect.bottom, width: overlayRect.right, pointerEvents: 'auto' }}
-                />
-              </div>
-              {/* 외부 포털 컨트롤 - 홀 하단 중앙, 오버레이보다 상위(z) */}
-              <div
-                className="fixed z-[10002]"
-                style={{
-                  left: holeX + holeW / 2,
-                  top: holeY + holeH + 12,
-                  transform: 'translateX(-50%)',
-                  pointerEvents: 'auto'
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    className={`h-10 px-4 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl text-lg ${isExternalClippingMode ? 'bg-primary text-white' : 'bg-primary text-white'}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      try {
-                        if (!konvaCanvasRef.current) { return; }
-                        if (isExternalClippingMode) {
-                          konvaCanvasRef.current.applyClipping();
-                          setIsExternalClippingMode(false);
-                        } else {
-                          konvaCanvasRef.current.setClippingMode(true);
-                          setIsExternalClippingMode(true);
-                        }
-                      } catch (_) {}
-                    }}
-                  >
-                    {isExternalClippingMode ? '크롭 완료' : '크롭 시작'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="h-10 px-4 rounded-full shadow-lg transition-all duration-200 hover:bg-[#E5E7EC]/80 text-lg bg-[#E5E7EC] text-black"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      try { handleFinishEdit(); } catch (_) {}
-                    }}
-                  >
-                    적용
-                  </Button>
-                </div>
-              </div>
-            </>
-          );
-        })(),
-        document.body
-      )}
 
-      {/* Keyword Input Component at the bottom - 체크박스 선택 시 및 클리핑 활성화 시에만 표시 */}
-      {isSelected && effectiveClippingEnabled && (
+      {/* Keyword Input Component at the bottom - 체크박스 선택 시 및 클리핑 활성화 시에만 표시 (편집 중에는 숨김) */}
+      {isSelected && effectiveClippingEnabled && !inlineEditState.active && (
         <div 
           ref={photoDescriptionRef}
           className="absolute bottom-0 left-0 right-0 z-50 p-2 photo-description-input"

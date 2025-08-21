@@ -21,6 +21,7 @@ import InputDesign from "./InputDesign";
 import usePlayRecordStore from "@/hooks/store/usePlayRecordStore";
 import { Loader } from "@/components/ui/loader";
 import useGridCStore from "@/hooks/store/useGridCStore";
+import FilterButton from "@/components/ui/filter-button";
 
 function RightSideBarContent() {
   const searchParams = useSearchParams();
@@ -466,11 +467,11 @@ function RightSideBarContent() {
 
   return (
     <div className="flex flex-col gap-2.5 max-h-[calc(100vh-120px)] overflow-y-auto overflow-x-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
-      <Button
-        className={`box-border flex flex-col gap-1 justify-center items-center py-3 pr-2 pl-2 rounded-xl h-[72px] w-[110px] max-sm:w-full max-sm:text-sm max-sm:max-w-[280px] ${
+      <button
+        className={`flex relative flex-col gap-1 justify-center items-center w-32 h-32 rounded-xl max-md:h-[120px] max-md:w-[120px] max-sm:gap-0.5 max-sm:h-[100px] max-sm:w-[100px] ${
           hasValidContent 
-            ? "bg-primary hover:bg-primary/80" 
-            : "bg-gray-400 hover:bg-gray-400/80 cursor-not-allowed"
+            ? "bg-gradient-to-b from-[#FFC636] to-[#F88716] hover:from-[#FFC636]/80 hover:to-[#F88716]/80" 
+            : "bg-gradient-to-b from-[#E0E0E0] to-[#CCCCCC] hover:from-[#E0E0E0]/80 hover:to-[#CCCCCC]/80 cursor-not-allowed"
         }`}
         onClick={() => {
           if (hasValidContent) {
@@ -478,24 +479,29 @@ function RightSideBarContent() {
           }
         }}
         disabled={!hasValidContent}
+        type="button"
       >
-        <Image
-          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/create.svg"
-          alt="magic"
-          width={17.5}
-          height={17.5}
-          className="rounded-full object-cover flex-shrink-0"
-        />
-        <div className={`text-xs font-semibold leading-3 whitespace-nowrap flex items-center gap-1 max-sm:text-sm ${
-          hasValidContent ? "text-white" : "text-gray-200"
-        }`}>
-          {hasPlayRecordResult() ? "놀이기록 재생성" : "놀이기록 생성"}
+        <div>
+          <Image
+            src="/report/lines-sparkle.svg"
+            alt="magic"
+            width={40}
+            height={40}
+            className="flex-shrink-0"
+          />
         </div>
-      </Button>
+        <div className="relative text-base font-medium tracking-tight leading-6 text-center text-white max-md:text-base max-md:leading-6 max-sm:text-sm max-sm:tracking-tight max-sm:leading-5">
+          <span className={`text-base max-md:text-base max-sm:text-sm whitespace-pre-line ${
+            hasValidContent ? "text-white" : "text-gray-200"
+          }`}>
+            {hasPlayRecordResult() ? "놀이기록\n재생성" : "놀이기록\n생성하기"}
+          </span>
+        </div>
+      </button>
 
       <Button
         variant="ghost"
-        className="box-border flex gap-1 items-center py-3 pr-3 pl-2 bg-gray-50 hover:bg-gray-100 rounded-xl h-[42px] w-[110px] max-sm:w-full max-sm:max-w-[280px]"
+        className="box-border flex gap-1 items-center py-3 pr-3 pl-2 bg-white border-solid border-[1px] border-[#CCCCCC] hover:bg-gray-100 rounded-xl h-[42px] w-[128px] max-sm:w-full max-sm:max-w-[280px]"
         onClick={() => {
           setIsTypeModalOpen(true);
         }}
@@ -507,7 +513,7 @@ function RightSideBarContent() {
           height={18}
           className="rounded-full object-cover flex-shrink-0"
         />
-        <div className="text-xs font-medium leading-3 text-gray-700 whitespace-nowrap flex items-center gap-1">
+        <div className="text-[14px] font-medium leading-3 text-black whitespace-nowrap flex items-center gap-1 ">
           타입 설정<div className="text-amber-400">({currentType})</div>
         </div>
       </Button>
@@ -518,8 +524,8 @@ function RightSideBarContent() {
           <PopoverTrigger asChild>
             <Button
               variant="ghost"
-              className="box-border flex gap-1 justify-center items-center py-3 pr-3.5 pl-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl h-[42px] w-[110px] max-sm:w-full max-sm:max-w-[280px]"
-            >
+              className="box-border flex gap-1 items-center py-3 pr-3 pl-2 bg-white border-solid border-[1px] border-[#CCCCCC] hover:bg-gray-100 rounded-xl h-[42px] w-[128px] max-sm:w-full max-sm:max-w-[280px]"
+              >
               <Image
                 src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/subject.svg"
                 alt="theme"
@@ -527,7 +533,7 @@ function RightSideBarContent() {
                 height={18}
                 className="rounded-full object-cover flex-shrink-0"
               />
-              <div className="text-xs font-medium leading-3 text-gray-700 whitespace-nowrap flex items-center gap-1">
+              <div className="text-[14px] font-medium leading-3 text-black whitespace-nowrap flex items-center gap-1">
                 놀이 주제<div className="text-amber-400">({subjectCount})</div>
               </div>
             </Button>
@@ -548,7 +554,7 @@ function RightSideBarContent() {
           <PopoverTrigger asChild>
             <Button
               variant="ghost"
-              className="box-border flex gap-1 justify-center items-center py-3 pr-3.5 pl-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl h-[42px] w-[110px] max-sm:w-full max-sm:max-w-[280px]"
+              className="box-border flex gap-1 justify-center items-center py-3 pr-3.5 pl-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl h-[42px] w-[128px] max-sm:w-full max-sm:max-w-[280px]"
             >
               <Image
                 src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/photo.svg"
@@ -575,8 +581,8 @@ function RightSideBarContent() {
         <PopoverTrigger asChild>
           <Button
             variant="ghost"
-            className="box-border flex gap-1 items-center pt-3.5 pr-4 pb-3.5 pl-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl h-[47px] w-[110px] max-sm:w-full max-sm:max-w-[280px]"
-          >
+            className="box-border flex gap-1 items-center py-3 pr-3 pl-2 bg-white border-solid border-[1px] border-[#CCCCCC] hover:bg-gray-100 rounded-xl h-[42px] w-[128px] max-sm:w-full max-sm:max-w-[280px]"
+            >
             <Image
               src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/baby.svg"
               alt="baby"
@@ -584,8 +590,8 @@ function RightSideBarContent() {
               height={20}
               className="rounded-full object-cover flex-shrink-0"
             />
-            <div className="text-xs font-medium leading-3 text-gray-700 whitespace-nowrap flex items-center gap-1">
-              연령선택<div className="text-amber-400">({getAgeDisplay(selectedAge)})</div>
+            <div className="text-[14px] font-medium leading-3 text-black whitespace-nowrap flex items-center gap-1">
+              연령 선택<div className="text-amber-400">({getAgeDisplay(selectedAge)})</div>
             </div>
           </Button>
         </PopoverTrigger>

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, ChevronRight } from "lucide-react";
 import ThemeSelectionModal from "./ThemeSelectionModal";
 import type { ThemeItem, ThemeItemListResponse } from "./types";
 import { useGlobalThemeStore, type ReportType } from "@/hooks/store/useGlobalThemeStore";
@@ -96,11 +96,11 @@ function LeftSideBarContent() {
           <div className="flex justify-center">
             <ThemeSelectionModal>
               <Button
-                variant="default"
-                className="w-[80px] h-[38px] rounded-md text-[14px] font-semibold font-pretendard text-white flex items-center justify-center gap-1"
+                variant="outline"
+                className="w-[82px] h-[34px] rounded-md text-[14px] font-semibold font-pretendard flex items-center justify-center gap-1 border-[#CCCCCC] border-[1px] border-solid button-more"
               >
-                <Plus size={16} />
                 더보기
+                <ChevronRight size={16} />
               </Button>
             </ThemeSelectionModal>
           </div>

@@ -8,6 +8,7 @@ import { Loader } from "@/components/ui/loader";
 import ImageEditModal from "./ImageEditModal";
 import { ImagePosition } from "../types";
 import {IoClose} from "react-icons/io5";
+import { MdZoomIn, MdZoomOut, MdRefresh } from "react-icons/md";
 import { Button } from "@/components/common/Button";
 import useUserStore from "@/hooks/store/useUserStore";
 import useGridContentStore from "@/hooks/store/useGridContentStore";
@@ -712,180 +713,331 @@ function GridAElement({
     window.addEventListener('mouseup', onUp);
   }, [inlineEditState.active, imagePositions, onImagePositionsUpdate]);
 
+  // 편집 도구 버튼 + 화면 오버레이 (선택 영역 제외) Portal 컴포넌트
+  const EditToolsPortal: React.FC = () => {
+    const [viewportTick, setViewportTick] = React.useState(0);
+
+    // 스크롤/리사이즈 시 버튼/오버레이 재계산
+    React.useEffect(() => {
+      const onUpdate = () => setViewportTick(v => v + 1);
+      window.addEventListener('scroll', onUpdate, true);
+      window.addEventListener('resize', onUpdate);
+      return () => {
+        window.removeEventListener('scroll', onUpdate, true);
+        window.removeEventListener('resize', onUpdate);
+      };
+    }, []);
+
+    if (!inlineEditState.active || inlineEditState.imageIndex === null) return null;
+
+    const activeIdx = inlineEditState.imageIndex;
+    const el = imageContainerRefs.current[activeIdx];
+    if (!el) return null;
+
+    const rect = el.getBoundingClientRect();
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 0;
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 0;
+    const gap = 8;
+    const buttonSize = 40; // 40px 버튼 폭
+    const buttonsCount = 3; // 확대/축소/리셋 버튼 수
+    const totalHeight = (buttonsCount * buttonSize) + ((buttonsCount - 1) * gap);
+
+    // 오버레이 내측 라운드를 위한 요소의 border-radius 추출 (없으면 md 수준 기본값)
+    const computedStyle = typeof window !== 'undefined' ? window.getComputedStyle(el) : ({} as CSSStyleDeclaration);
+    const parsePx = (v: string | undefined) => {
+      const n = v ? parseFloat(v) : 0;
+      return Number.isFinite(n) ? n : 0;
+    };
+    const defaultRadius = 6; // rounded-md 대략 6px
+    const rTL = parsePx(computedStyle?.borderTopLeftRadius) || defaultRadius;
+    const rTR = parsePx(computedStyle?.borderTopRightRadius) || defaultRadius;
+    const rBL = parsePx(computedStyle?.borderBottomLeftRadius) || defaultRadius;
+    const rBR = parsePx(computedStyle?.borderBottomRightRadius) || defaultRadius;
+
+    // 기본은 우측에 배치. 공간이 부족하면 좌측으로 배치
+    let toolsLeft = rect.right + gap;
+    let toolsTop = rect.bottom - totalHeight; // 마지막(리프레시) 버튼의 하단을 요소 하단과 정렬
+    if (toolsLeft + buttonSize > vw) {
+      toolsLeft = Math.max(0, rect.left - gap - buttonSize);
+    }
+    // 화면 경계 보정
+    toolsTop = Math.min(Math.max(0, toolsTop), Math.max(0, vh - totalHeight));
+
+    const handleZoomIn = () => {
+      setInlineEditState(prev => ({
+        ...prev,
+        tempPosition: { ...prev.tempPosition, scale: Math.min(3, prev.tempPosition.scale * 1.2) }
+      }));
+    };
+    const handleZoomOut = () => {
+      setInlineEditState(prev => ({
+        ...prev,
+        tempPosition: { ...prev.tempPosition, scale: Math.max(0.1, prev.tempPosition.scale / 1.2) }
+      }));
+    };
+    const handleReset = () => {
+      const imageIdx = inlineEditState.imageIndex;
+      if (imageIdx === null) return;
+      const originalPosition = imagePositions[imageIdx] || { x: 0, y: 0, scale: 1 };
+      setInlineEditState(prev => ({ ...prev, tempPosition: { ...originalPosition } }));
+    };
+
+    // 키보드 + / - 로 확대/축소
+    React.useEffect(() => {
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (!inlineEditState.active) return;
+        const target = e.target as HTMLElement | null;
+        const tag = target ? target.tagName.toLowerCase() : '';
+        if (target && (tag === 'input' || tag === 'textarea' || target.isContentEditable)) return;
+
+        const isZoomIn = e.key === '+' || (e.code === 'Equal' && e.shiftKey) || e.code === 'NumpadAdd';
+        const isZoomOut = e.key === '-' || e.code === 'Minus' || e.code === 'NumpadSubtract';
+
+        if (isZoomIn) {
+          e.preventDefault();
+          setInlineEditState(prev => ({
+            ...prev,
+            tempPosition: { ...prev.tempPosition, scale: Math.min(3, prev.tempPosition.scale * 1.2) }
+          }));
+        } else if (isZoomOut) {
+          e.preventDefault();
+          setInlineEditState(prev => ({
+            ...prev,
+            tempPosition: { ...prev.tempPosition, scale: Math.max(0.1, prev.tempPosition.scale / 1.2) }
+          }));
+        }
+      };
+      document.addEventListener('keydown', onKeyDown);
+      return () => {
+        document.removeEventListener('keydown', onKeyDown);
+      };
+    }, [inlineEditState.active, setInlineEditState]);
+
+    return ReactDOM.createPortal(
+      <>
+        {/* 화면 전체 음영 (선택 영역 제외) */}
+        {/* 상단 */}
+        <div
+          className="fixed left-0 top-0 bg-black/40 z-[9998]"
+          style={{
+            width: '100vw',
+            height: Math.max(0, rect.top),
+            borderBottomLeftRadius: rTL,
+            borderBottomRightRadius: rTR,
+          }}
+        />
+        {/* 하단 */}
+        <div
+          className="fixed left-0 bg-black/40 z-[9998]"
+          style={{
+            top: rect.bottom,
+            width: '100vw',
+            height: Math.max(0, vh - rect.bottom),
+            borderTopLeftRadius: rBL,
+            borderTopRightRadius: rBR,
+          }}
+        />
+        {/* 좌측 */}
+        <div
+          className="fixed top-0 bg-black/40 z-[9998]"
+          style={{
+            left: 0,
+            top: rect.top,
+            width: Math.max(0, rect.left),
+            height: Math.max(0, rect.height),
+            borderTopRightRadius: rTL,
+            borderBottomRightRadius: rBL,
+          }}
+        />
+        {/* 우측 */}
+        <div
+          className="fixed top-0 bg-black/40 z-[9998]"
+          style={{
+            left: rect.right,
+            top: rect.top,
+            width: Math.max(0, vw - rect.right),
+            height: Math.max(0, rect.height),
+            borderTopLeftRadius: rTR,
+            borderBottomLeftRadius: rBR,
+          }}
+        />
+
+        {/* 도구 버튼 - 선택 컨테이너 바로 옆 */}
+        <div
+          className="fixed z-[9999] flex flex-col gap-2"
+          style={{ top: toolsTop, left: toolsLeft }}
+        >
+          <button
+            onClick={handleZoomIn}
+            className="w-10 h-10 border-1 border-[#CCCCCC] bg-white border-2 rounded-lg flex items-center justify-center shadow-lg hover:bg-gray-50 transition-colors"
+            title="확대"
+          >
+            <MdZoomIn className="w-5 h-5 text-black" />
+          </button>
+          <button
+            onClick={handleZoomOut}
+            className="w-10 h-10 bg-white border-2 border-primary rounded-lg flex items-center justify-center shadow-lg hover:bg-gray-50 transition-colors"
+            title="축소"
+          >
+            <MdZoomOut className="w-5 h-5 text-black" />
+          </button>
+          <button
+            onClick={handleReset}
+            className="w-10 h-10 bg-white border-2 border-primary rounded-lg flex items-center justify-center shadow-lg hover:bg-gray-50 transition-colors"
+            title="초기화"
+          >
+            <MdRefresh className="w-5 h-5 text-black" />
+          </button>
+        </div>
+      </>,
+      document.body
+    );
+  };
+
   const renderResizeHandles = React.useCallback((idx: number) => {
     if (!isEditingIndex(idx)) return null;
-    const s = inlineEditState.tempPosition.scale || 1;
-    const overlayTransform = `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${s})`;
-    const handleScaleStyle = { transform: `scale(${1 / s})`, transformOrigin: 'center' as const };
-    return (
-      <div className="absolute inset-0 z-50 pointer-events-none" style={{ transform: inlineEditState.cropActive ? 'none' : overlayTransform, transformOrigin: 'center' }}>
-        {!inlineEditState.cropActive && (
-          <>
-            <div
-              data-handle="true"
-              className="absolute -top-2 -left-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nwse-resize pointer-events-auto"
-              style={handleScaleStyle}
-              onMouseDown={(e) => onResizeHandleDown(e, 'tl')}
-            />
-            <div
-              data-handle="true"
-              className="absolute -top-2 -right-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nesw-resize pointer-events-auto"
-              style={handleScaleStyle}
-              onMouseDown={(e) => onResizeHandleDown(e, 'tr')}
-            />
-            <div
-              data-handle="true"
-              className="absolute -bottom-2 -left-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nesw-resize pointer-events-auto"
-              style={handleScaleStyle}
-              onMouseDown={(e) => onResizeHandleDown(e, 'bl')}
-            />
-            <div
-              data-handle="true"
-              className="absolute -bottom-2 -right-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nwse-resize pointer-events-auto"
-              style={handleScaleStyle}
-              onMouseDown={(e) => onResizeHandleDown(e, 'br')}
-            />
-          </>
-        )}
-
-        {inlineEditState.cropActive && inlineEditState.cropRect && (
-          <>
-            {/* 크롭 사각형 윤곽선 (핸들 위치와 정확히 일치) */}
-            <div
-              className="absolute border-2 border-dotted border-[#3D8BFF] rounded-sm pointer-events-none"
-              style={{
-                left: inlineEditState.cropRect.left,
-                top: inlineEditState.cropRect.top,
-                width: Math.max(0, inlineEditState.cropRect.right - inlineEditState.cropRect.left),
-                height: Math.max(0, inlineEditState.cropRect.bottom - inlineEditState.cropRect.top),
-              }}
-            />
-            {/* 상단 핸들 (가로 길이 15px, 두께 8px) */}
-            {/* 크롭 바운더리 표시 */}
-            <div
-              className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-n-resize"
-              style={{
-                width: 15,
-                height: 8,
-                top: inlineEditState.cropRect.top - 4,
-                left: ((inlineEditState.cropRect.left + inlineEditState.cropRect.right) / 2) - 7.5,
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault(); e.stopPropagation();
-                setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'top', cropStartPointer: { x: e.clientX, y: e.clientY } }));
-                const onMove = (ev: MouseEvent) => {
-                  setInlineEditState(prev => {
-                    if (!prev.cropRect || prev.cropDraggingEdge !== 'top' || !prev.cropStartPointer) return prev;
-                    const dy = ev.clientY - prev.cropStartPointer.y;
-                    const boundTop = prev.cropBounds ? prev.cropBounds.top : 0;
-                    const nextTop = Math.max(boundTop, Math.min(prev.cropRect.top + dy, prev.cropRect.bottom - 15));
-                    return { ...prev, cropRect: { ...prev.cropRect, top: nextTop }, cropStartPointer: { x: ev.clientX, y: ev.clientY } };
-                  });
-                };
-                const onUp = () => {
-                  setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null }));
-                  window.removeEventListener('mousemove', onMove);
-                  window.removeEventListener('mouseup', onUp);
-                };
-                window.addEventListener('mousemove', onMove);
-                window.addEventListener('mouseup', onUp);
-              }}
-            />
-            {/* 하단 핸들 (가로 길이 15px, 두께 8px) */}
-            <div
-              className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-s-resize"
-              style={{
-                width: 15,
-                height: 8,
-                top: inlineEditState.cropRect.bottom - 4,
-                left: ((inlineEditState.cropRect.left + inlineEditState.cropRect.right) / 2) - 7.5,
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault(); e.stopPropagation();
-                setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'bottom', cropStartPointer: { x: e.clientX, y: e.clientY } }));
-                const onMove = (ev: MouseEvent) => {
-                  setInlineEditState(prev => {
-                    if (!prev.cropRect || prev.cropDraggingEdge !== 'bottom' || !prev.cropStartPointer) return prev;
-                    const dy = ev.clientY - prev.cropStartPointer.y;
-                    const boundBottom = prev.cropBounds ? prev.cropBounds.bottom : Number.POSITIVE_INFINITY;
-                    const nextBottom = Math.min(boundBottom, Math.max(prev.cropRect.top + 15, prev.cropRect.bottom + dy));
-                    return { ...prev, cropRect: { ...prev.cropRect, bottom: nextBottom }, cropStartPointer: { x: ev.clientX, y: ev.clientY } };
-                  });
-                };
-                const onUp = () => {
-                  setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null }));
-                  window.removeEventListener('mousemove', onMove);
-                  window.removeEventListener('mouseup', onUp);
-                };
-                window.addEventListener('mousemove', onMove);
-                window.addEventListener('mouseup', onUp);
-              }}
-            />
-            {/* 좌측 핸들 (세로 길이 15px, 두께 8px) */}
-            <div
-              className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-w-resize"
-              style={{
-                width: 8,
-                height: 15,
-                left: inlineEditState.cropRect.left - 4,
-                top: ((inlineEditState.cropRect.top + inlineEditState.cropRect.bottom) / 2) - 7.5,
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault(); e.stopPropagation();
-                setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'left', cropStartPointer: { x: e.clientX, y: e.clientY } }));
-                const onMove = (ev: MouseEvent) => {
-                  setInlineEditState(prev => {
-                    if (!prev.cropRect || prev.cropDraggingEdge !== 'left' || !prev.cropStartPointer) return prev;
-                    const dx = ev.clientX - prev.cropStartPointer.x;
-                    const boundLeft = prev.cropBounds ? prev.cropBounds.left : 0;
-                    const nextLeft = Math.max(boundLeft, Math.min(prev.cropRect.left + dx, prev.cropRect.right - 15));
-                    return { ...prev, cropRect: { ...prev.cropRect, left: nextLeft }, cropStartPointer: { x: ev.clientX, y: ev.clientY } };
-                  });
-                };
-                const onUp = () => {
-                  setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null }));
-                  window.removeEventListener('mousemove', onMove);
-                  window.removeEventListener('mouseup', onUp);
-                };
-                window.addEventListener('mousemove', onMove);
-                window.addEventListener('mouseup', onUp);
-              }}
-            />
-            {/* 우측 핸들 (세로 길이 15px, 두께 8px) */}
-            <div
-              className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-e-resize"
-              style={{
-                width: 8,
-                height: 15,
-                left: inlineEditState.cropRect.right - 4,
-                top: ((inlineEditState.cropRect.top + inlineEditState.cropRect.bottom) / 2) - 7.5,
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault(); e.stopPropagation();
-                setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'right', cropStartPointer: { x: e.clientX, y: e.clientY } }));
-                const onMove = (ev: MouseEvent) => {
-                  setInlineEditState(prev => {
-                    if (!prev.cropRect || prev.cropDraggingEdge !== 'right' || !prev.cropStartPointer) return prev;
-                    const dx = ev.clientX - prev.cropStartPointer.x;
-                    const boundRight = prev.cropBounds ? prev.cropBounds.right : Number.POSITIVE_INFINITY;
-                    const nextRight = Math.min(boundRight, Math.max(prev.cropRect.left + 15, prev.cropRect.right + dx));
-                    return { ...prev, cropRect: { ...prev.cropRect, right: nextRight }, cropStartPointer: { x: ev.clientX, y: ev.clientY } };
-                  });
-                };
-                const onUp = () => {
-                  setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null }));
-                  window.removeEventListener('mousemove', onMove);
-                  window.removeEventListener('mouseup', onUp);
-                };
-                window.addEventListener('mousemove', onMove);
-                window.addEventListener('mouseup', onUp);
-              }}
-            />
-          </>
-        )}
-      </div>
-    );
-  }, [isEditingIndex, inlineEditState.tempPosition, onResizeHandleDown]);
+    
+    // 드래그 핸들을 이용한 사이즈 수정 기능은 제거
+    // 크롭 기능만 유지
+    if (inlineEditState.cropActive && inlineEditState.cropRect) {
+      return (
+        <div className="absolute inset-0 z-50 pointer-events-none">
+          {/* 크롭 사각형 윤곽선 */}
+          <div
+            className="absolute border-2 border-dotted border-[#3D8BFF] rounded-sm pointer-events-none"
+            style={{
+              left: inlineEditState.cropRect.left,
+              top: inlineEditState.cropRect.top,
+              width: Math.max(0, inlineEditState.cropRect.right - inlineEditState.cropRect.left),
+              height: Math.max(0, inlineEditState.cropRect.bottom - inlineEditState.cropRect.top),
+            }}
+          />
+          {/* 상단 핸들 */}
+          <div
+            className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-n-resize"
+            style={{
+              width: 15,
+              height: 8,
+              top: inlineEditState.cropRect.top - 4,
+              left: ((inlineEditState.cropRect.left + inlineEditState.cropRect.right) / 2) - 7.5,
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault(); e.stopPropagation();
+              setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'top', cropStartPointer: { x: e.clientX, y: e.clientY } }));
+              const onMove = (ev: MouseEvent) => {
+                setInlineEditState(prev => {
+                  if (!prev.cropRect || prev.cropDraggingEdge !== 'top' || !prev.cropStartPointer) return prev;
+                  const dy = ev.clientY - prev.cropStartPointer.y;
+                  const boundTop = prev.cropBounds ? prev.cropBounds.top : 0;
+                  const nextTop = Math.max(boundTop, Math.min(prev.cropRect.top + dy, prev.cropRect.bottom - 15));
+                  return { ...prev, cropRect: { ...prev.cropRect, top: nextTop }, cropStartPointer: { x: ev.clientX, y: ev.clientY } };
+                });
+              };
+              const onUp = () => {
+                setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null }));
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('mouseup', onUp);
+              };
+              window.addEventListener('mousemove', onMove);
+              window.addEventListener('mouseup', onUp);
+            }}
+          />
+          {/* 하단 핸들 */}
+          <div
+            className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-s-resize"
+            style={{
+              width: 15,
+              height: 8,
+              top: inlineEditState.cropRect.bottom - 4,
+              left: ((inlineEditState.cropRect.left + inlineEditState.cropRect.right) / 2) - 7.5,
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault(); e.stopPropagation();
+              setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'bottom', cropStartPointer: { x: e.clientX, y: e.clientY } }));
+              const onMove = (ev: MouseEvent) => {
+                setInlineEditState(prev => {
+                  if (!prev.cropRect || prev.cropDraggingEdge !== 'bottom' || !prev.cropStartPointer) return prev;
+                  const dy = ev.clientY - prev.cropStartPointer.y;
+                  const boundBottom = prev.cropBounds ? prev.cropBounds.bottom : Number.POSITIVE_INFINITY;
+                  const nextBottom = Math.min(boundBottom, Math.max(prev.cropRect.top + 15, prev.cropRect.bottom + dy));
+                  return { ...prev, cropRect: { ...prev.cropRect, bottom: nextBottom }, cropStartPointer: { x: ev.clientX, y: ev.clientY } };
+                });
+              };
+              const onUp = () => {
+                setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null }));
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('mouseup', onUp);
+              };
+              window.addEventListener('mousemove', onMove);
+              window.addEventListener('mouseup', onUp);
+            }}
+          />
+          {/* 좌측 핸들 */}
+          <div
+            className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-w-resize"
+            style={{
+              width: 8,
+              height: 15,
+              left: inlineEditState.cropRect.left - 4,
+              top: ((inlineEditState.cropRect.top + inlineEditState.cropRect.bottom) / 2) - 7.5,
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault(); e.stopPropagation();
+              setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'left', cropStartPointer: { x: e.clientX, y: e.clientY } }));
+              const onMove = (ev: MouseEvent) => {
+                setInlineEditState(prev => {
+                  if (!prev.cropRect || prev.cropDraggingEdge !== 'left' || !prev.cropStartPointer) return prev;
+                  const dx = ev.clientX - prev.cropStartPointer.x;
+                  const boundLeft = prev.cropBounds ? prev.cropBounds.left : 0;
+                  const nextLeft = Math.max(boundLeft, Math.min(prev.cropRect.left + dx, prev.cropRect.right - 15));
+                  return { ...prev, cropRect: { ...prev.cropRect, left: nextLeft }, cropStartPointer: { x: ev.clientX, y: ev.clientY } };
+                });
+              };
+              const onUp = () => {
+                setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null }));
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('mouseup', onUp);
+              };
+              window.addEventListener('mousemove', onMove);
+              window.addEventListener('mouseup', onUp);
+            }}
+          />
+          {/* 우측 핸들 */}
+          <div
+            className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-e-resize"
+            style={{
+              width: 8,
+              height: 15,
+              left: inlineEditState.cropRect.right - 4,
+              top: ((inlineEditState.cropRect.top + inlineEditState.cropRect.bottom) / 2) - 7.5,
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault(); e.stopPropagation();
+              setInlineEditState(prev => ({ ...prev, cropDraggingEdge: 'right', cropStartPointer: { x: e.clientX, y: e.clientY } }));
+              const onMove = (ev: MouseEvent) => {
+                setInlineEditState(prev => {
+                  if (!prev.cropRect || prev.cropDraggingEdge !== 'right' || !prev.cropStartPointer) return prev;
+                  const dx = ev.clientX - prev.cropStartPointer.x;
+                  const boundRight = prev.cropBounds ? prev.cropBounds.right : Number.POSITIVE_INFINITY;
+                  const nextRight = Math.min(boundRight, Math.max(prev.cropRect.left + 15, prev.cropRect.right + dx));
+                  return { ...prev, cropRect: { ...prev.cropRect, right: nextRight }, cropStartPointer: { x: ev.clientX, y: ev.clientY } };
+                });
+              };
+              const onUp = () => {
+                setInlineEditState(prev => ({ ...prev, cropDraggingEdge: null, cropStartPointer: null }));
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('mouseup', onUp);
+              };
+              window.addEventListener('mousemove', onMove);
+              window.addEventListener('mouseup', onUp);
+            }}
+          />
+        </div>
+      );
+    }
+    
+    return null;
+  }, [isEditingIndex, inlineEditState]);
 
   // 이미지 업로드 관련 상태
   const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([]);
@@ -2400,7 +2552,7 @@ function GridAElement({
                 >
                   {currentImages[imageIndex] && currentImages[imageIndex] !== "" && currentImages[imageIndex] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                     <div
-                      className={`absolute inset-0 ${isEditingIndex(imageIndex) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} rounded-md cursor-pointer group`}
+                      className={`absolute inset-0 ${isEditingIndex(imageIndex) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} ${inlineEditState.active && !isEditingIndex(imageIndex) ? 'bg-black/20' : ''} rounded-md cursor-pointer group`}
                       onDoubleClick={(e) => { e.stopPropagation(); beginInlineEdit(imageIndex); }}
                       ref={(el) => { imageContainerRefs.current[imageIndex] = el; }}
                     >
@@ -2506,7 +2658,7 @@ function GridAElement({
                 >
                   {currentImages[imageIndex] && currentImages[imageIndex] !== "" && currentImages[imageIndex] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                     <div
-                      className={`absolute inset-0 ${isEditingIndex(imageIndex) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} rounded-md cursor-pointer group`}
+                      className={`absolute inset-0 ${isEditingIndex(imageIndex) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} ${inlineEditState.active && !isEditingIndex(imageIndex) ? 'bg-black/20' : ''} rounded-md cursor-pointer group`}
                       onDoubleClick={(e) => { e.stopPropagation(); beginInlineEdit(imageIndex); }}
                       ref={(el) => { imageContainerRefs.current[imageIndex] = el; }}
                     >
@@ -2621,7 +2773,7 @@ function GridAElement({
               >
                 {currentImages[0] && currentImages[0] !== "" && currentImages[0] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                   <div
-                    className={`absolute inset-0 ${isEditingIndex(0) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} rounded-md cursor-pointer `}
+                    className={`absolute inset-0 ${isEditingIndex(0) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} ${inlineEditState.active && !isEditingIndex(0) ? 'bg-black/20' : ''} rounded-md cursor-pointer `}
                     onDoubleClick={(e) => { e.stopPropagation(); beginInlineEdit(0); }}
                     ref={(el) => { imageContainerRefs.current[0] = el; }}
                   >
@@ -2724,7 +2876,7 @@ function GridAElement({
                 >
                   {currentImages[1] && currentImages[1] !== "" && currentImages[1] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                     <div
-                      className={`absolute inset-0 ${isEditingIndex(1) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} rounded-md cursor-pointer group`}
+                      className={`absolute inset-0 ${isEditingIndex(1) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} ${inlineEditState.active && !isEditingIndex(1) ? 'bg-black/20' : ''} rounded-md cursor-pointer group`}
                       onDoubleClick={(e) => { e.stopPropagation(); beginInlineEdit(1); }}
                       ref={(el) => { imageContainerRefs.current[1] = el; }}
                     >
@@ -2825,7 +2977,7 @@ function GridAElement({
                 >
                   {currentImages[2] && currentImages[2] !== "" && currentImages[2] !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                     <div
-                      className={`absolute inset-0 ${isEditingIndex(2) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} rounded-md cursor-pointer`}
+                      className={`absolute inset-0 ${isEditingIndex(2) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} ${inlineEditState.active && !isEditingIndex(2) ? 'bg-black/20' : ''} rounded-md cursor-pointer`}
                       onDoubleClick={(e) => { e.stopPropagation(); beginInlineEdit(2); }}
                       ref={(el) => { imageContainerRefs.current[2] = el; }}
                     >
@@ -2958,7 +3110,7 @@ function GridAElement({
                 >
                   {imageSrc && imageSrc !== "" && imageSrc !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg" ? (
                     <div
-                      className={`absolute inset-0 ${isEditingIndex(index) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} rounded-md cursor-pointer group`}
+                      className={`absolute inset-0 ${isEditingIndex(index) ? 'overflow-visible border-2 border-primary' : 'overflow-hidden'} ${inlineEditState.active && !isEditingIndex(index) ? 'bg-black/20' : ''} rounded-md cursor-pointer group`}
                       onDoubleClick={(e) => { e.stopPropagation(); beginInlineEdit(index); }}
                       ref={(el) => { imageContainerRefs.current[index] = el; }}
                     >
@@ -3323,20 +3475,12 @@ function GridAElement({
       {inlineEditState.active && typeof window !== 'undefined' && ReactDOM.createPortal(
         <div className="fixed z-[10000]" style={{ left: 0, top: 0, pointerEvents: 'none' }}>
           <div
-            className="absolute -translate-x-1/2 flex gap-2"
-            style={{ left: (imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().left || 0) + ((imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().width || 0) / 2), top: (imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().bottom || 0) + 8 }}
+            className="absolute flex gap-2"
+            style={{ left: (imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().right || 0) - 160, top: (imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().bottom || 0) + 8 }}
           >
-            <div className="bg-white shadow rounded-md px-2 py-1 border border-gray-200 flex gap-2" style={{ pointerEvents: 'auto' }}>
-              {!inlineEditState.cropActive ? (
-                <Button color="line" size="small" onClick={beginCrop}>크롭 시작</Button>
-              ) : (
-                <>
-                  <Button color="primary" size="small" onClick={finishCropAndUpload}>크롭 완료</Button>
-                  <Button color="gray" size="small" onClick={cancelCrop}>크롭 취소</Button>
-                </>
-              )}
-              <Button color="primary" size="small" onClick={endInlineEditConfirm}>확인</Button>
+            <div className="px-2 py-1 flex gap-2" style={{ pointerEvents: 'auto' }}>
               <Button color="gray" size="small" onClick={endInlineEditCancel}>취소</Button>
+              <Button color="primary" size="small" onClick={endInlineEditConfirm}>적용</Button>
             </div>
           </div>
         </div>,
@@ -3358,6 +3502,9 @@ function GridAElement({
           isReturnS3UploadedItemData
         />
       )}
+
+      {/* 편집 도구 Portal */}
+      <EditToolsPortal />
 
       {/* 메모 편집 모달 */}
       <MemoEditModal
