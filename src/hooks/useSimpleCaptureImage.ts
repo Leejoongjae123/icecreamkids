@@ -41,16 +41,18 @@ export default function useSimpleCaptureImage() {
             transform: 'scale(1)',
             transformOrigin: 'top left',
           },
-          // 필터링으로 숨겨진 요소 제외
+          // 필터링: 캡처에서 제외해야 할 요소만 제외
+          // 주의: visibility:hidden은 레이아웃을 유지하므로 제외하지 않는다
           filter: (node: Element) => {
-            // print-hide 클래스나 display: none인 요소 제외
-            if (node.nodeType === 1) { // Element 노드인 경우만
+            if (node.nodeType === 1) {
               const element = node as HTMLElement;
+              // 버튼, 모달 등은 명시적으로 print-hide 클래스로 제외
               if (element.classList?.contains('print-hide')) {
                 return false;
               }
               const style = window.getComputedStyle(element);
-              if (style.display === 'none' || style.visibility === 'hidden') {
+              // display:none 은 레이아웃 자체가 사라지므로 제외 (원래 DOM에서도 공간이 없음)
+              if (style.display === 'none') {
                 return false;
               }
             }

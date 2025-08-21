@@ -16,6 +16,9 @@ interface DragDropGridBItemProps {
   placeholderText?: string;
   imageCount?: number;
   onImageCountChange?: (count: number) => void;
+  isPrintHidden?: boolean;
+  // 저장 후 descriptionText가 비어있는 경우 시각적으로 숨김 처리 (레이아웃은 유지)
+  isInvisibleInSavedMode?: boolean;
 }
 
 function DragDropGridBItem({
@@ -31,6 +34,8 @@ function DragDropGridBItem({
   placeholderText = "ex) 아이들과 촉감놀이를 했어요",
   imageCount,
   onImageCountChange,
+  isPrintHidden,
+  isInvisibleInSavedMode,
 }: DragDropGridBItemProps) {
   const {
     attributes,
@@ -66,7 +71,7 @@ function DragDropGridBItem({
       style={dragDropStyle}
       className={`touch-none ${isDragging ? "z-50" : ""} ${isExpanded ? "col-span-2" : ""} ${
         isHidden ? "pointer-events-none" : ""
-      }`}
+      } ${isPrintHidden ? "print-hide" : ""} ${isInvisibleInSavedMode ? "invisible pointer-events-none" : ""}`}
       {...attributes}
       {...(!isHidden ? listeners : {})}
     >

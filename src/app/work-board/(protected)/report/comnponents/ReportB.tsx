@@ -16,13 +16,17 @@ import AddPicture from "./AddPicture";
 import ApplyModal from "./ApplyModal";
 import ConfirmModal from "./ConfirmModal";
 import GridEditToolbar from "./GridEditToolbar";
-import ReportBottomSection from "./ReportBottomSection";
-import ReportTitleSection from "./ReportTitleSection";
+import ReportBottomSection, { ReportBottomSectionRef } from "./ReportBottomSection";
+import ReportTitleSection, { ReportTitleSectionRef } from "./ReportTitleSection";
 import GridB from "./GridB";
 import { useStickerStore } from "@/hooks/store/useStickerStore";
 import { useGlobalThemeStore } from "@/hooks/store/useGlobalThemeStore";
 import DraggableSticker from "./DraggableSticker";
 import useMousePositionTracker from "@/hooks/useMousePositionTracker";
+import { useTextStickerStore } from "@/hooks/store/useTextStickerStore";
+import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
+import useGridContentStore from "@/hooks/store/useGridContentStore";
+import useSimpleCaptureImage from "@/hooks/useSimpleCaptureImage";
 
 // searchParams를 사용하는 컴포넌트 분리
 function ReportBContent() {
@@ -36,6 +40,13 @@ function ReportBContent() {
   const { backgroundImageUrlByType } = useGlobalThemeStore();
   const backgroundImageUrl = backgroundImageUrlByType['B'];
   const stickerContainerRef = useRef<HTMLDivElement>(null);
+  const reportBottomRef = useRef<ReportBottomSectionRef>(null);
+  const reportTitleRef = useRef<ReportTitleSectionRef>(null);
+
+  const { textStickers } = useTextStickerStore();
+  const { gridContents } = useGridContentStore();
+  const { saveCurrentReport, isSaved, setSaved, exportToArticleDataFile } = useSavedDataStore();
+  const { downloadSimpleImage, previewSimpleImage, checkElement } = useSimpleCaptureImage();
 
   // 마우스 위치 추적 기능
   const { startTracking, stopTracking, toggleTracking, isTracking } = useMousePositionTracker({
@@ -50,6 +61,11 @@ function ReportBContent() {
     const parsed = parseInt(gridCountParam || "6", 10);
     return parsed >= 1 && parsed <= 12 ? parsed : 6;
   }, [gridCountParam]);
+
+  // 처음 진입 시 편집 모드로 설정
+  React.useEffect(() => {
+    setSaved(false);
+  }, [setSaved]);
 
 
 
@@ -102,13 +118,133 @@ function ReportBContent() {
   };
   console.log("backgroundImageUrlB:", backgroundImageUrl);
 
+  const handlePrint = () => {
+    try {
+      const printContainer = document.querySelector('.print-container') as HTMLElement;
+      if (!printContainer) {
+        alert('인쇄할 내용을 찾을 수 없습니다.');
+        return;
+      }
+
+      const styles = Array.from(document.styleSheets)
+        .map(styleSheet => {
+          try {
+            return Array.from(styleSheet.cssRules).map(rule => (rule as CSSStyleRule).cssText).join('\n');
+          } catch (_e) { return ''; }
+        }).join('\n');
+
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        const printContent = `<!DOCTYPE html><html><head><title>놀이기록 인쇄</title><meta charset="utf-8"><style>${styles}
+          body{margin:0!important;padding:0!important;background:white!important;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+          .print-container{width:100%!important;height:auto!important;margin:0!important;padding:20px!important;background:white!important;box-shadow:none!important;border:none!important;border-radius:0!important;overflow:visible!important}
+          .print-hide{display:none!important}
+          img{max-width:100%!important;height:auto!important;display:block!important}
+          @media print{body{margin:0!important;padding:0!important}.print-container{padding:10mm!important}@page{margin:0;size:A4}*{color-adjust:exact!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}
+        </style></head><body>${printContainer.outerHTML}</body></html>`;
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+
+        let loadedImages = 0;
+        const images = printWindow.document.querySelectorAll('img');
+        const totalImages = images.length;
+        if (totalImages === 0) {
+          setTimeout(() => { printWindow.print(); printWindow.close(); }, 1000);
+        } else {
+          images.forEach(img => {
+            const el = img as HTMLImageElement;
+            if (el.complete) { loadedImages++; }
+            else {
+              el.onload = () => { loadedImages++; if (loadedImages === totalImages) { setTimeout(() => { printWindow.print(); printWindow.close(); }, 500); } };
+              el.onerror = () => { loadedImages++; if (loadedImages === totalImages) { setTimeout(() => { printWindow.print(); printWindow.close(); }, 500); } };
+            }
+          });
+          if (loadedImages === totalImages) {
+            setTimeout(() => { printWindow.print(); printWindow.close(); }, 1000);
+          }
+        }
+      }
+    } catch (_error) {
+      alert('인쇄 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      const elementInfo = checkElement('report-download-area');
+      if (!elementInfo || !elementInfo.visible) {
+        alert('캡처할 영역이 화면에 보이지 않습니다. 페이지를 새로고침 후 다시 시도해주세요.');
+        return;
+      }
+      const today = new Date();
+      const dateString = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}_${today.getHours().toString().padStart(2, '0')}${today.getMinutes().toString().padStart(2, '0')}`;
+      const fileName = `놀이기록_${dateString}.png`;
+      await downloadSimpleImage('report-download-area', fileName);
+    } catch (_error) {
+      alert('다운로드 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
+  };
+
+  const handlePreview = async () => {
+    try { await previewSimpleImage('report-download-area'); } catch (_error) {}
+  };
+
+  const handleEdit = () => { setSaved(false); };
+
+  const performSave = () => {
+    try {
+      const reportBottomData = reportBottomRef.current?.getReportBottomData();
+      const reportTitleData = reportTitleRef.current?.getReportTitleData();
+      const searchParamsObj: Record<string, string> = {};
+      searchParams.forEach((value, key) => { searchParamsObj[key] = value; });
+      const savedId = saveCurrentReport(
+        'B',
+        gridCount,
+        stickers,
+        textStickers,
+        `B형 리포트 - ${new Date().toLocaleDateString()}`,
+        '자동 저장된 리포트입니다.',
+        searchParamsObj,
+        undefined,
+        gridContents,
+        reportBottomData,
+        backgroundImageUrl || undefined,
+        undefined,
+        reportTitleData
+      );
+
+      const completeReportData = {
+        id: savedId,
+        reportType: 'B' as const,
+        subject: gridCount,
+        stickers: [...stickers],
+        textStickers: [...textStickers],
+        savedAt: new Date().toISOString(),
+        title: `B형 리포트 - ${new Date().toLocaleDateString()}`,
+        description: '자동 저장된 리포트입니다.',
+        searchParams: searchParamsObj,
+        gridLayout: undefined,
+        gridContents,
+        reportBottomData,
+        backgroundImageUrl: backgroundImageUrl || undefined,
+        imagePositionsMap: undefined,
+        reportTitleData,
+      } as const;
+
+      exportToArticleDataFile(completeReportData as any);
+      setSaved(true);
+      alert('리포트가 저장되었습니다. articleData.ts 파일이 다운로드됩니다.');
+    } catch (_error) {
+      alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
+  };
   return (
     <TooltipProvider>
       <div className="w-full h-full relative">
         {/* Header with A4 Template */}
-        <div className="w-full h-full shadow-custom border border-gray-200 rounded-xl bg-white flex flex-col">
+        <div className="w-full h-full shadow-custom border border-gray-200 rounded-xl bg-white flex flex-col print-container">
           {/* 상단 버튼 영역 - 고정 높이 */}
-          <div className="flex-shrink-0 flex flex-row justify-between mb-4 px-4 pt-4">
+          <div className="flex-shrink-0 flex flex-row justify-between mb-4 px-4 pt-4 print-hide">
             <div className="flex gap-1 my-auto text-base tracking-tight">
               <img
                 src="https://cdn.builder.io/api/v1/image/assets/TEMP/4f51a14975a94c7325e6dc9e46203e3be3439720?placeholderIfAbsent=true&apiKey=304aa4871c104446b0f8164e96d049f4"
@@ -117,9 +253,21 @@ function ReportBContent() {
               <div className="my-auto">놀이보고서</div>
             </div>
             <div className="flex gap-1.5 text-sm tracking-tight">
+              {isSaved && (
+                <Button
+                  size="sm"
+                  className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+                  onClick={handleEdit}
+                >
+                  <Image src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/edit.svg" alt="edit" width={16} height={16} />
+                  편집
+                </Button>
+              )}
               <Button
                 size="sm"
                 className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+                onClick={handlePrint}
+                disabled={!isSaved}
               >
                 <Image
                   src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/print.svg"
@@ -144,6 +292,8 @@ function ReportBContent() {
               <Button
                 size="sm"
                 className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+                onClick={handleDownload}
+                disabled={!isSaved}
               >
                 <Image
                   src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/download.svg"
@@ -152,6 +302,14 @@ function ReportBContent() {
                   height={16}
                 />
                 다운로드
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1 bg-orange-100 hover:bg-orange-200 text-[14px] text-orange-700 shadow-none font-semibold h-[34px]"
+                onClick={handlePreview}
+                disabled={!isSaved}
+              >
+                미리보기
               </Button>
               <Button
                 size="sm"
@@ -167,9 +325,11 @@ function ReportBContent() {
               </Button>
               <Button
                 size="sm"
-                className="bg-primary hover:bg-primary/80 text-white font-semibold h-[34px]"
+                className={`${isSaved ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-primary hover:bg-primary/80 text-white"} font-semibold h-[34px]`}
+                onClick={isSaved ? undefined : performSave}
+                disabled={isSaved}
               >
-                완료
+                저장
               </Button>
             </div>
           </div>
@@ -177,6 +337,7 @@ function ReportBContent() {
           {/* 메인 컨텐츠 영역 - 남은 공간 모두 차지 */}
           <div
             ref={stickerContainerRef}
+            id="report-download-area"
             className="flex flex-col w-full h-full px-4 py-4 rounded-br-xl rounded-bl-xl relative overflow-hidden"
           >
             {/* 배경 이미지 */}
@@ -193,7 +354,7 @@ function ReportBContent() {
             
             {/* 타이틀 섹션 - 고정 높이 84px */}
             <div className="flex-shrink-0 pb-4">
-              <ReportTitleSection />
+              <ReportTitleSection ref={reportTitleRef} />
             </div>
 
             {/* 이미지 그리드 - 계산된 정확한 높이 차지 */}
@@ -208,7 +369,7 @@ function ReportBContent() {
 
             {/* 하단 텍스트 부위 - 고정 높이 174px */}
             <div className="flex-shrink-0">
-              <ReportBottomSection type="B" />
+              <ReportBottomSection ref={reportBottomRef} type="B" />
             </div>
             
             {/* 스티커 렌더링 */}

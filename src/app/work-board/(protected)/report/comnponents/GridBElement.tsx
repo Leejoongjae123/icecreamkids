@@ -8,6 +8,7 @@ import { Loader } from "@/components/ui/loader";
 import { Button } from "@/components/common/Button";
 import { ImagePosition } from "../types";
 import {IoClose} from "react-icons/io5";
+import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
 import useUserStore from "@/hooks/store/useUserStore";
 import useGridContentStore from "@/hooks/store/useGridContentStore";
 import { useImageUpload } from "@/hooks/useImageUpload";
@@ -64,6 +65,7 @@ function GridBElement({
   onImageCountChange, // 이미지 개수 변경 콜백
 }: GridBElementProps) {
   // 사용자 정보 가져오기
+  const { isSaved } = useSavedDataStore();
   const { userInfo } = useUserStore();
   const profileId = React.useMemo(() => userInfo?.id || null, [userInfo?.id]);
   const accountId = React.useMemo(() => userInfo?.accountId || null, [userInfo?.accountId]);
@@ -1720,15 +1722,17 @@ function GridBElement({
   }, [toolbarState.show]);
 
   // 툴바 표시 상태 또는 기존 선택 상태에 따른 border 스타일 결정
-  const borderClass = (toolbarState.show || isSelected)
-    ? 'border-solid border-primary border-2' 
-    : 'border-dashed border-zinc-400';
+  const borderClass = isSaved
+    ? ''
+    : ((toolbarState.show || isSelected)
+      ? 'border-solid border-primary border-2'
+      : 'border-dashed border-zinc-400');
 
   return (
     <div className="relative w-full h-full">
       <div
         ref={containerRef}
-        className={`relative overflow-hidden px-2.5 py-2.5 bg-white rounded-2xl border ${borderClass} w-full h-full flex flex-col ${className} gap-y-1.5 cursor-pointer`}
+        className={`relative overflow-hidden px-2.5 py-2.5 bg-white rounded-2xl ${isSaved ? 'border-0' : `border ${borderClass}`} w-full h-full flex flex-col ${className} gap-y-1.5 cursor-pointer`}
         style={style}
         onClick={handleNonImageClick}
         onMouseEnter={handleMouseEnter}
@@ -1816,7 +1820,7 @@ function GridBElement({
                       )}
                       {/* X 삭제 버튼 */}
                       <button
-                        className="absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0]"
+                        className={`absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0] ${isSaved ? 'invisible pointer-events-none' : ''}`}
                         onClick={(e) => handleImageDelete(index, e)}
                         title="이미지 삭제"
                       >
@@ -1885,12 +1889,12 @@ function GridBElement({
         ) : isDescriptionExpanded ? (
           // 확장된 textarea 모드
           <div className={`flex overflow-hidden flex-col px-1 py-1 w-full leading-none bg-white rounded-md h-[100px] justify-center flex-shrink-0 relative transition-colors ${
-            isTextareaFocused ? 'border border-solid border-primary' : 'border border-dashed border-zinc-400'
+            isSaved ? '' : (isTextareaFocused ? 'border border-solid border-primary' : 'border border-dashed border-zinc-400')
           }`}>
             {/* 새로고침 버튼 - 우측 상단 */}
             <button
               onClick={handleTextRefresh}
-              className="absolute top-2 right-3 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-sm transition-colors z-10"
+              className={`absolute top-2 right-3 w-5 h-5 flex items-center justify-center hover:bg-gray-100 rounded-sm transition-colors z-10 ${isSaved ? 'invisible pointer-events-none' : ''}`}
               title="텍스트 새로고침"
             >
               <Image
@@ -1920,7 +1924,7 @@ function GridBElement({
             />
             
             {/* 글자수 카운팅 - 우측하단 */}
-            {hasClickedAIGenerate && (
+            {hasClickedAIGenerate && !isSaved && (
               <div className="absolute bottom-2 right-3 text-[9px] font-medium text-primary">
                 ({descriptionText.length}/200)
               </div>
@@ -1928,14 +1932,14 @@ function GridBElement({
           </div>
         ) : (
           // 기본 모드
-          <div className="flex overflow-hidden flex-col items-center px-2 py-2 w-full leading-none bg-white rounded-md border border-dashed border-zinc-400 h-[100px] justify-center flex-shrink-0 relative">
+          <div className={`flex overflow-hidden flex-col items-center px-2 py-2 w-full leading-none bg-white rounded-md ${isSaved ? '' : 'border border-dashed border-zinc-400'} h-[100px] justify-center flex-shrink-0 relative`}>
             <div className="flex gap-1.5 w-full mb-1.5"> 
               <Input
                 type="text"
                 value={keywords}
                 onChange={handleKeywordChange}
                 placeholder={placeholderText}
-                className="h-[26px] min-h-[26px] max-h-[26px] px-2 py-1 text-xs tracking-tight bg-white border border-dashed border-zinc-400 text-zinc-600 placeholder-zinc-400 flex-1 shadow-none rounded-md focus:ring-0 focus:outline-none focus:border-primary resize-none"
+                className={`h-[26px] min-h-[26px] max-h-[26px] px-2 py-1 text-xs tracking-tight bg-white ${isSaved ? '' : 'border border-dashed border-zinc-400'} text-zinc-600 placeholder-zinc-400 flex-1 shadow-none rounded-md focus:ring-0 focus:outline-none focus:border-primary resize-none`}
                 style={{ borderRadius: '6px', fontSize: '10px', lineHeight: '1.2' }}
                 onClick={handleImageClick} // Input 클릭 시에도 이벤트 전파 방지
               />
@@ -1944,7 +1948,7 @@ function GridBElement({
                   e.stopPropagation(); // 이벤트 전파 방지
                   handleTextFileUpload();
                 }}
-                className="flex overflow-hidden justify-center items-center w-[26px] h-[26px] bg-[#979797] border border-dashed border-zinc-400 rounded-md hover:bg-[#979797]/80 transition-colors"
+                className={`flex overflow-hidden justify-center items-center w-[26px] h-[26px] bg-[#979797] ${isSaved ? '' : 'border border-dashed border-zinc-400'} rounded-md hover:bg-[#979797]/80 transition-colors ${isSaved ? 'invisible pointer-events-none' : ''}`}
                 title="텍스트 파일 업로드"
               >
                 <Image
@@ -1958,7 +1962,7 @@ function GridBElement({
             </div>
             
             {/* AI 생성 버튼 - 별도 줄에 배치 */}
-            <div className="flex w-full mb-1.5 justify-center">
+            <div className={`flex w-full mb-1.5 justify-center ${isSaved ? 'invisible pointer-events-none' : ''}`}>
               <button
                 onClick={(e) => {
                   e.stopPropagation(); // 이벤트 전파 방지
@@ -1979,7 +1983,7 @@ function GridBElement({
                   <>
                     <Image
                       src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/leaf.svg"
-                      className={`object-contain ${getCurrentImageCount() === 0 ? 'opacity-50' : ''}`}
+                      className={`${getCurrentImageCount() === 0 ? 'opacity-50' : ''}`}
                       width={11}
                       height={11}
                       alt="AI icon"
@@ -1991,7 +1995,7 @@ function GridBElement({
             </div>
 
             {/* 글자수 카운팅 - 우측하단 */}
-            {hasClickedAIGenerate && (
+            {hasClickedAIGenerate && !isSaved && (
               <div className="absolute bottom-2 right-3 text-[9px] font-medium text-primary">
                 ({descriptionText.length}/200)
               </div>
@@ -2007,7 +2011,7 @@ function GridBElement({
       </div>
       
       {/* GridEditToolbar - Portal로 렌더링하여 최상위에 위치 (GridAElement 참고) */}
-      {toolbarState.show && typeof window !== 'undefined' && ReactDOM.createPortal(
+      {!isSaved && toolbarState.show && typeof window !== 'undefined' && ReactDOM.createPortal(
         <div 
           className="grid-edit-toolbar fixed"
           style={{

@@ -18,6 +18,7 @@ import AddButton from "./AddButton";
 import ApplyModal from "./ApplyModal";
 import { GridBItem } from "./types";
 import useGridContentStore from "@/hooks/store/useGridContentStore";
+import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
 import { useImageEditModalStore } from "@/hooks/store/useImageEditModalStore";
 
 interface GridBProps {
@@ -34,6 +35,7 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
   // Grid content store 사용 (초기화용)
   const { updatePlaySubject, updateImages, updateCategoryValue, updateAiGenerated, gridContents } = useGridContentStore();
   const { isImageEditModalOpen } = useImageEditModalStore();
+  const { isSaved } = useSavedDataStore();
   
   // 그리드 아이템 데이터 관리
   const [items, setItems] = React.useState<GridBItem[]>(() => {
@@ -458,7 +460,14 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
       if (item.index > subjectCount || removedItems.has(item.index)) {
         return null;
       }
-      
+      // 저장 상태에서는 description(playSubjectText)이 비어있는 항목을 시각적으로만 숨김 처리 (공간은 유지)
+      const gridId = `grid-b-${item.index}`;
+      const content = gridContents[gridId];
+      const hasDescription = !!(content && content.playSubjectText && content.playSubjectText.trim().length > 0);
+      // 캡처 시 레이아웃이 유지되도록 print-hide는 사용하지 않음 (display:none으로 제거되면 그리드가 당겨짐)
+      const isPrintHidden = false;
+      const isInvisibleInSavedMode = isSaved && !hasDescription; // 화면/캡처 모두에서 시각적으로만 숨김 (레이아웃 유지)
+
       return (
         <DragDropGridBItem
           key={item.id}
@@ -472,6 +481,8 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
           images={item.images}
           imageCount={item.imageCount}
           onImageCountChange={(count) => handleImageCountChange(item.index, count)}
+          isPrintHidden={isPrintHidden}
+          isInvisibleInSavedMode={isInvisibleInSavedMode}
         />
       );
     }).filter(Boolean); // null 값 제거
@@ -479,6 +490,9 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
 
   // floating 플러스 버튼들을 렌더링하는 함수
   const renderFloatingButtons = () => {
+    if (isSaved) {
+      return null;
+    }
     const buttons: JSX.Element[] = [];
     
     // 각 행에서 1-2, 3-4 사이에 플러스 버튼 배치
@@ -526,6 +540,9 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
 
   // floating 마이너스 버튼들을 렌더링하는 함수 (합쳐진 그리드를 쪼개기 위한)
   const renderSplitButtons = () => {
+    if (isSaved) {
+      return null;
+    }
     const buttons: JSX.Element[] = [];
     
     // 각 행에서 1-2, 3-4 사이에 마이너스 버튼 배치 (확장된 그리드에서만)
@@ -545,8 +562,8 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
       if (first <= subjectCount && second <= subjectCount && 
           expandedItems.has(first) && removedItems.has(second) &&
           !hiddenItems.has(first)) {
-        // 각 행의 중앙 위치를 백분율로 계산 (행별로 33.33%씩 분할)
-        const topPercentage = `${((row + 1) * 33.33) - 16.67}%`; // 각 행의 중앙 위치
+        // 마이너스 버튼은 확장된 그리드 내에서 1/4 높이 위치에 배치
+        const topPercentage = `${(row * 33.33) + (33.33 * 0.25)}%`; // 각 행 시작점 + 1/4 지점
         const leftPosition = position === 'left' ? '25%' : '75%'; // 좌측 또는 우측 중앙
         
         buttons.push(
