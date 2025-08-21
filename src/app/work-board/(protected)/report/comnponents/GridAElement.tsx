@@ -3314,7 +3314,7 @@ function GridAElement({
                     onKeyUp={(e) => e.stopPropagation()} // 키업 이벤트 전파 방지
                     onKeyPress={(e) => e.stopPropagation()} // 키프레스 이벤트 전파 방지
                     placeholder={placeholderText}
-                    className="h-[26px] min-h-[26px] max-h-[26px] px-2 py-1 text-xs tracking-tight bg-white border  placeholder-zinc-400 flex-1 shadow-none rounded-md focus:ring-0 focus:outline-none focus:border-primary resize-none mb-1.5"
+                    className="h-[26px] min-h-[26px] max-h-[26px] px-2 py-1 text-xs tracking-tight bg-white border-none placeholder-zinc-400 flex-1 shadow-none rounded-md focus:ring-0 focus:outline-none resize-none mb-1.5"
                     style={{ borderRadius: '6px', fontSize: '10px', lineHeight: '1.2' }}
                     onClick={handleImageClick}
                     draggable={false} // 드래그 완전 비활성화
