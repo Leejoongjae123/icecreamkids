@@ -301,6 +301,13 @@ export interface ThemeItemListResponse {
   [key: string]: any;
 }
 
+// ===== 사진틀(클리핑 패스) 관련 타입 =====
+export interface ClipPathItem {
+  id: string;
+  name: string;
+  pathData: string;
+}
+
 // ===== 업로드/이미지 선택 관련 타입 =====
 export interface UploadedFile {
   id: number;

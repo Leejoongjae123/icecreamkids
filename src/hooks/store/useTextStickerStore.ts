@@ -10,7 +10,8 @@ export const useTextStickerStore = create<TextStickerStore>((set, get) => ({
       const newTextSticker: TextStickerItem = {
         ...stickerData,
         id: `text_sticker_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        zIndex: 100000 + state.textStickers.length,
+        // 텍스트 스티커는 모달(overlay 49, content 50)보다 아래에서 항상 상단(48)으로 고정
+        zIndex: 48,
       };
       
       return {
@@ -53,10 +54,10 @@ export const useTextStickerStore = create<TextStickerStore>((set, get) => ({
 
   bringTextStickerToFront: (id: string) =>
     set((state) => {
-      const maxZIndex = Math.max(...state.textStickers.map((s) => s.zIndex), 100000);
+      const maxZIndex = Math.max(...state.textStickers.map((s) => s.zIndex), 30);
       return {
         textStickers: state.textStickers.map((sticker) =>
-          sticker.id === id ? { ...sticker, zIndex: maxZIndex + 1 } : sticker
+          sticker.id === id ? { ...sticker, zIndex: Math.min(48, maxZIndex + 1) } : sticker
         ),
       };
     }),

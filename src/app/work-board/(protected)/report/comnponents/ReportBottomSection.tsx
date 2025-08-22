@@ -22,6 +22,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
   const [playActivityText, setPlayActivityText] = React.useState(initialData?.playActivityText || "");
   const [teacherSupportText, setTeacherSupportText] = React.useState(initialData?.teacherSupportText || "");
   const [homeConnectionText, setHomeConnectionText] = React.useState(initialData?.homeConnectionText || "");
+  const [llmFilled, setLlmFilled] = React.useState({ playActivity: false, teacherSupport: false, homeConnection: false });
   const [showToolbar, setShowToolbar] = React.useState(false);
   const [toolbarPosition, setToolbarPosition] = React.useState({
     left: "8px",
@@ -92,6 +93,12 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
         teacherSupport: initialData.visibleGrids?.teacherSupport ?? true,
         homeConnection: initialData.visibleGrids?.homeConnection ?? true,
       });
+      // 초기 데이터가 있으면 편집 가능하도록 플래그 설정
+      setLlmFilled({
+        playActivity: !!(initialData.playActivityText && initialData.playActivityText.trim()),
+        teacherSupport: !!(initialData.teacherSupportText && initialData.teacherSupportText.trim()),
+        homeConnection: !!(initialData.homeConnectionText && initialData.homeConnectionText.trim()),
+      });
     } catch {}
   }, [initialData, type]);
 
@@ -108,14 +115,18 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
       if (playRecordResult.subject && playRecordResult.subject.trim()) {
         console.log('playActivity 텍스트 설정:', playRecordResult.subject);
         setPlayActivityText(playRecordResult.subject);
+        setLlmFilled(prev => ({ ...prev, playActivity: true }));
       }
+      // LLM 결과를 섹션 간 교체: objective -> 놀이속 배움, support -> 교사지원
       if (playRecordResult.objective && playRecordResult.objective.trim()) {
-        console.log('homeConnection 텍스트 설정:', playRecordResult.objective);
-        setHomeConnectionText(playRecordResult.objective);
+        console.log('teacherSupport(놀이속 배움) 텍스트 설정:', playRecordResult.objective);
+        setTeacherSupportText(playRecordResult.objective);
+        setLlmFilled(prev => ({ ...prev, teacherSupport: true }));
       }
       if (playRecordResult.support && playRecordResult.support.trim()) {
-        console.log('teacherSupport 텍스트 설정:', playRecordResult.support);
-        setTeacherSupportText(playRecordResult.support);
+        console.log('homeConnection(교사지원) 텍스트 설정:', playRecordResult.support);
+        setHomeConnectionText(playRecordResult.support);
+        setLlmFilled(prev => ({ ...prev, homeConnection: true }));
       }
     }
   }, [playRecordResult]);
@@ -160,12 +171,24 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
   const handleTextChange = (section: string, value: string) => {
     switch (section) {
       case "playActivity":
+        // LLM 입력 전에는 자유 입력 비활성화
+        if (!llmFilled.playActivity) {
+          return;
+        }
         setPlayActivityText(value);
         break;
       case "teacherSupport":
+        // LLM 입력 전에는 자유 입력 비활성화
+        if (!llmFilled.teacherSupport) {
+          return;
+        }
         setTeacherSupportText(value);
         break;
       case "homeConnection":
+        // LLM 입력 전에는 자유 입력 비활성화
+        if (!llmFilled.homeConnection) {
+          return;
+        }
         setHomeConnectionText(value);
         break;
     }
@@ -353,9 +376,10 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
             <textarea
               value={playActivityText}
               onChange={(e) => handleTextChange("playActivity", e.target.value)}
-              placeholder="놀이 내용을 입력해주세요..."
+              placeholder=""
               className="flex-1 mx-2 mb-1 px-1 py-0.5 border-none outline-none resize-none text-[12px] leading-[1.1]"
               autoFocus={activeSection === "playActivity"}
+              readOnly={!llmFilled.playActivity}
               maxLength={maxLength}
             />
           )}
@@ -401,7 +425,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
             style={{
               width:
                 visibleGrids.teacherSupport && visibleGrids.homeConnection
-                  ? "50%"
+                  ? "60%"
                   : "100%",
               height: "100%", // 전체 높이 차지
             }}
@@ -418,7 +442,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
                   height={16}
                 />
               </div>
-              놀이속 배움 / 교사지원
+              놀이속 배움 
             </h3>
             {(activeSection === "teacherSupport" || teacherSupportText.length > 0) && (
               <textarea
@@ -426,9 +450,10 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
                 onChange={(e) =>
                   handleTextChange("teacherSupport", e.target.value)
                 }
-                placeholder="교사지원 내용을 입력해주세요..."
+                placeholder=""
                 className="flex-1 mx-2 mb-1 px-1 py-0.5 border-none outline-none resize-none text-[12px] leading-[1.1]"
                 autoFocus={activeSection === "teacherSupport"}
+                readOnly={!llmFilled.teacherSupport}
                 maxLength={maxLength}
               />
             )}
@@ -437,7 +462,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
             {!isSaved && (
               <div className="absolute bottom-1 right-2 text-[10px] font-bold">
                 <span className="text-[#444444]">{teacherSupportText.length}</span>
-                <span className="text-[#B3B3B3]">/{maxLength}</span>
+                <span className="text-[#B3B3B3]">/300</span>
               </div>
             )}
 
@@ -468,7 +493,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
             style={{
               width:
                 visibleGrids.teacherSupport && visibleGrids.homeConnection
-                  ? "50%"
+                  ? "40%"
                   : "100%",
               height: "100%", // 전체 높이 차지
             }}
@@ -485,7 +510,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
                   height={16}
                 />
               </div>
-              가정연계
+              교사 지원
             </h3>
             {(activeSection === "homeConnection" || homeConnectionText.length > 0) && (
               <textarea
@@ -493,9 +518,10 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
                 onChange={(e) =>
                   handleTextChange("homeConnection", e.target.value)
                 }
-                placeholder="가정연계 내용을 입력해주세요..."
+                placeholder=""
                 className="flex-1 mx-2 mb-1 px-1 py-0.5 border-none outline-none resize-none text-[12px] leading-[1.1]"
                 autoFocus={activeSection === "homeConnection"}
+                readOnly={!llmFilled.homeConnection}
                 maxLength={maxLength}
               />
             )}
@@ -504,7 +530,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
             {!isSaved && (
               <div className="absolute bottom-2 right-2 text-xs font-bold">
                 <span className="text-[#444444]">{homeConnectionText.length}</span>
-                <span className="text-[#B3B3B3]">/{maxLength}</span>
+                <span className="text-[#B3B3B3]">/200</span>
               </div>
             )}
 

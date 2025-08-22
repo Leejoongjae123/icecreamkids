@@ -1,6 +1,6 @@
 "use client";
-import React, { useRef, useState, useEffect } from 'react';
-import { IoClose } from "react-icons/io5";
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { IoClose, IoRefresh } from "react-icons/io5";
 import { TextStickerItem } from './types';
 import { useTextStickerStore } from '@/hooks/store/useTextStickerStore';
 import { cn } from '@/lib/utils';
@@ -10,21 +10,34 @@ interface DraggableTextStickerProps {
   containerRef: React.RefObject<HTMLDivElement>;
 }
 
+// 리사이즈 핸들 타입 정의
+type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'rotate';
+
 const DraggableTextSticker: React.FC<DraggableTextStickerProps> = ({ sticker, containerRef }) => {
   const stickerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
   const [isSelected, setIsSelected] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [initialPosition, setInitialPosition] = useState({ x: 0, y: 0 });
   const [initialSize, setInitialSize] = useState({ width: 0, height: 0 });
-  const [resizeHandle, setResizeHandle] = useState<string>('');
+  const [resizeHandle, setResizeHandle] = useState<ResizeHandle | null>(null);
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0 });
+  const [initialStickerState, setInitialStickerState] = useState({
+    position: { x: 0, y: 0 },
+    size: { width: 0, height: 0 },
+    rotation: 0,
+  });
+  const [rotationStart, setRotationStart] = useState({ x: 0, y: 0 });
+  const [initialRotation, setInitialRotation] = useState(0);
 
   const { 
     updateTextStickerPosition, 
     updateTextStickerSize,
+    updateTextStickerRotation,
     removeTextSticker, 
     bringTextStickerToFront,
     updateTextStickerText
@@ -42,7 +55,9 @@ const DraggableTextSticker: React.FC<DraggableTextStickerProps> = ({ sticker, co
     const effectiveHeight = sticker.type === 'bubble' ? stickerHeight * 0.6 : stickerHeight;
     
     // 텍스트가 비어있으면 기본 크기 반환
-    if (textLength === 0) return baseSize;
+    if (textLength === 0) {
+      return baseSize;
+    }
     
     // 영역 기반 폰트 크기 계산 (영역이 클수록 큰 폰트)
     const areaBasedSize = Math.min(effectiveWidth, effectiveHeight) / 8;
@@ -61,7 +76,9 @@ const DraggableTextSticker: React.FC<DraggableTextStickerProps> = ({ sticker, co
     e.preventDefault();
     e.stopPropagation();
     
-    if (!containerRef.current || !stickerRef.current || isEditing) return;
+    if (!containerRef.current || !stickerRef.current || isEditing) {
+      return;
+    }
 
     bringTextStickerToFront(sticker.id);
     setIsSelected(true);
@@ -75,99 +92,158 @@ const DraggableTextSticker: React.FC<DraggableTextStickerProps> = ({ sticker, co
     setInitialPosition(sticker.position);
   };
 
-  const handleResizeMouseDown = (e: React.MouseEvent, handle: string) => {
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent, handle: ResizeHandle) => {
     e.preventDefault();
     e.stopPropagation();
     
-    if (!containerRef.current || !stickerRef.current) return;
+    if (!containerRef.current || !stickerRef.current) {
+      return;
+    }
 
     bringTextStickerToFront(sticker.id);
     setIsSelected(true);
-    setIsResizing(true);
-    setResizeHandle(handle);
-    
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const mouseX = e.clientX - containerRect.left;
-    const mouseY = e.clientY - containerRect.top;
-    
-    setDragStart({ x: mouseX, y: mouseY });
-    setInitialSize(sticker.size);
-    setInitialPosition(sticker.position);
-  };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if ((!isDragging && !isResizing) || !containerRef.current) return;
 
     const containerRect = containerRef.current.getBoundingClientRect();
     const mouseX = e.clientX - containerRect.left;
     const mouseY = e.clientY - containerRect.top;
-    
-    const deltaX = mouseX - dragStart.x;
-    const deltaY = mouseY - dragStart.y;
 
-    if (isResizing) {
-      // 리사이즈 로직
-      let newWidth = initialSize.width;
-      let newHeight = initialSize.height;
-      let newX = initialPosition.x;
-      let newY = initialPosition.y;
-
-      const minSize = 50; // 최소 크기
-      const maxSize = 300; // 최대 크기
-
-      switch (resizeHandle) {
-        case 'se': // 남동쪽 (오른쪽 아래)
-          newWidth = Math.max(minSize, Math.min(maxSize, initialSize.width + deltaX));
-          newHeight = Math.max(minSize, Math.min(maxSize, initialSize.height + deltaY));
-          break;
-        case 'sw': // 남서쪽 (왼쪽 아래)
-          newWidth = Math.max(minSize, Math.min(maxSize, initialSize.width - deltaX));
-          newHeight = Math.max(minSize, Math.min(maxSize, initialSize.height + deltaY));
-          newX = initialPosition.x + (initialSize.width - newWidth);
-          break;
-        case 'ne': // 북동쪽 (오른쪽 위)
-          newWidth = Math.max(minSize, Math.min(maxSize, initialSize.width + deltaX));
-          newHeight = Math.max(minSize, Math.min(maxSize, initialSize.height - deltaY));
-          newY = initialPosition.y + (initialSize.height - newHeight);
-          break;
-        case 'nw': // 북서쪽 (왼쪽 위)
-          newWidth = Math.max(minSize, Math.min(maxSize, initialSize.width - deltaX));
-          newHeight = Math.max(minSize, Math.min(maxSize, initialSize.height - deltaY));
-          newX = initialPosition.x + (initialSize.width - newWidth);
-          newY = initialPosition.y + (initialSize.height - newHeight);
-          break;
-      }
-
-      // 컨테이너 경계 체크
-      const containerWidth = containerRef.current.offsetWidth;
-      const containerHeight = containerRef.current.offsetHeight;
-      
-      newX = Math.max(0, Math.min(newX, containerWidth - newWidth));
-      newY = Math.max(0, Math.min(newY, containerHeight - newHeight));
-
-      updateTextStickerSize(sticker.id, { width: newWidth, height: newHeight });
-      updateTextStickerPosition(sticker.id, { x: newX, y: newY });
+    if (handle === 'rotate') {
+      setIsRotating(true);
+      const centerX = sticker.position.x + sticker.size.width / 2;
+      const centerY = sticker.position.y + sticker.size.height / 2;
+      setRotationStart({
+        x: mouseX - centerX,
+        y: mouseY - centerY,
+      });
+      setInitialRotation(sticker.rotation);
     } else {
-      // 드래그 로직
+      setIsResizing(true);
+      setResizeHandle(handle);
+      setResizeStart({ x: mouseX, y: mouseY });
+      setInitialStickerState({
+        position: sticker.position,
+        size: sticker.size,
+        rotation: sticker.rotation,
+      });
+    }
+  }, [containerRef, sticker, bringTextStickerToFront]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!containerRef.current) {
+      return;
+    }
+
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - containerRect.left;
+    const mouseY = e.clientY - containerRect.top;
+
+    if (isDragging) {
+      const deltaX = mouseX - dragStart.x;
+      const deltaY = mouseY - dragStart.y;
+
       const newX = initialPosition.x + deltaX;
       const newY = initialPosition.y + deltaY;
-      
-      // 컨테이너 경계 체크
+
       const containerWidth = containerRef.current.offsetWidth;
       const containerHeight = containerRef.current.offsetHeight;
-      
       const clampedX = Math.max(0, Math.min(newX, containerWidth - sticker.size.width));
       const clampedY = Math.max(0, Math.min(newY, containerHeight - sticker.size.height));
-      
       updateTextStickerPosition(sticker.id, { x: clampedX, y: clampedY });
+    } else if (isResizing && resizeHandle) {
+      handleResize(mouseX, mouseY);
+    } else if (isRotating) {
+      handleRotation(mouseX, mouseY);
     }
-  };
+  }, [containerRef, isDragging, isResizing, isRotating, dragStart, initialPosition, resizeHandle, sticker.size.width, sticker.size.height, updateTextStickerPosition, sticker.id]);
 
-  const handleMouseUp = () => {
+  // 리사이즈 처리 함수 (8방향)
+  const handleResize = useCallback((mouseX: number, mouseY: number) => {
+    if (!resizeHandle) {
+      return;
+    }
+
+    const deltaX = mouseX - resizeStart.x;
+    const deltaY = mouseY - resizeStart.y;
+
+    let newWidth = initialStickerState.size.width;
+    let newHeight = initialStickerState.size.height;
+    let newX = initialStickerState.position.x;
+    let newY = initialStickerState.position.y;
+
+    const minSize = 20;
+
+    switch (resizeHandle) {
+      case 'nw':
+        newWidth = Math.max(minSize, initialStickerState.size.width - deltaX);
+        newHeight = Math.max(minSize, initialStickerState.size.height - deltaY);
+        newX = initialStickerState.position.x + (initialStickerState.size.width - newWidth);
+        newY = initialStickerState.position.y + (initialStickerState.size.height - newHeight);
+        break;
+      case 'n':
+        newHeight = Math.max(minSize, initialStickerState.size.height - deltaY);
+        newY = initialStickerState.position.y + (initialStickerState.size.height - newHeight);
+        break;
+      case 'ne':
+        newWidth = Math.max(minSize, initialStickerState.size.width + deltaX);
+        newHeight = Math.max(minSize, initialStickerState.size.height - deltaY);
+        newY = initialStickerState.position.y + (initialStickerState.size.height - newHeight);
+        break;
+      case 'e':
+        newWidth = Math.max(minSize, initialStickerState.size.width + deltaX);
+        break;
+      case 'se':
+        newWidth = Math.max(minSize, initialStickerState.size.width + deltaX);
+        newHeight = Math.max(minSize, initialStickerState.size.height + deltaY);
+        break;
+      case 's':
+        newHeight = Math.max(minSize, initialStickerState.size.height + deltaY);
+        break;
+      case 'sw':
+        newWidth = Math.max(minSize, initialStickerState.size.width - deltaX);
+        newHeight = Math.max(minSize, initialStickerState.size.height + deltaY);
+        newX = initialStickerState.position.x + (initialStickerState.size.width - newWidth);
+        break;
+      case 'w':
+        newWidth = Math.max(minSize, initialStickerState.size.width - deltaX);
+        newX = initialStickerState.position.x + (initialStickerState.size.width - newWidth);
+        break;
+    }
+
+    // 컨테이너 경계 체크
+    if (containerRef.current) {
+      const containerWidth = containerRef.current.offsetWidth;
+      const containerHeight = containerRef.current.offsetHeight;
+      newX = Math.max(0, Math.min(newX, containerWidth - newWidth));
+      newY = Math.max(0, Math.min(newY, containerHeight - newHeight));
+    }
+
+    updateTextStickerSize(sticker.id, { width: newWidth, height: newHeight });
+    updateTextStickerPosition(sticker.id, { x: newX, y: newY });
+  }, [resizeHandle, resizeStart, initialStickerState, containerRef, updateTextStickerSize, updateTextStickerPosition, sticker.id]);
+
+  // 회전 처리 함수
+  const handleRotation = useCallback((mouseX: number, mouseY: number) => {
+    const centerX = sticker.position.x + sticker.size.width / 2;
+    const centerY = sticker.position.y + sticker.size.height / 2;
+
+    const currentX = mouseX - centerX;
+    const currentY = mouseY - centerY;
+
+    const initialAngle = Math.atan2(rotationStart.y, rotationStart.x);
+    const currentAngle = Math.atan2(currentY, currentX);
+
+    const deltaAngle = (currentAngle - initialAngle) * (180 / Math.PI);
+    const newRotation = (initialRotation + deltaAngle) % 360;
+
+    updateTextStickerRotation(sticker.id, newRotation);
+  }, [sticker.position.x, sticker.position.y, sticker.size.width, sticker.size.height, rotationStart, initialRotation, updateTextStickerRotation, sticker.id]);
+
+  const handleMouseUp = useCallback(() => {
     setIsDragging(false);
     setIsResizing(false);
-    setResizeHandle('');
-  };
+    setIsRotating(false);
+    setResizeHandle(null);
+  }, []);
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -205,7 +281,7 @@ const DraggableTextSticker: React.FC<DraggableTextStickerProps> = ({ sticker, co
   };
 
   useEffect(() => {
-    if (isDragging || isResizing) {
+    if (isDragging || isResizing || isRotating) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       
@@ -214,7 +290,7 @@ const DraggableTextSticker: React.FC<DraggableTextStickerProps> = ({ sticker, co
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDragging, isResizing, dragStart, initialPosition, initialSize, resizeHandle]);
+  }, [isDragging, isResizing, isRotating, handleMouseMove, handleMouseUp]);
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
@@ -226,39 +302,24 @@ const DraggableTextSticker: React.FC<DraggableTextStickerProps> = ({ sticker, co
     };
   }, [isSelected, isEditing]);
 
-  // 텍스트 스타일 함수 - 텍스트 타입에 따라 고정된 폰트 크기와 굵기 적용
+  // 텍스트 스타일 함수 - 텍스트 타입/저장된 스타일을 반영
   const getTextStyle = () => {
     if (sticker.type === 'basic') {
-      switch (sticker.textType) {
-        case 'title': {
-          return {
-            fontSize: '36px',
-            fontWeight: 'bold',
-            color: '#333',
-          };
-        }
-        case 'subtitle': {
-          return {
-            fontSize: '24px',
-            fontWeight: '600', // semibold
-            color: '#555',
-          };
-        }
-        case 'body': {
-          return {
-            fontSize: '20px',
-            fontWeight: '500', // medium
-            color: '#666',
-          };
-        }
-        default: {
-          return {
-            fontSize: '20px',
-            fontWeight: '500',
-            color: '#333',
-          };
-        }
-      }
+      const fallbackFontFamily =
+        sticker.textType === 'title'
+          ? 'MaplestoryOTFBold'
+          : sticker.textType === 'subtitle'
+          ? 'Uiyeun'
+          : 'Arial';
+
+      const fallbackFontSize =
+        sticker.textType === 'title' ? 32 : sticker.textType === 'subtitle' ? 28 : 24;
+
+      return {
+        fontSize: `${sticker.fontSize || fallbackFontSize}px`,
+        color: sticker.textType === 'subtitle' ? '#555' : sticker.textType === 'body' ? '#666' : '#333',
+        fontFamily: sticker.fontFamily || fallbackFontFamily,
+      } as React.CSSProperties;
     }
     
     // 말풍선 스타일 - 크기에 맞게 조절 (기존 로직 유지)
@@ -281,17 +342,78 @@ const DraggableTextSticker: React.FC<DraggableTextStickerProps> = ({ sticker, co
     height: `${sticker.size.height}px`,
     transform: `rotate(${sticker.rotation}deg)`,
     zIndex: sticker.zIndex,
-    cursor: isDragging ? 'grabbing' : (isResizing ? 'resize' : (isEditing ? 'text' : 'grab')),
+    cursor: isDragging || isResizing || isRotating ? 'grabbing' : (isSelected ? 'move' : (isEditing ? 'text' : 'grab')),
     userSelect: 'none',
     pointerEvents: 'auto',
-    outline: isSelected ? '2px solid #fbbf24' : 'none',
-    outlineOffset: '2px',
-    transition: isDragging ? 'none' : 'all 0.2s ease',
+    border: isSelected ? '2px dashed #3D8BFF' : 'none',
+    transition: (isDragging || isResizing || isRotating) ? 'none' : 'all 0.2s ease',
     opacity: 1,
     backgroundColor: 'transparent',
   };
 
   const textStyle = getTextStyle();
+
+  // 리사이즈 핸들 렌더링
+  const renderResizeHandles = () => {
+    if (!isSelected || isEditing) {
+      return null;
+    }
+
+    const handleSize = 7;
+    const handles: { position: ResizeHandle; x: number; y: number; cursor: string }[] = [
+      { position: 'nw', x: -handleSize/2, y: -handleSize/2, cursor: 'nw-resize' },
+      { position: 'n', x: sticker.size.width/2 - handleSize/2, y: -handleSize/2, cursor: 'n-resize' },
+      { position: 'ne', x: sticker.size.width - handleSize/2, y: -handleSize/2, cursor: 'ne-resize' },
+      { position: 'e', x: sticker.size.width - handleSize/2, y: sticker.size.height/2 - handleSize/2, cursor: 'e-resize' },
+      { position: 'se', x: sticker.size.width - handleSize/2, y: sticker.size.height - handleSize/2, cursor: 'se-resize' },
+      { position: 's', x: sticker.size.width/2 - handleSize/2, y: sticker.size.height - handleSize/2, cursor: 's-resize' },
+      { position: 'sw', x: -handleSize/2, y: sticker.size.height - handleSize/2, cursor: 'sw-resize' },
+      { position: 'w', x: -handleSize/2, y: sticker.size.height/2 - handleSize/2, cursor: 'w-resize' },
+    ];
+
+    return handles.map((handle) => (
+      <div
+        key={handle.position}
+        className="absolute bg-white border-2 border-[#3D8BFF] rounded-full z-10"
+        style={{
+          left: `${handle.x}px`,
+          top: `${handle.y}px`,
+          width: `${handleSize}px`,
+          height: `${handleSize}px`,
+          cursor: handle.cursor,
+          zIndex: sticker.zIndex + 2,
+        }}
+        onMouseDown={(e) => handleResizeMouseDown(e, handle.position)}
+      />
+    ));
+  };
+
+  // 회전 핸들 렌더링
+  const renderRotateHandle = () => {
+    if (!isSelected || isEditing) {
+      return null;
+    }
+
+    const handleSize = 20;
+    const offsetY = 10;
+
+    return (
+      <div
+        className="absolute bg-white border-2 border-blue-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-50 z-10"
+        style={{
+          left: `${sticker.size.width/2 - handleSize/2}px`,
+          top: `${sticker.size.height + offsetY}px`,
+          width: `${handleSize}px`,
+          height: `${handleSize}px`,
+          zIndex: sticker.zIndex + 2,
+        }}
+        onMouseDown={(e) => handleResizeMouseDown(e, 'rotate')}
+        title="회전"
+      >
+        <IoRefresh size={12} className="text-blue-500" />
+      </div>
+    );
+  };
 
   return (
     <div
@@ -387,38 +509,11 @@ const DraggableTextSticker: React.FC<DraggableTextStickerProps> = ({ sticker, co
         </button>
       )}
 
-      {/* 선택된 상태일 때 리사이즈 핸들들 */}
-      {isSelected && !isEditing && (
-        <>
-          {/* 북서쪽 핸들 (왼쪽 위) */}
-          <div
-            className="absolute -top-1 -left-1 w-3 h-3 bg-amber-400 border border-amber-500 cursor-nw-resize"
-            style={{ zIndex: sticker.zIndex + 1 }}
-            onMouseDown={(e) => handleResizeMouseDown(e, 'nw')}
-          />
-          
-          {/* 북동쪽 핸들 (오른쪽 위) */}
-          <div
-            className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 border border-amber-500 cursor-ne-resize"
-            style={{ zIndex: sticker.zIndex + 1 }}
-            onMouseDown={(e) => handleResizeMouseDown(e, 'ne')}
-          />
-          
-          {/* 남서쪽 핸들 (왼쪽 아래) */}
-          <div
-            className="absolute -bottom-1 -left-1 w-3 h-3 bg-amber-400 border border-amber-500 cursor-sw-resize"
-            style={{ zIndex: sticker.zIndex + 1 }}
-            onMouseDown={(e) => handleResizeMouseDown(e, 'sw')}
-          />
-          
-          {/* 남동쪽 핸들 (오른쪽 아래) */}
-          <div
-            className="absolute -bottom-1 -right-1 w-3 h-3 bg-amber-400 border border-amber-500 cursor-se-resize"
-            style={{ zIndex: sticker.zIndex + 1 }}
-            onMouseDown={(e) => handleResizeMouseDown(e, 'se')}
-          />
-        </>
-      )}
+      {/* 리사이즈 핸들 */}
+      {renderResizeHandles()}
+
+      {/* 회전 핸들 */}
+      {renderRotateHandle()}
     </div>
   );
 };

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
+import * as ReactDOM from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import AddPicture from "./AddPicture";
@@ -10,6 +11,9 @@ import { UploadModal } from "@/components/modal";
 import { useImageUpload } from "@/hooks/useImageUpload";
 import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
 import { ReportTitleData } from "./types";
+import { Button } from "@/components/common";
+import { MdZoomIn, MdZoomOut, MdRefresh } from "react-icons/md";
+import { IoClose } from "react-icons/io5";
 
 export type ReportTitleSectionRef = {
   getReportTitleData: () => ReportTitleData;
@@ -52,9 +56,21 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [imageMetadata, setImageMetadata] = useState<{url: string, driveItemKey?: string}[]>([]);
   const [currentImageUrl, setCurrentImageUrl] = useState<string>("");
+  // 이미지 위치(확대/이동) 저장 상태
+  const [imagePosition, setImagePosition] = useState<{ x: number; y: number; scale: number }>({ x: 0, y: 0, scale: 1 });
+  // 인라인 편집 상태
+  const [inlineEditState, setInlineEditState] = useState<{
+    active: boolean;
+    tempPosition: { x: number; y: number; scale: number };
+    startPointer: { x: number; y: number } | null;
+    mode: "drag" | "resize" | null;
+  }>({ active: false, tempPosition: { x: 0, y: 0, scale: 1 }, startPointer: null, mode: null });
+  const suppressClickRef = useRef<boolean>(false);
   
   // 드래그앤드롭을 위한 ref
   const dropRef = useRef<HTMLDivElement>(null);
+  // 편집을 위한 이미지 컨테이너 ref (오버레이 계산용)
+  const imageEditContainerRef = useRef<HTMLDivElement>(null);
 
   // 이미지 업로드 훅 (GridAElement 참고)
   const {
@@ -187,10 +203,13 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
           setCurrentImageUrl(data.image.url);
           setImageMetadata([{ url: data.image.url, driveItemKey: data.image.driveItemKey }]);
           setHasImage(true);
+          // 위치 초기화
+          setImagePosition({ x: 0, y: 0, scale: 1 });
         } else {
           setCurrentImageUrl("");
           setImageMetadata([]);
           setHasImage(false);
+          setImagePosition({ x: 0, y: 0, scale: 1 });
         }
       } catch {}
     },
@@ -418,6 +437,123 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
     }
   };
 
+  // 이미지 삭제 핸들러 (GridBElement 패턴 차용)
+  const handleImageDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentImageUrl("");
+    setImageMetadata([]);
+    setHasImage(false);
+    setImagePosition({ x: 0, y: 0, scale: 1 });
+  };
+
+  // 인라인 편집 진입/종료/드래그 핸들러 (GridAElement 참고, 단일 이미지용)
+  const beginInlineEdit = () => {
+    if (!hasImage || isSaved) return;
+    setInlineEditState((prev) => ({
+      ...prev,
+      active: true,
+      tempPosition: { ...imagePosition },
+    }));
+  };
+
+  const endInlineEditConfirm = () => {
+    setImagePosition((prev) => ({ ...inlineEditState.tempPosition }));
+    setInlineEditState((prev) => ({ ...prev, active: false, startPointer: null, mode: null }));
+  };
+
+  const endInlineEditCancel = () => {
+    setInlineEditState((prev) => ({ ...prev, active: false, tempPosition: { ...imagePosition }, startPointer: null, mode: null }));
+  };
+
+  const onEditMouseDown = (e: React.MouseEvent) => {
+    if (!inlineEditState.active) return;
+    e.preventDefault();
+    e.stopPropagation();
+    suppressClickRef.current = false;
+    setInlineEditState((prev) => ({ ...prev, startPointer: { x: e.clientX, y: e.clientY }, mode: "drag" }));
+    const onMove = (ev: MouseEvent) => {
+      setInlineEditState((prev) => {
+        if (!prev.startPointer) return prev;
+        const dx = ev.clientX - prev.startPointer.x;
+        const dy = ev.clientY - prev.startPointer.y;
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) suppressClickRef.current = true;
+        return {
+          ...prev,
+          startPointer: { x: ev.clientX, y: ev.clientY },
+          tempPosition: { x: prev.tempPosition.x + dx, y: prev.tempPosition.y + dy, scale: prev.tempPosition.scale },
+        };
+      });
+    };
+    const onUp = () => {
+      setInlineEditState((prev) => ({ ...prev, startPointer: null, mode: null }));
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  // 포털: 외부 음영 + 우측 도구 버튼(확대/축소/되돌리기)
+  const EditToolsPortal: React.FC = () => {
+    const [tick, setTick] = useState(0);
+    useEffect(() => {
+      const onUpdate = () => setTick((v) => v + 1);
+      window.addEventListener("scroll", onUpdate, true);
+      window.addEventListener("resize", onUpdate);
+      return () => {
+        window.removeEventListener("scroll", onUpdate, true);
+        window.removeEventListener("resize", onUpdate);
+      };
+    }, []);
+
+    if (!inlineEditState.active) return null;
+    const el = imageEditContainerRef.current;
+    if (!el || typeof window === "undefined") return null;
+    const rect = el.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const gap = 8;
+    const buttonSize = 40;
+    const buttonsCount = 3;
+    const totalHeight = buttonsCount * buttonSize + (buttonsCount - 1) * gap;
+    let toolsLeft = rect.right + gap;
+    let toolsTop = rect.bottom - totalHeight;
+    if (toolsLeft + buttonSize > vw) toolsLeft = Math.max(0, rect.left - gap - buttonSize);
+    toolsTop = Math.min(Math.max(0, toolsTop), Math.max(0, vh - totalHeight));
+
+    const handleZoomIn = () => {
+      setInlineEditState((prev) => ({ ...prev, tempPosition: { ...prev.tempPosition, scale: Math.min(3, prev.tempPosition.scale * 1.2) } }));
+    };
+    const handleZoomOut = () => {
+      setInlineEditState((prev) => ({ ...prev, tempPosition: { ...prev.tempPosition, scale: Math.max(0.1, prev.tempPosition.scale / 1.2) } }));
+    };
+    const handleReset = () => {
+      setInlineEditState((prev) => ({ ...prev, tempPosition: { ...imagePosition } }));
+    };
+
+    return ReactDOM.createPortal(
+      <>
+        <div className="fixed left-0 top-0 bg-black/40 z-[9998]" style={{ width: "100vw", height: Math.max(0, rect.top) }} />
+        <div className="fixed left-0 bg-black/40 z-[9998]" style={{ top: rect.bottom, width: "100vw", height: Math.max(0, vh - rect.bottom) }} />
+        <div className="fixed top-0 bg-black/40 z-[9998]" style={{ left: 0, top: rect.top, width: Math.max(0, rect.left), height: Math.max(0, rect.height) }} />
+        <div className="fixed top-0 bg-black/40 z-[9998]" style={{ left: rect.right, top: rect.top, width: Math.max(0, vw - rect.right), height: Math.max(0, rect.height) }} />
+
+        <div className="fixed z-[9999] flex flex-col gap-2" style={{ top: toolsTop, left: toolsLeft }}>
+          <button onClick={handleZoomIn} className="w-10 h-10 border-1 border-[#CCCCCC] bg-white border-2 rounded-lg flex items-center justify-center shadow-lg hover:bg-gray-50 transition-colors" title="확대">
+            <MdZoomIn className="w-5 h-5 text-black" />
+          </button>
+          <button onClick={handleZoomOut} className="w-10 h-10 bg-white border-2 border-primary rounded-lg flex items-center justify-center shadow-lg hover:bg-gray-50 transition-colors" title="축소">
+            <MdZoomOut className="w-5 h-5 text-black" />
+          </button>
+          <button onClick={handleReset} className="w-10 h-10 bg-white border-2 border-primary rounded-lg flex items-center justify-center shadow-lg hover:bg-gray-50 transition-colors" title="초기화">
+            <MdRefresh className="w-5 h-5 text-black" />
+          </button>
+        </div>
+      </>,
+      document.body
+    );
+  };
+
   // 텍스트 클릭 핸들러
   const handleTextClick = () => {
     if (text || isFocused) {
@@ -535,17 +671,39 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                 transition: 'background-color 0.2s ease'
               }}
               onClick={handleImageClick}
-              onMouseEnter={() => showToolbarFor('image')}
+              onMouseEnter={() => { if (!hasImage) { showToolbarFor('image'); } }}
               onMouseLeave={scheduleHideToolbar}
             >
               {hasImage && currentImageUrl ? (
-                <div className="w-full h-full relative overflow-hidden rounded-[15px]">
+                <div
+                  className="w-full h-full relative overflow-hidden rounded-[15px]"
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    beginInlineEdit();
+                  }}
+                  ref={imageEditContainerRef}
+                >
                   <Image
                     src={currentImageUrl}
                     fill
                     className="object-contain"
                     alt="Uploaded image"
+                    style={{
+                      transform: inlineEditState.active
+                        ? `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${inlineEditState.tempPosition.scale})`
+                        : `translate(${imagePosition.x}px, ${imagePosition.y}px) scale(${imagePosition.scale})`,
+                      transformOrigin: 'center',
+                    }}
+                    onMouseDown={inlineEditState.active ? onEditMouseDown : undefined}
                   />
+                  {/* X 삭제 버튼 - GridBElement와 동일 스타일 */}
+                  <button
+                    className={`absolute top-1 right-1 bg-white w-5 h-5 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0] ${isSaved ? "invisible pointer-events-none" : ""}`}
+                    onClick={handleImageDelete}
+                    title="이미지 삭제"
+                  >
+                    <IoClose className="w-4 h-4 text-black" />
+                  </button>
                 </div>
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
@@ -560,8 +718,8 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
               )}
             </div>
 
-            {/* 이미지 편집 툴바 - hover 시 노출 및 2초 유지 */}
-            {hasImage && (isImageSelected || (!isSaved && showToolbar && hoveredSection === 'image')) && (
+            {/* 이미지 편집 툴바 - 비이미지 상태 hover 또는 이미지 선택 시 노출 */}
+            {(isImageSelected || (!isSaved && !hasImage && showToolbar && hoveredSection === 'image')) && (
               <div
                 onMouseEnter={() => {
                   if (hoverHideTimerRef.current) {
@@ -654,6 +812,7 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                 onInput={handleInput}
                 suppressContentEditableWarning={true}
                 style={{ 
+                  fontFamily: "'MaplestoryOTFBold', sans-serif",
                   minHeight: "100%", 
                   height: "100%",
                   wordWrap: "break-word",
@@ -917,6 +1076,28 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
       >
         <button style={{ display: "none" }} />
       </ApplyModal>
+
+      {/* 인라인 편집 확인/취소 버튼 포털 */}
+      {inlineEditState.active && typeof window !== 'undefined' && ReactDOM.createPortal(
+        <div className="fixed z-[10000]" style={{ left: 0, top: 0, pointerEvents: 'none' }}>
+          <div
+            className="absolute -translate-x-1/2 flex gap-2"
+            style={{
+              left: (imageEditContainerRef.current?.getBoundingClientRect().left || 0) + (imageEditContainerRef.current?.getBoundingClientRect().width || 0) / 2,
+              top: (imageEditContainerRef.current?.getBoundingClientRect().bottom || 0) + 8,
+            }}
+          >
+            <div className="flex items-center gap-2" style={{ pointerEvents: 'auto' }}>
+              <Button color="gray" size="small" onClick={endInlineEditCancel}>취소</Button>
+              <Button color="primary" size="small" onClick={endInlineEditConfirm}>적용</Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* 우측 확대/축소/되돌리기 + 외부 음영 포털 */}
+      <EditToolsPortal />
 
       {/* 이미지 업로드 모달 */}
       {isUploadModalOpen && (

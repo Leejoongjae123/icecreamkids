@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/common/Button";
 
 interface ImageCountModalProps {
   isOpen: boolean;
@@ -139,14 +139,15 @@ export default function ImageCountModal({
           
           <div className="flex justify-center gap-3">
             <Button
-              variant="outline"
-              className="px-6 py-2"
+              color="line"
+              size="medium"
               onClick={handleCancel}
             >
               취소
             </Button>
             <Button
-              className="px-6 py-2 bg-primary hover:bg-primary/80 text-white"
+              color="primary"
+              size="medium"
               onClick={handleApply}
               disabled={!!error}
             >

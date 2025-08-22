@@ -14,10 +14,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus } from "lucide-react";
+import { Button } from "@/components/common/Button";
 
 interface GridOption {
   id: string;
@@ -161,31 +160,17 @@ const TableModal: React.FC<TableModalProps> = ({
         
         {/* Action Buttons */}
         <div className="flex justify-center space-x-2 px-10 max-md:px-5 max-sm:px-4 flex-shrink-0">
-          <button
-            onClick={handleClose}
-            className="flex justify-center items-center px-6 py-3 bg-gray-50 rounded-md border border-solid border-zinc-100 hover:bg-gray-100 transition-colors min-w-[100px]"
-          >
-            <div className="text-base font-medium text-gray-700">취소</div>
-          </button>
-          <button
+          <Button color="gray" className="min-w-[100px]" onClick={handleClose}>
+            닫기
+          </Button>
+          <Button
+            color="primary"
+            className="min-w-[100px]"
             onClick={handleApply}
             disabled={!selectedGrid || availableGrids.length === 0}
-            className={`
-              flex justify-center items-center px-6 py-3 rounded-md transition-colors min-w-[100px]
-              ${!selectedGrid || availableGrids.length === 0
-                ? "bg-gray-200 cursor-not-allowed"
-                : "bg-amber-400 hover:bg-amber-500"
-              }
-            `}
           >
-            <div className={`text-base font-medium ${
-              !selectedGrid || availableGrids.length === 0 
-                ? "text-gray-400" 
-                : "text-white"
-            }`}>
-              추가
-            </div>
-          </button>
+            적용
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

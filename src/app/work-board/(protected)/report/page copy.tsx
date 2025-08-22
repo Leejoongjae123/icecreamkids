@@ -84,33 +84,31 @@ function ReportPageContent() {
 
   return (
     <>
-      <div className="w-full overflow-x-auto">
-        <div className="flex w-full min-w-[1440px] max-w-[1440px] mx-auto justify-between min-h-screen mb-12">
-          <div className="w-[342px] h-full flex-shrink-0">
-            <LeftSideBar />
-          </div>
-          <div className="total-report w-[calc(794/1440*100%)] h-[1123px] overflow-visible flex flex-col mb-12">
-            {selectedReportType === "A" && (
-              <Suspense fallback={<div className="flex-1 flex items-center justify-center">Loading...</div>}>
-                <div className="flex-1 h-full">
-                  <ReportA />
-                </div>
-              </Suspense>
-            )}
-            {selectedReportType === "B" && (
+      <div className="flex w-full max-w-[1440px] justify-between min-h-screen mb-12">
+        <div className="w-full max-w-[342px] h-full">
+          <LeftSideBar />
+        </div>
+        <div className="total-report w-[794px] h-[1123px] overflow-visible flex flex-col mb-12">
+          {selectedReportType === "A" && (
+            <Suspense fallback={<div className="flex-1 flex items-center justify-center">Loading...</div>}>
               <div className="flex-1 h-full">
-                <ReportB />
+                <ReportA />
               </div>
-            )}
-            {selectedReportType === "C" && (
-              <div className="flex-1 h-full">
-                <ReportC />
-              </div>
-            )}
-          </div>
-          <div className="w-[166px] overflow-visible flex-shrink-0">
-            <RightSideBar />
-          </div>
+            </Suspense>
+          )}
+          {selectedReportType === "B" && (
+            <div className="flex-1 h-full">
+              <ReportB />
+            </div>
+          )}
+          {selectedReportType === "C" && (
+            <div className="flex-1 h-full">
+              <ReportC />
+            </div>
+          )}
+        </div>
+        <div className="min-w-[166px] overflow-visible">
+          <RightSideBar />
         </div>
       </div>
 

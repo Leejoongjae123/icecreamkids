@@ -45,8 +45,8 @@ function ApplyModal({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="p-0 border-0 bg-transparent shadow-none max-w-[400px]">
-        <div className="flex overflow-hidden flex-col pt-9 text-base tracking-tight bg-white rounded-3xl max-w-[400px] shadow-[1px_1px_4px_rgba(140,194,215,0.1)]">
+      <DialogContent className="">
+        <div className="flex overflow-hidden flex-col pt-9 text-base tracking-tight rounded-3xl max-w-[400px] shadow-[1px_1px_4px_rgba(140,194,215,0.1)]">
           {title && (
             <div className="self-center font-semibold text-lg text-gray-900 mb-4 px-6">
               {title}

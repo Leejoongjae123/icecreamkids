@@ -12,7 +12,7 @@ import TextStickerModal from "./TextStickerModal";
 import DecorationStickerModal from "./DecorationStickerModal";
 import ImageCountModal from "./ImageCountModal";
 import { MdPhotoLibrary } from "react-icons/md";
-import { clipPathItems } from "../dummy/svgData";
+import { ClipPathItem } from "./types";
 import { DecorationItemRemote } from "./types";
 import  useUserStore  from "@/hooks/store/useUserStore";
 import { useGridToolbarStore } from "@/hooks/store/useGridToolbarStore";
@@ -53,6 +53,7 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
   const [internalExpanded, setInternalExpanded] = useState(false);
   const { userInfo } = useUserStore();
   const { triggerCloseAll } = useGridToolbarStore();
+  const [photoFrames, setPhotoFrames] = useState<ClipPathItem[]>([]);
 
   const profileId = userInfo?.id ?? 0;
   // 디버깅용 useEffect
@@ -62,6 +63,24 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
 
   useEffect(() => {
     console.log("PhotoFrameModal 상태 변경:", isPhotoFrameModalOpen);
+  }, [isPhotoFrameModalOpen]);
+
+  // 모달이 열릴 때 사진틀 목록을 로드
+  useEffect(() => {
+    if (!isPhotoFrameModalOpen) {
+      return;
+    }
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const res = await fetch('/api/photo-frames', { cache: 'no-store', signal: controller.signal });
+        const json = await res.json();
+        const list: ClipPathItem[] = Array.isArray(json?.result) ? json.result : [];
+        setPhotoFrames(list);
+      } catch {}
+    };
+    load();
+    return () => controller.abort();
   }, [isPhotoFrameModalOpen]);
 
   // show가 true가 되면 약간의 지연 후 펼치기
@@ -175,24 +194,20 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
       return;
     }
     
-    // 선택된 프레임 인덱스에 따라 clipPath 데이터 가져오기
-    let clipPathData = null;
-    
-    // clipPathItems 배열의 인덱스와 selectedFrame을 매핑
-    if (selectedFrame >= 0 && selectedFrame < clipPathItems.length) {
-      clipPathData = clipPathItems[selectedFrame];
-      console.log("적용할 클립패스 데이터:", clipPathData);
+    // 선택된 인덱스를 현재 로드된 photoFrames에서 찾아 전달
+    let clipPathData: ClipPathItem | null = null;
+    if (selectedFrame >= 0 && selectedFrame < photoFrames.length) {
+      clipPathData = photoFrames[selectedFrame];
     }
-    
-    // 선택된 사진틀 데이터를 부모 컴포넌트로 전달
+
     if (clipPathData && targetGridId) {
       onIconClick(0, { 
         action: 'changePhotoFrame', 
         gridId: targetGridId, 
-        clipPathData: clipPathData 
+        clipPathData 
       });
     } else {
-      console.log("클립패스 데이터가 없거나 타겟 그리드 ID가 없음:", { clipPathData, targetGridId });
+      console.log("클립패스 데이터가 없거나 타겟 그리드 ID가 없음:", { clipPathData, targetGridId, selectedFrame });
       onIconClick(0); // 기존 로직도 호출
     }
   };

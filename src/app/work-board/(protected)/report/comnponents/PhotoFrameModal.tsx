@@ -2,7 +2,8 @@
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { clipPathItems } from "../dummy/svgData";
+import { useEffect } from "react";
+import { ClipPathItem } from "./types";
 
 interface PhotoFrameModalProps {
   isOpen: boolean;
@@ -19,10 +20,28 @@ const PhotoFrameModal: React.FC<PhotoFrameModalProps> = ({
     "category2",
   );
   const [selectedFrame, setSelectedFrame] = useState<number>(3); // Default to frame 3
+  const [items, setItems] = useState<ClipPathItem[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const res = await fetch('/api/photo-frames', { cache: 'no-store', signal: controller.signal });
+        const json = await res.json();
+        const list: ClipPathItem[] = Array.isArray(json?.result) ? json.result : [];
+        setItems(list);
+      } catch {}
+    };
+    load();
+    return () => controller.abort();
+  }, [isOpen]);
 
   const handleApply = () => {
     // 선택된 프레임이 유효한 clipPath 데이터를 가지고 있는지 확인
-    if (selectedFrame < clipPathItems.length) {
+    if (selectedFrame < items.length) {
       onApply(selectedFrame);
       onClose();
     } else {
@@ -82,7 +101,7 @@ const PhotoFrameModal: React.FC<PhotoFrameModalProps> = ({
         </div>
 
         {/* Tabs */}
-        <div className="px-10 max-md:px-5 max-sm:px-4 flex-shrink-0">
+        {/* <div className="px-10 max-md:px-5 max-sm:px-4 flex-shrink-0">
           <div className="flex space-x-8 border-b border-gray-200">
             <button
               className={cn(
@@ -113,16 +132,15 @@ const PhotoFrameModal: React.FC<PhotoFrameModalProps> = ({
               )}
             </button>
           </div>
-        </div>
+        </div> */}
 
         {/* Frame Grid */}
         <div className="flex-1 px-10 py-6 max-md:px-5 max-sm:px-4 overflow-y-auto min-h-0">
           <div className="grid grid-cols-4 gap-3 min-h-[400px]">
             {/* 4x4 그리드 유지 (16개 칸) */}
             {[...Array(16)].map((_, frameIndex) => {
-              // 처음 5개에만 svgData의 형상들을 표시
-              const clipPathData = frameIndex < clipPathItems.length 
-                ? clipPathItems[frameIndex] 
+              const clipPathData = frameIndex < items.length 
+                ? items[frameIndex] 
                 : null;
 
               return (
@@ -176,10 +194,7 @@ const PhotoFrameModal: React.FC<PhotoFrameModalProps> = ({
                   {/* 빈 프레임에는 클리핑 해제 표시 */}
                   {!clipPathData && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2">
-                      <div className="w-8 h-8 border-2 border-dashed border-gray-400 rounded mb-1"></div>
-                      <div className="text-xs text-gray-600 bg-white/80 px-1 py-0.5 rounded text-[10px]">
-                        클리핑 해제
-                      </div>
+                      
                     </div>
                   )}
                 </div>

@@ -87,7 +87,7 @@ function LeftSideBarContent() {
   };
 
   return (
-    <div className="rounded-xl bg-white shadow-custom flex w-full max-w-[480px] flex-col overflow-hidden mx-auto p-[30px_20px] border border-gray-200">
+    <div className="rounded-xl bg-white shadow-custom flex w-full max-w-[342px] flex-col overflow-hidden mx-auto p-[30px_20px] border border-gray-200">
       <div className="flex flex-col">
         <div className="flex font-pretendard leading-none justify-between items-center">
           <div className="text-gray-700 text-xl font-semibold tracking-tight">

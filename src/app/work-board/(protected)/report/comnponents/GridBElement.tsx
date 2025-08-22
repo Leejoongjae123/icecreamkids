@@ -102,6 +102,7 @@ function GridBElement({
     updateImages,
     updateCategoryValue,
     updateAiGenerated,
+    updateDriveItemKeys,
     gridContents,
   } = useGridContentStore();
 
@@ -286,37 +287,56 @@ function GridBElement({
     processUploadedFiles,
   } = useImageUpload({
     uploadedFiles,
-    onFilesUpload: (files: File[] | any[]) => {
+    onFilesUpload: async (files: File[] | any[]) => {
       console.log("📥 GridB 이미지 업로드 완료:", files);
 
       const imageUrls: string[] = [];
       const metadata: { url: string; driveItemKey?: string }[] = [];
 
-      files.forEach((item) => {
-        if (item instanceof File) {
-          // File 타입인 경우
-          const fileUrl = URL.createObjectURL(item);
-          imageUrls.push(fileUrl);
-          metadata.push({
-            url: fileUrl,
-            driveItemKey: `local_${Date.now()}_${Math.random()}`,
-          });
-          setUploadedFiles((prev) => [...prev, item]);
-        } else if (item && typeof item === "object" && item.thumbUrl) {
-          // SmartFolderItemResult 타입인 경우
-          imageUrls.push(item.thumbUrl);
-          metadata.push({
-            url: item.thumbUrl,
-            driveItemKey: item.driveItemKey,
-          });
+      // 1) 자료보드 선택(이미 업로드된 항목)
+      const smartItems = files.filter((f: any) => !(f instanceof File));
+      smartItems.forEach((item: any) => {
+        const url = item?.thumbUrl || item?.driveItemResult?.thumbUrl;
+        if (url) {
+          imageUrls.push(url);
+          metadata.push({ url, driveItemKey: item?.driveItemKey });
         }
       });
 
-      // 이미지 메타데이터 업데이트
-      setImageMetadata((prev) => [...prev, ...metadata]);
+      // 2) 로컬 파일 업로드 처리 (S3 업로드 후 thumbUrl/driveItemKey 반영)
+      const localFiles = files.filter((f: any) => f instanceof File) as File[];
+      if (localFiles.length > 0) {
+        const uploadResults = await Promise.all(
+          localFiles.map(async (file) => {
+            const res = await postFile({
+              file,
+              fileType: "IMAGE",
+              taskType: "ETC",
+              source: "FILE",
+              // 이미지의 경우 썸네일도 함께 업로드해 thumbUrl 생성
+              thumbFile: file,
+            });
+            if (res && !Array.isArray(res)) {
+              const anyRes = res as any;
+              const url = anyRes?.thumbUrl || anyRes?.driveItemResult?.thumbUrl;
+              const key = anyRes?.driveItemKey || anyRes?.driveItemResult?.driveItemKey;
+              if (url) {
+                imageUrls.push(url);
+                metadata.push({ url, driveItemKey: key });
+              }
+              setUploadedFiles((prev) => [...prev, file]);
+            }
+          })
+        );
+        void uploadResults;
+      }
 
-      // 이미지 URL들을 currentImages에 추가
-      handleImagesAdded(imageUrls);
+      if (metadata.length > 0) {
+        setImageMetadata((prev) => [...prev, ...metadata]);
+      }
+      if (imageUrls.length > 0) {
+        handleImagesAdded(imageUrls);
+      }
     },
     maxDataLength: imageCount, // 현재 이미지 개수만큼 제한
   });
@@ -327,6 +347,32 @@ function GridBElement({
       drop(dropRef);
     }
   }, [drop]);
+
+  // 네이티브 파일 드래그앤드롭 지원 (react-dnd 외부 파일 허용 없이도 동작)
+  React.useEffect(() => {
+    const el = dropRef.current;
+    if (!el) return;
+
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const files = Array.from(e.dataTransfer?.files || []);
+      if (files.length > 0) {
+        processUploadedFiles(files as File[]);
+      }
+    };
+
+    el.addEventListener("dragover", onDragOver as any);
+    el.addEventListener("drop", onDrop as any);
+    return () => {
+      el.removeEventListener("dragover", onDragOver as any);
+      el.removeEventListener("drop", onDrop as any);
+    };
+  }, [processUploadedFiles]);
 
   // 이미지 URL로 driveItemKey 찾기
   const getDriveItemKeyByImageUrl = React.useCallback(
@@ -804,10 +850,24 @@ function GridBElement({
           imageCount: imageCount,
         });
 
+        // driveItemKeys도 함께 업데이트
+        const driveItemKeys = finalImages
+          .map((imageUrl) => {
+            if (!imageUrl || imageUrl === "") {
+              return "";
+            }
+            return getDriveItemKeyByImageUrl(imageUrl) || "";
+          })
+          .filter((key) => key !== "");
+
+        if (gridId) {
+          updateDriveItemKeys(gridId, driveItemKeys);
+        }
+
         return finalImages;
       });
     },
-    [imageCount]
+    [imageCount, getDriveItemKeyByImageUrl, updateDriveItemKeys, gridId]
   );
 
   // 개별 이미지 추가 핸들러

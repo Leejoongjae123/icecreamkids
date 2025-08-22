@@ -24,7 +24,11 @@ export const useStickerStore = create<StickerStore>((set, get) => ({
         position: position || { x: 50, y: 50 },
         size: size || { width: 120, height: 120 },
         rotation: typeof rotation === 'number' ? rotation : 0,
-        zIndex: typeof zIndex === 'number' ? zIndex : 100000 + state.stickers.length,
+        // 기본 z-index는 30대에서 시작하여 모달(overlay 49, content 50)보다 항상 아래에 위치하도록 제한
+        zIndex:
+          typeof zIndex === 'number'
+            ? Math.min(Math.max(0, zIndex), 48)
+            : Math.min(48, 30 + state.stickers.length),
         // 메타데이터(원격 스티커 정보)는 선택적으로 포함
         ...(meta ? { meta } : ({} as any)),
       } as StickerItem;
@@ -62,10 +66,10 @@ export const useStickerStore = create<StickerStore>((set, get) => ({
 
   bringToFront: (id: string) =>
     set((state) => {
-      const maxZIndex = Math.max(...state.stickers.map((s) => s.zIndex), 100000);
+      const maxZIndex = Math.max(...state.stickers.map((s) => s.zIndex), 30);
       return {
         stickers: state.stickers.map((sticker) =>
-          sticker.id === id ? { ...sticker, zIndex: maxZIndex + 1 } : sticker
+          sticker.id === id ? { ...sticker, zIndex: Math.min(48, maxZIndex + 1) } : sticker
         ),
       };
     }),

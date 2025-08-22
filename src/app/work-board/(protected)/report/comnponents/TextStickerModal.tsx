@@ -5,6 +5,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useTextStickerStore } from "@/hooks/store/useTextStickerStore";
+import { Button } from "@/components/common/Button";
 
 interface TextStickerModalProps {
   isOpen: boolean;
@@ -41,6 +42,13 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
   const handleApply = () => {
     if (activeTab === "category1") {
       // 기본 텍스트 스티커 추가
+      const defaults =
+        selectedTextType === 'title'
+          ? { fontSize: 32, fontFamily: 'MaplestoryOTFBold' }
+          : selectedTextType === 'subtitle'
+          ? { fontSize: 28, fontFamily: 'Uiyeun' }
+          : { fontSize: 24, fontFamily: 'Arial' };
+
       addTextSticker({
         type: 'basic',
         textType: selectedTextType,
@@ -48,9 +56,9 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
         position: { x: 50, y: 50 },
         size: { width: 150, height: 50 },
         rotation: 0,
-        fontSize: 16,
+        fontSize: defaults.fontSize,
         fontColor: '#000000',
-        fontFamily: 'Arial',
+        fontFamily: defaults.fontFamily,
       });
     } else {
       // 말풍선 텍스트 스티커 추가
@@ -184,9 +192,14 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
                     "flex items-center space-x-4 p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors",
                     selectedTextType === "title" && "border-2 border-primary border-solid bg-primary/10",
                   )}
+                  onClick={() => setSelectedTextType("title")}
                 >
                   <RadioGroupItem value="title" id="title" />
-                  <Label htmlFor="title" className="text-base font-medium text-gray-700 cursor-pointer">
+                  <Label
+                    htmlFor="title"
+                    className="text-base font-medium text-gray-700 cursor-pointer"
+                    style={{ fontFamily: 'MaplestoryOTFBold', fontSize: 32 }}
+                  >
                     제목 텍스트추가
                   </Label>
                 </div>
@@ -197,9 +210,14 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
                     "flex items-center space-x-4 p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors",
                     selectedTextType === "subtitle" && "border-2 border-primary border-solid bg-primary/10",
                   )}
+                  onClick={() => setSelectedTextType("subtitle")}
                 >
                   <RadioGroupItem value="subtitle" id="subtitle" />
-                  <Label htmlFor="subtitle" className="text-base font-medium text-gray-700 cursor-pointer">
+                  <Label
+                    htmlFor="subtitle"
+                    className="text-base font-medium text-gray-700 cursor-pointer"
+                    style={{ fontFamily: 'Uiyeun', fontSize: 28 }}
+                  >
                     부제목 텍스트추가
                   </Label>
                 </div>
@@ -210,9 +228,14 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
                     "flex items-center space-x-4 p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors",
                     selectedTextType === "body" && "border-2 border-primary border-solid bg-primary/10",
                   )}
+                  onClick={() => setSelectedTextType("body")}
                 >
                   <RadioGroupItem value="body" id="body" />
-                  <Label htmlFor="body" className="text-base font-medium text-gray-700 cursor-pointer">
+                  <Label
+                    htmlFor="body"
+                    className="text-base font-medium text-gray-700 cursor-pointer"
+                    style={{ fontFamily: 'Arial', fontSize: 24 }}
+                  >
                     본문 텍스트추가
                   </Label>
                 </div>
@@ -257,22 +280,12 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
 
         {/* Action Buttons */}
         <div className="flex justify-center space-x-2 px-10 pb-10 max-md:px-5 max-sm:px-4 flex-shrink-0 ">
-          <button
-            className={cn(
-              "flex justify-center items-center px-6 py-3 bg-gray-50 rounded-md border border-solid border-zinc-100 hover:bg-gray-100 transition-colors min-w-[100px]"
-            )}
-            onClick={onClose}
-          >
-            <div className="text-base font-medium text-gray-700">닫기</div>
-          </button>
-          <button
-            className={cn(
-              "flex justify-center items-center px-6 py-3 bg-amber-400 rounded-md hover:bg-amber-500 transition-colors min-w-[100px]"
-            )}
-            onClick={handleApply}
-          >
-            <div className="text-base font-medium text-white">적용</div>
-          </button>
+          <Button color="gray" className="min-w-[100px]" onClick={onClose}>
+            닫기
+          </Button>
+          <Button color="primary" className="min-w-[100px]" onClick={handleApply}>
+            적용
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/common/Button";
 import { useStickerStore } from "@/hooks/store/useStickerStore";
 import {
   DecorationCategoryRemote,
@@ -222,22 +223,12 @@ const DecorationStickerModal: React.FC<DecorationStickerModalProps> = ({
 
         {/* Action Buttons */}
         <div className="flex justify-center space-x-2 px-10 pb-10 max-md:px-5 max-sm:px-4 flex-shrink-0 ">
-          <button
-            className={cn(
-              "flex justify-center items-center px-6 py-3 bg-gray-50 rounded-md border border-solid border-zinc-100 hover:bg-gray-100 transition-colors min-w-[100px]"
-            )}
-            onClick={onClose}
-          >
-            <div className="text-base font-medium text-gray-700">닫기</div>
-          </button>
-          <button
-            className={cn(
-              "flex justify-center items-center px-6 py-3 bg-amber-400 rounded-md hover:bg-amber-500 transition-colors min-w-[100px]"
-            )}
-            onClick={handleApply}
-          >
-            <div className="text-base font-medium text-white">적용</div>
-          </button>
+          <Button color="line" size="medium" className="min-w-[100px]" onClick={onClose}>
+            닫기
+          </Button>
+          <Button color="primary" size="medium" className="min-w-[100px]" onClick={handleApply}>
+            적용
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
