@@ -1631,6 +1631,63 @@ function GridAElement({
     [imageCount, getDriveItemKeyByImageUrl, updateDriveItemKeys, gridId]
   );
 
+  // 업로드 모달 확정 시: 선택 개수 검증 (불일치 시 토스트 경고, 일치 시 처리)
+  const handleConfirmFromUploadModal = React.useCallback(
+    (items?: any[]) => {
+      const selectedItems = Array.isArray(items) ? items : [];
+      const selectedCount = selectedItems.length;
+
+      if (selectedCount === 0) {
+        // 아무것도 선택하지 않으면 경고만 표시하고 유지
+        addToast({ message: "이미지를 선택해주세요." });
+        return;
+      }
+
+      // imageCount와 선택 개수가 다르면 경고 후 중단 (모달 유지)
+      if (selectedCount !== imageCount) {
+        addToast({ message: `이미지 ${imageCount}개를 선택해주세요.` });
+        return;
+      }
+
+      // 선택 항목을 URL/KEY로 변환
+      const urls: string[] = [];
+      const keys: string[] = [];
+      selectedItems.forEach((item: any) => {
+        const url = item?.thumbUrl || item?.driveItemResult?.thumbUrl;
+        if (url) {
+          urls.push(url);
+          const key = item?.driveItemKey || item?.driveItemResult?.driveItemKey;
+          if (key) keys.push(key);
+        }
+      });
+
+      // 메타데이터 주입 및 로컬 이미지 반영
+      if (urls.length > 0) {
+        setImageMetadata((prev) => {
+          const next = [...prev];
+          urls.forEach((u, idx) => {
+            const k = keys[idx];
+            if (u) next.push({ url: u, driveItemKey: k });
+          });
+          return next;
+        });
+        handleImagesAdded(urls);
+      }
+
+      // 스토어도 즉시 업데이트
+      if (gridId && urls.length > 0) {
+        updateImages(gridId, urls.slice(0, selectedCount));
+        const validKeys = keys.filter((k) => typeof k === "string" && k.length > 0);
+        if (validKeys.length > 0) {
+          updateDriveItemKeys(gridId, validKeys.slice(0, selectedCount));
+        }
+      }
+
+      handleCloseUploadModal();
+    },
+    [gridId, imageCount, updateImages, updateDriveItemKeys, setImageMetadata, handleImagesAdded, handleCloseUploadModal, addToast]
+  );
+
   // 개별 이미지 추가 핸들러
   const handleSingleImageAdded = React.useCallback(
     (hasImage: boolean, imageIndex: number) => {
@@ -2871,7 +2928,24 @@ function GridAElement({
       console.log(
         `그리드 ${data.gridId}의 이미지 개수를 ${data.count}개로 변경`
       );
-      setImageCount(data.count);
+      const nextCount = data.count as number;
+      setImageCount(nextCount);
+
+      // 개수를 줄이는 경우(store가 다시 끌어올리는 현상 방지):
+      // 스토어의 이미지/키를 즉시 잘라내어 storeCount도 함께 내려가도록 동기화
+      if (gridId && nextCount < imageCount) {
+        const trimmedImages = Array.isArray(currentImages)
+          ? currentImages.slice(0, nextCount)
+          : [];
+        updateImages(gridId, trimmedImages);
+
+        const trimmedKeys = trimmedImages
+          .map((url) => (url ? getDriveItemKeyByImageUrl(url) || "" : ""))
+          .filter((k) => k !== "");
+        if (trimmedKeys.length > 0) {
+          updateDriveItemKeys(gridId, trimmedKeys.slice(0, nextCount));
+        }
+      }
     }
 
     // 사진 배경 제거 처리 (인덱스 3) - 새로운 배경 제거 API 사용
@@ -4250,7 +4324,7 @@ function GridAElement({
         <UploadModal
           isOpen={isUploadModalOpen}
           onCancel={handleCloseUploadModal}
-          onConfirm={handleConfirmUploadModal}
+          onConfirm={handleConfirmFromUploadModal}
           setItemData={handleSetItemData}
           isMultiUpload
           allowsFileTypes={["IMAGE"]}
