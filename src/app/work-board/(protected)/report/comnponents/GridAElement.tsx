@@ -1851,6 +1851,22 @@ function GridAElement({
           "AI 텍스트 생성에 성공했지만 내용을 추출할 수 없습니다."; // 기본값
       }
 
+      // 타이틀 추출 및 categoryValue 업데이트
+      let generatedTitle = "";
+      if (result?.status === 200 && result?.result?.title) {
+        generatedTitle = result.result.title as string;
+      } else if (result?.success && result?.data?.result?.title) {
+        generatedTitle = result.data.result.title as string;
+      } else if (result?.title) {
+        generatedTitle = result.title as string;
+      } else if (result?.data?.title) {
+        generatedTitle = result.data.title as string;
+      }
+
+      if (generatedTitle && typeof generatedTitle === "string") {
+        setCategoryValue(generatedTitle);
+      }
+
       // 생성된 텍스트를 description으로 업데이트
       setDescriptionText(generatedText);
 

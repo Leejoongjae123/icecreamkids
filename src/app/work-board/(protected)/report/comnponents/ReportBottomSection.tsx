@@ -46,7 +46,9 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
   });
 
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const maxLength = 300; // 최대 글자수
+  const MAX_PLAY_ACTIVITY = 300; // 이렇게 놀이 했어요
+  const MAX_LEARNING_POINT = 300; // 놀이속 배움
+  const MAX_TEACHER_SUPPORT = 200; // 교사 지원
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -85,9 +87,11 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
       return;
     }
     try {
-      setPlayActivityText(initialData.playActivityText || "");
-      setTeacherSupportText(initialData.teacherSupportText || "");
-      setHomeConnectionText(initialData.homeConnectionText || "");
+      setPlayActivityText((initialData.playActivityText || "").slice(0, MAX_PLAY_ACTIVITY));
+      // objective -> 놀이속 배움(teacherSupportText로 관리)
+      setTeacherSupportText((initialData.teacherSupportText || "").slice(0, MAX_LEARNING_POINT));
+      // support -> 교사 지원(homeConnectionText로 관리)
+      setHomeConnectionText((initialData.homeConnectionText || "").slice(0, MAX_TEACHER_SUPPORT));
       setVisibleGrids({
         playActivity: initialData.visibleGrids?.playActivity ?? (type === "C"),
         teacherSupport: initialData.visibleGrids?.teacherSupport ?? true,
@@ -114,18 +118,18 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
       
       if (playRecordResult.subject && playRecordResult.subject.trim()) {
         console.log('playActivity 텍스트 설정:', playRecordResult.subject);
-        setPlayActivityText(playRecordResult.subject);
+        setPlayActivityText(playRecordResult.subject.slice(0, MAX_PLAY_ACTIVITY));
         setLlmFilled(prev => ({ ...prev, playActivity: true }));
       }
       // LLM 결과를 섹션 간 교체: objective -> 놀이속 배움, support -> 교사지원
       if (playRecordResult.objective && playRecordResult.objective.trim()) {
         console.log('teacherSupport(놀이속 배움) 텍스트 설정:', playRecordResult.objective);
-        setTeacherSupportText(playRecordResult.objective);
+        setTeacherSupportText(playRecordResult.objective.slice(0, MAX_LEARNING_POINT));
         setLlmFilled(prev => ({ ...prev, teacherSupport: true }));
       }
       if (playRecordResult.support && playRecordResult.support.trim()) {
         console.log('homeConnection(교사지원) 텍스트 설정:', playRecordResult.support);
-        setHomeConnectionText(playRecordResult.support);
+        setHomeConnectionText(playRecordResult.support.slice(0, MAX_TEACHER_SUPPORT));
         setLlmFilled(prev => ({ ...prev, homeConnection: true }));
       }
     }
@@ -175,21 +179,21 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
         if (!llmFilled.playActivity) {
           return;
         }
-        setPlayActivityText(value);
+        setPlayActivityText(value.slice(0, MAX_PLAY_ACTIVITY));
         break;
       case "teacherSupport":
         // LLM 입력 전에는 자유 입력 비활성화
         if (!llmFilled.teacherSupport) {
           return;
         }
-        setTeacherSupportText(value);
+        setTeacherSupportText(value.slice(0, MAX_LEARNING_POINT));
         break;
       case "homeConnection":
         // LLM 입력 전에는 자유 입력 비활성화
         if (!llmFilled.homeConnection) {
           return;
         }
-        setHomeConnectionText(value);
+        setHomeConnectionText(value.slice(0, MAX_TEACHER_SUPPORT));
         break;
     }
   };
@@ -380,7 +384,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
               className="flex-1 mx-2 mb-1 px-1 py-0.5 border-none outline-none resize-none text-[12px] leading-[1.1]"
               autoFocus={activeSection === "playActivity"}
               readOnly={!llmFilled.playActivity}
-              maxLength={maxLength}
+              maxLength={MAX_PLAY_ACTIVITY}
             />
           )}
           {/* 그리드 삭제 버튼 */}
@@ -388,7 +392,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
           {!isSaved && (
             <div className="absolute bottom-1 right-2 text-[10px] font-bold">
               <span className="text-[#444444]">{playActivityText.length}</span>
-              <span className="text-[#B3B3B3]">/{maxLength}</span>
+              <span className="text-[#B3B3B3]">/{MAX_PLAY_ACTIVITY}</span>
             </div>
           )}
 
@@ -399,6 +403,11 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
               isExpanded={true}
               position={toolbarPosition}
               onIconClick={handleToolbarIconClick}
+              canAdd={
+                // 삭제된 틀이 있을 때만 '틀 추가' 노출
+                (type === "C" && (!visibleGrids.teacherSupport || !visibleGrids.homeConnection || !visibleGrids.playActivity)) ||
+                (type !== "C" && (!visibleGrids.teacherSupport || !visibleGrids.homeConnection))
+              }
               usePortal={true}
               onMouseEnter={() => {
                 if (hoverHideTimerRef.current) {
@@ -454,7 +463,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
                 className="flex-1 mx-2 mb-1 px-1 py-0.5 border-none outline-none resize-none text-[12px] leading-[1.1]"
                 autoFocus={activeSection === "teacherSupport"}
                 readOnly={!llmFilled.teacherSupport}
-                maxLength={maxLength}
+                maxLength={MAX_LEARNING_POINT}
               />
             )}
             {/* 그리드 삭제 버튼 */}
@@ -462,7 +471,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
             {!isSaved && (
               <div className="absolute bottom-1 right-2 text-[10px] font-bold">
                 <span className="text-[#444444]">{teacherSupportText.length}</span>
-                <span className="text-[#B3B3B3]">/300</span>
+                <span className="text-[#B3B3B3]">/{MAX_LEARNING_POINT}</span>
               </div>
             )}
 
@@ -473,6 +482,10 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
                 isExpanded={true}
                 position={toolbarPosition}
                 onIconClick={handleToolbarIconClick}
+                canAdd={
+                  (type === "C" && (!visibleGrids.teacherSupport || !visibleGrids.homeConnection || !visibleGrids.playActivity)) ||
+                  (type !== "C" && (!visibleGrids.teacherSupport || !visibleGrids.homeConnection))
+                }
                 usePortal={true}
                 onMouseEnter={() => {
                   if (hoverHideTimerRef.current) {
@@ -522,7 +535,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
                 className="flex-1 mx-2 mb-1 px-1 py-0.5 border-none outline-none resize-none text-[12px] leading-[1.1]"
                 autoFocus={activeSection === "homeConnection"}
                 readOnly={!llmFilled.homeConnection}
-                maxLength={maxLength}
+                maxLength={MAX_TEACHER_SUPPORT}
               />
             )}
             {/* 그리드 삭제 버튼 */}
@@ -530,7 +543,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
             {!isSaved && (
               <div className="absolute bottom-2 right-2 text-xs font-bold">
                 <span className="text-[#444444]">{homeConnectionText.length}</span>
-                <span className="text-[#B3B3B3]">/200</span>
+                <span className="text-[#B3B3B3]">/{MAX_TEACHER_SUPPORT}</span>
               </div>
             )}
 
@@ -541,6 +554,10 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
                 isExpanded={true}
                 position={toolbarPosition}
                 onIconClick={handleToolbarIconClick}
+                canAdd={
+                  (type === "C" && (!visibleGrids.teacherSupport || !visibleGrids.homeConnection || !visibleGrids.playActivity)) ||
+                  (type !== "C" && (!visibleGrids.teacherSupport || !visibleGrids.homeConnection))
+                }
                 usePortal={true}
                 onMouseEnter={() => {
                   if (hoverHideTimerRef.current) {

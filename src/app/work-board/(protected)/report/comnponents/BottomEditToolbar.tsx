@@ -19,6 +19,8 @@ interface BottomEditToolbarProps {
   usePortal?: boolean;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  // 삭제된 틀이 없을 때 '틀 추가' 버튼을 숨기기 위한 플래그
+  canAdd?: boolean;
 }
 
 const BottomEditToolbar: React.FC<BottomEditToolbarProps> = ({
@@ -29,6 +31,7 @@ const BottomEditToolbar: React.FC<BottomEditToolbarProps> = ({
   usePortal = true,
   onMouseEnter,
   onMouseLeave,
+  canAdd = true,
 }) => {
   const [internalExpanded, setInternalExpanded] = useState(false);
 
@@ -46,30 +49,38 @@ const BottomEditToolbar: React.FC<BottomEditToolbarProps> = ({
     }
   }, [show]);
 
-  // 툴팁 텍스트
-  const tooltipTexts = [
-    "틀 추가",
-    "틀 삭제",
-  ];
+  // 렌더링할 버튼 구성 (canAdd에 따라 '틀 추가' 숨김)
+  const buttons = canAdd
+    ? [
+        {
+          tooltip: "틀 추가",
+          iconUrl: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix6.svg",
+          action: "addFrame",
+        },
+        {
+          tooltip: "틀 삭제",
+          iconUrl: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix5.svg",
+          action: "deleteFrame",
+        },
+      ]
+    : [
+        {
+          tooltip: "틀 삭제",
+          iconUrl: "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix5.svg",
+          action: "deleteFrame",
+        },
+      ];
 
-  // 아이콘 URL
-  const iconUrls = [
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix6.svg", // 틀 추가
-    "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix5.svg", // 틀 삭제
-  ];
-
-  const iconCount = 2;
+  const iconCount = buttons.length;
   const containerWidth = `${iconCount * (38 + 12) - 12}px`;
 
   // 아이콘 클릭 핸들러
   const handleIconClick = (index: number) => {
-    if (index === 0) {
-      // 틀 추가
-      onIconClick('addFrame');
-    } else if (index === 1) {
-      // 틀 삭제
-      onIconClick('deleteFrame');
+    const btn = buttons[index];
+    if (!btn) {
+      return;
     }
+    onIconClick(btn.action);
   };
 
 
@@ -109,7 +120,7 @@ const BottomEditToolbar: React.FC<BottomEditToolbarProps> = ({
                 onClick={() => handleIconClick(index)}
               >
                 <Image
-                  src={iconUrls[index]}
+                  src={buttons[index].iconUrl}
                   alt={`icon-${index}`}
                   width={18}
                   height={18}
@@ -121,7 +132,7 @@ const BottomEditToolbar: React.FC<BottomEditToolbarProps> = ({
               side="bottom"
               className="bg-primary text-white text-sm px-2 py-1"
             >
-              {tooltipTexts[index]}
+              {buttons[index].tooltip}
             </TooltipContent>
           </Tooltip>
         ))}

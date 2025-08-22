@@ -19,9 +19,10 @@ import SubjectSelector from "./SubjectSelector";
 import PhotoSelector from "./PhotoSelector";
 import InputDesign from "./InputDesign";
 import usePlayRecordStore from "@/hooks/store/usePlayRecordStore";
-import { Loader } from "@/components/ui/loader";
+import Loader from "@/components/common/Loader";
 import useGridCStore from "@/hooks/store/useGridCStore";
 import FilterButton from "@/components/ui/filter-button";
+import { useLoadingState } from "@/hooks/useLoadingState";
 
 function RightSideBarContent() {
   const searchParams = useSearchParams();
@@ -87,6 +88,16 @@ function RightSideBarContent() {
   const { getImagesPayload, getImagesForValidation } = useGridCStore();
   // 상태 변경에 반응하도록 byGridId를 구독 (버튼 활성화 즉시 반영)
   const gridCMap = useGridCStore((s) => s.byGridId);
+
+  // useLoadingState로 로딩 메시지/표시 관리
+  const { isLoading: isLoadingCreate, message: loadingMessage } = useLoadingState([
+    {
+      name: "CreatePlayRecord",
+      isLoading: isCreatingPlayRecord,
+      message: "놀이기록 생성중입니다. 잠시만 기다려주세요.",
+      priority: 1,
+    },
+  ]);
 
   // 초기 렌더링 시 searchParams에서 age 값 읽어오기
   useEffect(() => {
@@ -520,12 +531,12 @@ function RightSideBarContent() {
           return (
             imgs.length > 0 &&
             imgs.every((it) => (it.userTextForImage || "").trim().length > 0) &&
-            !isCreatingPlayRecord
+            !isLoadingCreate
           );
         })()
       : reportCaptions.length > 0 &&
         hasAnyAiGeneratedContent() &&
-        !isCreatingPlayRecord;
+        !isLoadingCreate;
 
   return (
     <div className="flex flex-col gap-2.5 max-h-[calc(100vh-120px)] overflow-y-auto overflow-x-visible scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
@@ -712,20 +723,8 @@ function RightSideBarContent() {
       </div> */}
 
       {/* 놀이기록 생성 로딩 오버레이 */}
-      {isCreatingPlayRecord && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* 배경 오버레이 (opacity 20%) */}
-          <div className="absolute inset-0 bg-black opacity-20" />
-
-          {/* 중앙 로더 */}
-          <div className="relative z-10 p-8">
-            <Loader
-              size="xl"
-              text="놀이기록을 생성하고 있습니다..."
-              className="text-center"
-            />
-          </div>
-        </div>
+      {isLoadingCreate && (
+        <Loader hasOverlay loadingMessage={loadingMessage || "놀이기록 생성중입니다. 잠시만 기다려주세요."} />
       )}
     </div>
   );

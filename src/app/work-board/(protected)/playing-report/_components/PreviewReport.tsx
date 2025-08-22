@@ -652,7 +652,7 @@ const PreviewReportClient = ({
                     <FormField
                       control={control}
                       name="objective"
-                      render={({ field }) => <Textarea id="studyContent" {...field} maxLength={500} />}
+                      render={({ field }) => <Textarea id="studyContent" {...field} maxLength={300} />}
                     />
                   ) : (
                     <span
@@ -670,7 +670,7 @@ const PreviewReportClient = ({
                     <FormField
                       control={control}
                       name="support"
-                      render={({ field }) => <Textarea id="teacherContent" {...field} maxLength={300} />}
+                      render={({ field }) => <Textarea id="teacherContent" {...field} maxLength={200} />}
                     />
                   ) : (
                     <span
