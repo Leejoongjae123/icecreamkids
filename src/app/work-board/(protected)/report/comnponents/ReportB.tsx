@@ -46,7 +46,7 @@ function ReportBContent() {
   const { textStickers } = useTextStickerStore();
   const { gridContents } = useGridContentStore();
   const { saveCurrentReport, isSaved, setSaved, exportToArticleDataFile } = useSavedDataStore();
-  const { downloadSimpleImage, previewSimpleImage, checkElement } = useSimpleCaptureImage();
+  const { downloadSimpleImage, previewSimpleImage, checkElement, getSimpleImageDataUrl } = useSimpleCaptureImage();
 
   // 마우스 위치 추적 기능
   const { startTracking, stopTracking, toggleTracking, isTracking } = useMousePositionTracker({
@@ -118,53 +118,42 @@ function ReportBContent() {
   };
   console.log("backgroundImageUrlB:", backgroundImageUrl);
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     try {
-      const printContainer = document.querySelector('.print-container') as HTMLElement;
-      if (!printContainer) {
-        alert('인쇄할 내용을 찾을 수 없습니다.');
+      const dataUrl = await getSimpleImageDataUrl('report-download-area');
+      if (!dataUrl) {
+        alert('인쇄할 이미지를 생성하지 못했습니다. 다시 시도해주세요.');
         return;
       }
-
-      const styles = Array.from(document.styleSheets)
-        .map(styleSheet => {
-          try {
-            return Array.from(styleSheet.cssRules).map(rule => (rule as CSSStyleRule).cssText).join('\n');
-          } catch (_e) { return ''; }
-        }).join('\n');
-
       const printWindow = window.open('', '_blank');
       if (printWindow) {
-        const printContent = `<!DOCTYPE html><html><head><title>놀이기록 인쇄</title><meta charset="utf-8"><style>${styles}
-          body{margin:0!important;padding:0!important;background:white!important;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
-          .print-container{width:100%!important;height:auto!important;margin:0!important;padding:20px!important;background:white!important;box-shadow:none!important;border:none!important;border-radius:0!important;overflow:visible!important}
-          .print-hide{display:none!important}
-          img{max-width:100%!important;height:auto!important;display:block!important}
-          @media print{body{margin:0!important;padding:0!important}.print-container{padding:10mm!important}@page{margin:0;size:A4}*{color-adjust:exact!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}
-        </style></head><body>${printContainer.outerHTML}</body></html>`;
-        printWindow.document.write(printContent);
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8" />
+          <title>놀이기록 인쇄</title>
+          <style>
+            html,body{margin:0;padding:0;background:#fff}
+            @page{size:A4;margin:0}
+            *{color-adjust:exact!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+            .page{width:210mm; margin:0 auto; padding:0}
+            img{width:210mm; max-width:100%; height:auto; display:block}
+          </style>
+        </head><body>
+          <div class="page"><img src="${dataUrl}" /></div>
+        </body></html>`;
+        printWindow.document.write(html);
         printWindow.document.close();
-
-        let loadedImages = 0;
-        const images = printWindow.document.querySelectorAll('img');
-        const totalImages = images.length;
-        if (totalImages === 0) {
-          setTimeout(() => { printWindow.print(); printWindow.close(); }, 1000);
-        } else {
-          images.forEach(img => {
-            const el = img as HTMLImageElement;
-            if (el.complete) { loadedImages++; }
-            else {
-              el.onload = () => { loadedImages++; if (loadedImages === totalImages) { setTimeout(() => { printWindow.print(); printWindow.close(); }, 500); } };
-              el.onerror = () => { loadedImages++; if (loadedImages === totalImages) { setTimeout(() => { printWindow.print(); printWindow.close(); }, 500); } };
-            }
-          });
-          if (loadedImages === totalImages) {
-            setTimeout(() => { printWindow.print(); printWindow.close(); }, 1000);
+        const img = printWindow.document.images[0];
+        if (img) {
+          if (img.complete) {
+            setTimeout(() => { printWindow.print(); printWindow.close(); }, 200);
+          } else {
+            img.onload = () => { setTimeout(() => { printWindow.print(); printWindow.close(); }, 100); };
+            img.onerror = () => { setTimeout(() => { printWindow.print(); printWindow.close(); }, 300); };
           }
+        } else {
+          setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
         }
       }
-    } catch (_error) {
+    } catch (_e) {
       alert('인쇄 중 오류가 발생했습니다. 다시 시도해주세요.');
     }
   };

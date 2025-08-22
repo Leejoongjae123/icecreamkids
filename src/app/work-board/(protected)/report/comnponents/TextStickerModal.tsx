@@ -262,7 +262,7 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
                       <img
                         src={bubble.url}
                         alt={`말풍선 ${index + 1}`}
-                        className="w-full h-full object-contain rounded-lg p-2"
+                        className="w-full h-full object-fill rounded-lg p-2"
                         onError={(e) => {
                           // 이미지 로드 실패시 처리
                           e.currentTarget.style.display = 'none';

@@ -48,7 +48,7 @@ function ReportAContent() {
   const { saveCurrentReport, currentSavedData, isSaved, setSaved, exportToArticleDataFile } = useSavedDataStore();
   const { gridContents, setAllGridContents } = useGridContentStore();
   const { downloadImage } = useCaptureImage();
-  const { downloadSimpleImage, previewSimpleImage, checkElement } = useSimpleCaptureImage();
+  const { downloadSimpleImage, previewSimpleImage, checkElement, getSimpleImageDataUrl } = useSimpleCaptureImage();
   const backgroundImageUrl = backgroundImageUrlByType["A"];
   const stickerContainerRef = useRef<HTMLDivElement>(null);
   const gridARef = useRef<GridARef>(null);
@@ -317,153 +317,44 @@ function ReportAContent() {
     setSaved(false);
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     try {
-      const printContainer = document.querySelector('.print-container') as HTMLElement;
-      if (!printContainer) {
-        alert('인쇄할 내용을 찾을 수 없습니다.');
+      const dataUrl = await getSimpleImageDataUrl('report-download-area');
+      if (!dataUrl) {
+        alert('인쇄할 이미지를 생성하지 못했습니다. 다시 시도해주세요.');
         return;
       }
 
-      // 현재 문서의 모든 스타일시트를 수집
-      const styles = Array.from(document.styleSheets)
-        .map(styleSheet => {
-          try {
-            return Array.from(styleSheet.cssRules)
-              .map(rule => rule.cssText)
-              .join('\n');
-          } catch (e) {
-            // CORS 정책으로 인해 접근할 수 없는 외부 스타일시트는 무시
-            return '';
-          }
-        })
-        .join('\n');
-
-      // 현재 페이지의 모든 폰트와 이미지를 포함한 완전한 HTML 복사
       const printWindow = window.open('', '_blank');
       if (printWindow) {
-        const printContent = `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>놀이기록 인쇄</title>
-              <meta charset="utf-8">
-              <style>
-                ${styles}
-                
-                /* 인쇄 전용 스타일 */
-                body {
-                  margin: 0 !important;
-                  padding: 0 !important;
-                  background: white !important;
-                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                }
-                
-                .print-container {
-                  width: 100% !important;
-                  height: auto !important;
-                  margin: 0 !important;
-                  padding: 20px !important;
-                  background: white !important;
-                  box-shadow: none !important;
-                  border: none !important;
-                  border-radius: 0 !important;
-                  overflow: visible !important;
-                }
-                
-                /* 버튼들 숨기기 */
-                .print-hide {
-                  display: none !important;
-                }
-                
-                /* 이미지와 배경 이미지 보정 */
-                img {
-                  max-width: 100% !important;
-                  height: auto !important;
-                  display: block !important;
-                }
-                
-                @media print {
-                  body {
-                    margin: 0 !important;
-                    padding: 0 !important;
-                  }
-                  
-                  .print-container {
-                    padding: 10mm !important;
-                  }
-                  
-                  @page {
-                    margin: 0;
-                    size: A4;
-                  }
-                  
-                  * {
-                    color-adjust: exact !important;
-                    -webkit-print-color-adjust: exact !important;
-                    print-color-adjust: exact !important;
-                  }
-                }
-              </style>
-            </head>
-            <body>
-              ${printContainer.outerHTML}
-            </body>
-          </html>
-        `;
-
-        printWindow.document.write(printContent);
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8" />
+          <title>놀이기록 인쇄</title>
+          <style>
+            html,body{margin:0;padding:0;background:#fff}
+            @page{size:A4;margin:0}
+            *{color-adjust:exact!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+            .page{width:210mm; margin:0 auto; padding:0}
+            img{width:210mm; max-width:100%; height:auto; display:block}
+          </style>
+        </head><body>
+          <div class="page"><img src="${dataUrl}" /></div>
+        </body></html>`;
+        printWindow.document.write(html);
         printWindow.document.close();
 
-        // 이미지 로딩 대기 후 인쇄
-        let loadedImages = 0;
-        const images = printWindow.document.querySelectorAll('img');
-        const totalImages = images.length;
-
-        if (totalImages === 0) {
-          // 이미지가 없으면 바로 인쇄
-          setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-          }, 1000);
-        } else {
-          // 모든 이미지 로딩 완료 후 인쇄
-          images.forEach(img => {
-            if (img.complete) {
-              loadedImages++;
-            } else {
-              img.onload = () => {
-                loadedImages++;
-                if (loadedImages === totalImages) {
-                  setTimeout(() => {
-                    printWindow.print();
-                    printWindow.close();
-                  }, 500);
-                }
-              };
-              img.onerror = () => {
-                loadedImages++;
-                if (loadedImages === totalImages) {
-                  setTimeout(() => {
-                    printWindow.print();
-                    printWindow.close();
-                  }, 500);
-                }
-              };
-            }
-          });
-
-          // 이미지가 이미 로드된 경우
-          if (loadedImages === totalImages) {
-            setTimeout(() => {
-              printWindow.print();
-              printWindow.close();
-            }, 1000);
+        const img = printWindow.document.images[0];
+        if (img) {
+          if (img.complete) {
+            setTimeout(() => { printWindow.print(); printWindow.close(); }, 200);
+          } else {
+            img.onload = () => { setTimeout(() => { printWindow.print(); printWindow.close(); }, 100); };
+            img.onerror = () => { setTimeout(() => { printWindow.print(); printWindow.close(); }, 300); };
           }
+        } else {
+          setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
         }
       }
-    } catch (error) {
-      console.log('인쇄 중 오류가 발생했습니다:', error);
+    } catch (_e) {
       alert('인쇄 중 오류가 발생했습니다. 다시 시도해주세요.');
     }
   };
@@ -608,7 +499,7 @@ function ReportAContent() {
           <div
             ref={stickerContainerRef}
             id="report-download-area"
-            className="relative flex flex-col w-full h-full justify-between gap-y-3 px-4 py-4 rounded-br-xl rounded-bl-xl overflow-hidden print-area"
+            className="relative aspect-[210/297] flex flex-col w-full h-full justify-between gap-y-3 px-4 py-4 rounded-br-xl rounded-bl-xl overflow-hidden print-area"
           >
             {/* 배경 이미지 */}
             {backgroundImageUrl && (

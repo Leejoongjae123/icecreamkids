@@ -438,7 +438,7 @@ const DraggableTextSticker: React.FC<DraggableTextStickerProps> = ({ sticker, co
             left: 0,
             width: '100%',
             height: '100%',
-            objectFit: 'contain',
+            objectFit: 'fill',
             pointerEvents: 'none',
             userSelect: 'none',
             zIndex: -1,

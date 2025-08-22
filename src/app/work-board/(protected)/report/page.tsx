@@ -89,7 +89,7 @@ function ReportPageContent() {
           <div className="w-[342px] h-full flex-shrink-0">
             <LeftSideBar />
           </div>
-          <div className="total-report w-[calc(794/1440*100%)] h-[1123px] overflow-visible flex flex-col mb-12">
+          <div className="total-report w-[calc(794/1440*100%)] h-full overflow-visible flex flex-col mb-12">
             {selectedReportType === "A" && (
               <Suspense fallback={<div className="flex-1 flex items-center justify-center">Loading...</div>}>
                 <div className="flex-1 h-full">

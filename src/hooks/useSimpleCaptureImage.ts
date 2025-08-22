@@ -89,6 +89,60 @@ export default function useSimpleCaptureImage() {
   );
 
   /**
+   * dataURL 반환용 캡처 함수 (인쇄 등에 재사용)
+   */
+  const getSimpleImageDataUrl = useCallback(
+    async (elementId: string): Promise<string | null> => {
+      const element = document.getElementById(elementId);
+      if (!element) {
+        showAlert({ message: '캡처할 영역을 찾을 수 없습니다.' });
+        return null;
+      }
+
+      try {
+        const rect = element.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) {
+          alert('캡처할 영역이 화면에 보이지 않습니다.');
+          return null;
+        }
+
+        const options = {
+          backgroundColor: '#ffffff',
+          pixelRatio: 1,
+          quality: 1,
+          cacheBust: true,
+          useCORS: true,
+          allowTaint: true,
+          style: {
+            transform: 'scale(1)',
+            transformOrigin: 'top left',
+          },
+          filter: (node: Element) => {
+            if (node.nodeType === 1) {
+              const element = node as HTMLElement;
+              if (element.classList?.contains('print-hide')) {
+                return false;
+              }
+              const style = window.getComputedStyle(element);
+              if (style.display === 'none') {
+                return false;
+              }
+            }
+            return true;
+          },
+        } as const;
+
+        const dataUrl = await toPng(element, options);
+        return dataUrl;
+      } catch (_err) {
+        showAlert({ message: '이미지 캡처에 실패했습니다. 페이지를 새로고침 후 다시 시도해주세요.' });
+        return null;
+      }
+    },
+    [showAlert]
+  );
+
+  /**
    * 미리보기 함수 (테스트용)
    */
   const previewSimpleImage = useCallback(
@@ -173,6 +227,7 @@ export default function useSimpleCaptureImage() {
 
   return {
     downloadSimpleImage,
+    getSimpleImageDataUrl,
     previewSimpleImage,
     checkElement,
   };
