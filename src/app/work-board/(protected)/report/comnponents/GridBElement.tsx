@@ -9,6 +9,7 @@ import { Button } from "@/components/common/Button";
 import { ImagePosition } from "../types";
 import { IoClose } from "react-icons/io5";
 import { MdRefresh } from "react-icons/md";
+import { MdZoomIn, MdZoomOut } from "react-icons/md";
 import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
 import useUserStore from "@/hooks/store/useUserStore";
 import useGridContentStore from "@/hooks/store/useGridContentStore";
@@ -566,70 +567,13 @@ function GridBElement({
     setImageEditModalOpen(false);
   }, [setImageEditModalOpen]);
 
-  // 크롭 제어
+  // 크롭 제어 (신규 컨셉: 비활성화)
   const beginCrop = React.useCallback(() => {
     const idx = inlineEditState.imageIndex;
     const container = idx !== null ? imageContainerRefs.current[idx] : null;
     const imageUrl = idx !== null ? currentImages[idx] : undefined;
-    if (!container || !imageUrl || idx === null) {
-      setInlineEditState((prev) => ({ ...prev, cropActive: true }));
-      return;
-    }
-    const img = document.createElement("img");
-    img.crossOrigin = "anonymous";
-    img.referrerPolicy = "no-referrer";
-    img.src = imageUrl;
-    img.onload = () => {
-      const rect = container.getBoundingClientRect();
-      const containerW = rect.width;
-      const containerH = rect.height;
-      const position = isEditingIndex(idx)
-        ? inlineEditState.tempPosition
-        : imagePositions[idx] || { x: 0, y: 0, scale: 1 };
-      const { x = 0, y = 0, scale = 1 } = position;
-      const imgAspect = img.width / img.height;
-      const boxAspect = containerW / containerH;
-      let drawW = containerW;
-      let drawH = containerH;
-      if (imgAspect > boxAspect) {
-        drawH = containerH;
-        drawW = drawH * imgAspect;
-      } else {
-        drawW = containerW;
-        drawH = drawW / imgAspect;
-      }
-      const scaledW = drawW * (scale || 1);
-      const scaledH = drawH * (scale || 1);
-      const imageLeft = containerW / 2 - scaledW / 2 + x;
-      const imageTop = containerH / 2 - scaledH / 2 + y;
-      const imageRight = imageLeft + scaledW;
-      const imageBottom = imageTop + scaledH;
-      const cropLeft = Math.max(0, imageLeft);
-      const cropTop = Math.max(0, imageTop);
-      const cropRight = Math.min(containerW, imageRight);
-      const cropBottom = Math.min(containerH, imageBottom);
-      setInlineEditState((prev) => ({
-        ...prev,
-        cropActive: true,
-        cropRect: {
-          left: cropLeft,
-          top: cropTop,
-          right: cropRight,
-          bottom: cropBottom,
-        },
-        cropDraggingEdge: null,
-        cropStartPointer: null,
-        cropBounds: {
-          left: cropLeft,
-          top: cropTop,
-          right: cropRight,
-          bottom: cropBottom,
-        },
-      }));
-    };
-    img.onerror = () => {
-      setInlineEditState((prev) => ({ ...prev, cropActive: true }));
-    };
+    // 비활성화: 아무 동작도 하지 않음
+    return;
   }, [
     inlineEditState.imageIndex,
     inlineEditState.tempPosition,
@@ -640,172 +584,9 @@ function GridBElement({
 
   const { postFile } = useS3FileUpload();
   const finishCropAndUpload = React.useCallback(async () => {
-    const idx = inlineEditState.imageIndex;
-    if (idx === null) {
-      setInlineEditState((prev) => ({ ...prev, cropActive: false }));
-      return;
-    }
-    const container = imageContainerRefs.current[idx];
-    const imageUrl = currentImages[idx];
-    if (!container || !imageUrl || !inlineEditState.cropRect) {
-      setInlineEditState((prev) => ({ ...prev, cropActive: false }));
-      return;
-    }
-    try {
-      const img = document.createElement("img");
-      img.crossOrigin = "anonymous";
-      img.referrerPolicy = "no-referrer";
-      img.src = imageUrl;
-      await new Promise<void>((resolve) => {
-        img.onload = () => resolve();
-        img.onerror = () => resolve();
-      });
-      const containerRect = container.getBoundingClientRect();
-      const scale = isEditingIndex(idx)
-        ? inlineEditState.tempPosition.scale
-        : imagePositions[idx]?.scale || 1;
-      const transX = isEditingIndex(idx)
-        ? inlineEditState.tempPosition.x
-        : imagePositions[idx]?.x || 0;
-      const transY = isEditingIndex(idx)
-        ? inlineEditState.tempPosition.y
-        : imagePositions[idx]?.y || 0;
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.floor(containerRect.width));
-      canvas.height = Math.max(1, Math.floor(containerRect.height));
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        setInlineEditState((prev) => ({ ...prev, cropActive: false }));
-        return;
-      }
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const imgAspect = img.width / img.height;
-      const boxAspect = canvas.width / canvas.height;
-      let drawW = canvas.width;
-      let drawH = canvas.height;
-      if (imgAspect > boxAspect) {
-        drawH = canvas.height;
-        drawW = drawH * imgAspect;
-      } else {
-        drawW = canvas.width;
-        drawH = drawW / imgAspect;
-      }
-      const dx = (canvas.width - drawW) / 2 + transX;
-      const dy = (canvas.height - drawH) / 2 + transY;
-      ctx.save();
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.scale(scale || 1, scale || 1);
-      ctx.translate(-canvas.width / 2, -canvas.height / 2);
-      ctx.drawImage(img, dx, dy, drawW, drawH);
-      ctx.restore();
-      const c = inlineEditState.cropRect;
-      const cropW = Math.max(1, Math.floor(c.right - c.left));
-      const cropH = Math.max(1, Math.floor(c.bottom - c.top));
-      const cropCanvas = document.createElement("canvas");
-      cropCanvas.width = cropW;
-      cropCanvas.height = cropH;
-      const cropCtx = cropCanvas.getContext("2d");
-      if (!cropCtx) {
-        setInlineEditState((prev) => ({ ...prev, cropActive: false }));
-        return;
-      }
-      cropCtx.drawImage(
-        canvas,
-        Math.floor(c.left),
-        Math.floor(c.top),
-        cropW,
-        cropH,
-        0,
-        0,
-        cropW,
-        cropH
-      );
-      const blob: Blob | null = await new Promise((res) =>
-        cropCanvas.toBlob((b) => res(b), "image/jpeg", 0.9)
-      );
-      if (!blob) {
-        setInlineEditState((prev) => ({ ...prev, cropActive: false }));
-        return;
-      }
-      const croppedFile = new File([blob], `cropped_${Date.now()}.jpg`, {
-        type: "image/jpeg",
-      });
-      const uploadRes = await postFile({
-        file: croppedFile,
-        fileType: "IMAGE",
-        taskType: "ETC",
-        thumbFile: croppedFile,
-      });
-      let newThumbUrl: string | undefined;
-      let newDriveItemKey: string | undefined;
-      if (Array.isArray(uploadRes)) {
-      } else if (uploadRes) {
-        const anyRes = uploadRes as any;
-        newThumbUrl =
-          anyRes.thumbUrl || anyRes?.driveItemResult?.thumbUrl || undefined;
-        newDriveItemKey =
-          anyRes.driveItemKey || anyRes?.driveItemResult?.key || undefined;
-      }
-      if (newThumbUrl) {
-        const prevUrl = currentImages[idx];
-        setCurrentImages((prev) => {
-          const next = [...prev];
-          next[idx] = newThumbUrl as string;
-          return next;
-        });
-        setImageMetadata((prev) => {
-          const list = [...prev];
-          const metaIndex = list.findIndex((m) => m.url === prevUrl);
-          if (metaIndex >= 0) {
-            list[metaIndex] = {
-              url: newThumbUrl as string,
-              driveItemKey: newDriveItemKey,
-            };
-          } else {
-            list.push({
-              url: newThumbUrl as string,
-              driveItemKey: newDriveItemKey,
-            });
-          }
-          return list;
-        });
-        if (gridId && newThumbUrl) {
-          const validImages = Array.isArray(gridContents[gridId]?.imageUrls)
-            ? [...(gridContents[gridId]?.imageUrls as string[])]
-            : [];
-          while (validImages.length < imageCount) validImages.push("");
-          if (idx < validImages.length)
-            validImages[idx] = newThumbUrl as string;
-          updateImages(gridId, validImages.slice(0, imageCount));
-        }
-      } else {
-        const localUrl = URL.createObjectURL(croppedFile);
-        setCurrentImages((prev) => {
-          const next = [...prev];
-          next[idx] = localUrl;
-          return next;
-        });
-      }
-    } finally {
-      setInlineEditState((prev) => ({
-        ...prev,
-        cropActive: false,
-        cropRect: null,
-      }));
-    }
-  }, [
-    inlineEditState.imageIndex,
-    inlineEditState.cropRect,
-    inlineEditState.tempPosition,
-    imagePositions,
-    isEditingIndex,
-    currentImages,
-    postFile,
-    gridId,
-    updateImages,
-    gridContents,
-    imageCount,
-  ]);
+    // 신규 컨셉: 크롭 비활성화 → 상태만 정리
+    setInlineEditState((prev) => ({ ...prev, cropActive: false, cropRect: null }));
+  }, []);
 
   const cancelCrop = React.useCallback(() => {
     setInlineEditState((prev) => ({
@@ -924,318 +705,37 @@ function GridBElement({
     [inlineEditState.active, imagePositions]
   );
 
-  const renderResizeHandles = React.useCallback(
-    (idx: number) => {
-      if (!isEditingIndex(idx)) return null;
-      const s = inlineEditState.tempPosition.scale || 1;
-      const overlayTransform = `translate(${inlineEditState.tempPosition.x}px, ${inlineEditState.tempPosition.y}px) scale(${s})`;
-      const handleScaleStyle = {
-        transform: `scale(${1 / s})`,
-        transformOrigin: "center" as const,
-      } as React.CSSProperties;
-      return (
-        <div
-          className="absolute inset-0 z-50 pointer-events-none"
-          style={{
-            transform: inlineEditState.cropActive ? "none" : overlayTransform,
-            transformOrigin: "center",
-          }}
-        >
-          {!inlineEditState.cropActive && (
-            <>
-              <div
-                data-handle="true"
-                className="absolute -top-2 -left-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nwse-resize pointer-events-auto"
-                style={handleScaleStyle}
-                onMouseDown={onResizeHandleDown}
-              />
-              <div
-                data-handle="true"
-                className="absolute -top-2 -right-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nesw-resize pointer-events-auto"
-                style={handleScaleStyle}
-                onMouseDown={onResizeHandleDown}
-              />
-              <div
-                data-handle="true"
-                className="absolute -bottom-2 -left-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nesw-resize pointer-events-auto"
-                style={handleScaleStyle}
-                onMouseDown={onResizeHandleDown}
-              />
-              <div
-                data-handle="true"
-                className="absolute -bottom-2 -right-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nwse-resize pointer-events-auto"
-                style={handleScaleStyle}
-                onMouseDown={onResizeHandleDown}
-              />
-            </>
-          )}
+  const renderResizeHandles = React.useCallback(() => {
+    // A타입 컨셉: 핸들 제거
+    return null;
+  }, []);
 
-          {inlineEditState.cropActive && inlineEditState.cropRect && (
-            <>
-              <div
-                className="absolute border-2 border-dotted border-[#3D8BFF] rounded-sm pointer-events-none"
-                style={{
-                  left: inlineEditState.cropRect.left,
-                  top: inlineEditState.cropRect.top,
-                  width: Math.max(
-                    0,
-                    inlineEditState.cropRect.right -
-                      inlineEditState.cropRect.left
-                  ),
-                  height: Math.max(
-                    0,
-                    inlineEditState.cropRect.bottom -
-                      inlineEditState.cropRect.top
-                  ),
-                }}
-              />
-              {/* Top bar */}
-              <div
-                className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-n-resize"
-                style={{
-                  width: 15,
-                  height: 8,
-                  top: inlineEditState.cropRect.top - 4,
-                  left:
-                    (inlineEditState.cropRect.left +
-                      inlineEditState.cropRect.right) /
-                      2 -
-                    7.5,
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setInlineEditState((prev) => ({
-                    ...prev,
-                    cropDraggingEdge: "top",
-                    cropStartPointer: { x: e.clientX, y: e.clientY },
-                  }));
-                  const onMove = (ev: MouseEvent) => {
-                    setInlineEditState((prev) => {
-                      if (
-                        !prev.cropRect ||
-                        prev.cropDraggingEdge !== "top" ||
-                        !prev.cropStartPointer
-                      )
-                        return prev;
-                      const dy = ev.clientY - prev.cropStartPointer.y;
-                      const boundTop = prev.cropBounds
-                        ? prev.cropBounds.top
-                        : 0;
-                      const nextTop = Math.max(
-                        boundTop,
-                        Math.min(
-                          prev.cropRect.top + dy,
-                          prev.cropRect.bottom - 15
-                        )
-                      );
-                      return {
-                        ...prev,
-                        cropRect: { ...prev.cropRect, top: nextTop },
-                        cropStartPointer: { x: ev.clientX, y: ev.clientY },
-                      };
-                    });
-                  };
-                  const onUp = () => {
-                    setInlineEditState((prev) => ({
-                      ...prev,
-                      cropDraggingEdge: null,
-                      cropStartPointer: null,
-                    }));
-                    window.removeEventListener("mousemove", onMove);
-                    window.removeEventListener("mouseup", onUp);
-                  };
-                  window.addEventListener("mousemove", onMove);
-                  window.addEventListener("mouseup", onUp);
-                }}
-              />
-              {/* Bottom bar */}
-              <div
-                className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-s-resize"
-                style={{
-                  width: 15,
-                  height: 8,
-                  top: inlineEditState.cropRect.bottom - 4,
-                  left:
-                    (inlineEditState.cropRect.left +
-                      inlineEditState.cropRect.right) /
-                      2 -
-                    7.5,
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setInlineEditState((prev) => ({
-                    ...prev,
-                    cropDraggingEdge: "bottom",
-                    cropStartPointer: { x: e.clientX, y: e.clientY },
-                  }));
-                  const onMove = (ev: MouseEvent) => {
-                    setInlineEditState((prev) => {
-                      if (
-                        !prev.cropRect ||
-                        prev.cropDraggingEdge !== "bottom" ||
-                        !prev.cropStartPointer
-                      )
-                        return prev;
-                      const dy = ev.clientY - prev.cropStartPointer.y;
-                      const boundBottom = prev.cropBounds
-                        ? prev.cropBounds.bottom
-                        : Infinity;
-                      const nextBottom = Math.min(
-                        boundBottom,
-                        Math.max(
-                          prev.cropRect.bottom + dy,
-                          prev.cropRect.top + 15
-                        )
-                      );
-                      return {
-                        ...prev,
-                        cropRect: { ...prev.cropRect, bottom: nextBottom },
-                        cropStartPointer: { x: ev.clientX, y: ev.clientY },
-                      };
-                    });
-                  };
-                  const onUp = () => {
-                    setInlineEditState((prev) => ({
-                      ...prev,
-                      cropDraggingEdge: null,
-                      cropStartPointer: null,
-                    }));
-                    window.removeEventListener("mousemove", onMove);
-                    window.removeEventListener("mouseup", onUp);
-                  };
-                  window.addEventListener("mousemove", onMove);
-                  window.addEventListener("mouseup", onUp);
-                }}
-              />
-              {/* Left bar */}
-              <div
-                className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-w-resize"
-                style={{
-                  width: 8,
-                  height: 15,
-                  left: inlineEditState.cropRect.left - 4,
-                  top:
-                    (inlineEditState.cropRect.top +
-                      inlineEditState.cropRect.bottom) /
-                      2 -
-                    7.5,
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setInlineEditState((prev) => ({
-                    ...prev,
-                    cropDraggingEdge: "left",
-                    cropStartPointer: { x: e.clientX, y: e.clientY },
-                  }));
-                  const onMove = (ev: MouseEvent) => {
-                    setInlineEditState((prev) => {
-                      if (
-                        !prev.cropRect ||
-                        prev.cropDraggingEdge !== "left" ||
-                        !prev.cropStartPointer
-                      )
-                        return prev;
-                      const dx = ev.clientX - prev.cropStartPointer.x;
-                      const boundLeft = prev.cropBounds
-                        ? prev.cropBounds.left
-                        : 0;
-                      const nextLeft = Math.max(
-                        boundLeft,
-                        Math.min(
-                          prev.cropRect.left + dx,
-                          prev.cropRect.right - 15
-                        )
-                      );
-                      return {
-                        ...prev,
-                        cropRect: { ...prev.cropRect, left: nextLeft },
-                        cropStartPointer: { x: ev.clientX, y: ev.clientY },
-                      };
-                    });
-                  };
-                  const onUp = () => {
-                    setInlineEditState((prev) => ({
-                      ...prev,
-                      cropDraggingEdge: null,
-                      cropStartPointer: null,
-                    }));
-                    window.removeEventListener("mousemove", onMove);
-                    window.removeEventListener("mouseup", onUp);
-                  };
-                  window.addEventListener("mousemove", onMove);
-                  window.addEventListener("mouseup", onUp);
-                }}
-              />
-              {/* Right bar */}
-              <div
-                className="absolute bg-white border-2 border-[#3D8BFF] rounded-sm shadow-sm pointer-events-auto cursor-e-resize"
-                style={{
-                  width: 8,
-                  height: 15,
-                  left: inlineEditState.cropRect.right - 4,
-                  top:
-                    (inlineEditState.cropRect.top +
-                      inlineEditState.cropRect.bottom) /
-                      2 -
-                    7.5,
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setInlineEditState((prev) => ({
-                    ...prev,
-                    cropDraggingEdge: "right",
-                    cropStartPointer: { x: e.clientX, y: e.clientY },
-                  }));
-                  const onMove = (ev: MouseEvent) => {
-                    setInlineEditState((prev) => {
-                      if (
-                        !prev.cropRect ||
-                        prev.cropDraggingEdge !== "right" ||
-                        !prev.cropStartPointer
-                      )
-                        return prev;
-                      const dx = ev.clientX - prev.cropStartPointer.x;
-                      const boundRight = prev.cropBounds
-                        ? prev.cropBounds.right
-                        : Infinity;
-                      const nextRight = Math.min(
-                        boundRight,
-                        Math.max(
-                          prev.cropRect.right + dx,
-                          prev.cropRect.left + 15
-                        )
-                      );
-                      return {
-                        ...prev,
-                        cropRect: { ...prev.cropRect, right: nextRight },
-                        cropStartPointer: { x: ev.clientX, y: ev.clientY },
-                      };
-                    });
-                  };
-                  const onUp = () => {
-                    setInlineEditState((prev) => ({
-                      ...prev,
-                      cropDraggingEdge: null,
-                      cropStartPointer: null,
-                    }));
-                    window.removeEventListener("mousemove", onMove);
-                    window.removeEventListener("mouseup", onUp);
-                  };
-                  window.addEventListener("mousemove", onMove);
-                  window.addEventListener("mouseup", onUp);
-                }}
-              />
-            </>
-          )}
-        </div>
-      );
-    },
-    [isEditingIndex, inlineEditState.tempPosition]
-  );
+  // GridA와 동일하게 키보드 +/-로 확대/축소
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!inlineEditState.active) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target ? target.tagName.toLowerCase() : "";
+      if (target && (tag === "input" || tag === "textarea" || target.isContentEditable)) return;
+      const isZoomIn = e.key === "+" || (e.code === "Equal" && e.shiftKey) || e.code === "NumpadAdd";
+      const isZoomOut = e.key === "-" || e.code === "Minus" || e.code === "NumpadSubtract";
+      if (isZoomIn) {
+        e.preventDefault();
+        setInlineEditState((prev) => ({
+          ...prev,
+          tempPosition: { ...prev.tempPosition, scale: Math.min(3, prev.tempPosition.scale * 1.2) },
+        }));
+      } else if (isZoomOut) {
+        e.preventDefault();
+        setInlineEditState((prev) => ({
+          ...prev,
+          tempPosition: { ...prev.tempPosition, scale: Math.max(0.1, prev.tempPosition.scale / 1.2) },
+        }));
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [inlineEditState.active, setInlineEditState]);
 
   // 이미지 편집 모달 상태
   const [imageEditModal, setImageEditModal] = React.useState<{
@@ -2472,7 +1972,7 @@ function GridBElement({
                         }
                         draggable={false}
                       />
-                      {renderResizeHandles(index)}
+                      {renderResizeHandles()}
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[index] && (
                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 rounded-md">
@@ -2518,17 +2018,17 @@ function GridBElement({
                       />
                       {/* Overlay - GridAElement와 동일한 안내 UI (클릭 불가) */}
                       <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center opacity-100 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
-                        <div className="w-[26px] h-[26px] bg-[#E5E7EC] rounded-full flex items-center justify-center">
+                        <div className={`${imageCount >= 2 ? "w-[17px] h-[17px]" : "w-[26px] h-[26px]"} bg-[#E5E7EC] rounded-full flex items-center justify-center`}>
                           <Image
                             src="/report/upload.svg"
-                            width={16}
-                            height={16}
+                            width={imageCount >= 2 ? 11 : 16}
+                            height={imageCount >= 2 ? 11 : 16}
                             className="object-contain"
                             alt="Upload icon"
                             unoptimized={true}
                           />
                         </div>
-                        <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
+                        <div className={`text-[#8F8F8F] ${imageCount >= 2 ? "text-[10px]" : "text-[14px]"} font-medium text-center mb-2 px-1`}>
                           이미지를 드래그하거나
                           <br />
                           클릭하여 업로드
@@ -2614,7 +2114,7 @@ function GridBElement({
                   </div>
                 )
               ) : (
-                <div className="flex items-center justify-center gap-1">
+                <div className="flex items-center justify-center gap-1 h-full input-area">
                   <textarea
                     value={keywords}
                     onChange={handleKeywordChange}
@@ -2624,7 +2124,7 @@ function GridBElement({
                     onKeyUp={(e) => e.stopPropagation()}
                     onKeyPress={(e) => e.stopPropagation()}
                     placeholder={placeholderText}
-                    className="h-[26px] min-h-[26px] max-h-[26px] text-xs tracking-tight bg-[#F9FAFB] border-none placeholder-zinc-400 flex-1 shadow-none rounded-md "
+                    className="h-full flex-1  text-xs tracking-tight bg-[#F9FAFB] border-none placeholder-zinc-400  shadow-none rounded-md "
                     style={{
                       borderRadius: "6px",
                       fontSize: "13px",
@@ -2791,62 +2291,134 @@ function GridBElement({
           document.body
         )}
 
-      {/* 인라인 편집 컨트롤 포털 */}
+      {/* 인라인 편집 컨트롤 포털 제거: 하단 인라인 "취소/적용"만 사용 */}
+
+      {/* GridA 스타일의 우측 플로팅 확대/축소/되돌리기 버튼 포털 */}
+      {inlineEditState.active && typeof window !== "undefined" &&
+        (() => {
+          const activeIdx = inlineEditState.imageIndex;
+          const el =
+            activeIdx !== null ? imageContainerRefs.current[activeIdx] : null;
+          if (!el) return null;
+          const rect = el.getBoundingClientRect();
+          const vw = window.innerWidth;
+          const vh = window.innerHeight;
+          const gap = 8;
+          const buttonSize = 40;
+          const buttonsCount = 3;
+          const totalHeight = buttonsCount * buttonSize + (buttonsCount - 1) * gap;
+          let toolsLeft = rect.right + gap;
+          let toolsTop = rect.bottom - totalHeight;
+          if (toolsLeft + buttonSize > vw) {
+            toolsLeft = Math.max(0, rect.left - gap - buttonSize);
+          }
+          toolsTop = Math.min(Math.max(0, toolsTop), Math.max(0, vh - totalHeight));
+
+          const handleZoomIn = () => {
+            setInlineEditState((prev) => ({
+              ...prev,
+              tempPosition: {
+                ...prev.tempPosition,
+                scale: Math.min(3, prev.tempPosition.scale * 1.2),
+              },
+            }));
+          };
+          const handleZoomOut = () => {
+            setInlineEditState((prev) => ({
+              ...prev,
+              tempPosition: {
+                ...prev.tempPosition,
+                scale: Math.max(0.1, prev.tempPosition.scale / 1.2),
+              },
+            }));
+          };
+          const handleReset = () => {
+            const imageIdx = inlineEditState.imageIndex;
+            if (imageIdx === null) return;
+            const originalPosition = imagePositions[imageIdx] || {
+              x: 0,
+              y: 0,
+              scale: 1,
+            };
+            setInlineEditState((prev) => ({
+              ...prev,
+              tempPosition: { ...originalPosition },
+            }));
+          };
+
+          return ReactDOM.createPortal(
+            <>
+              {/* 화면 전체 음영 (선택 영역 제외) */}
+              <div
+                className="fixed left-0 top-0 bg-black/40 z-[9998]"
+                style={{ width: "100vw", height: Math.max(0, rect.top) }}
+              />
+              <div
+                className="fixed left-0 bg-black/40 z-[9998]"
+                style={{ top: rect.bottom, width: "100vw", height: Math.max(0, vh - rect.bottom) }}
+              />
+              <div
+                className="fixed top-0 bg-black/40 z-[9998]"
+                style={{ left: 0, top: rect.top, width: Math.max(0, rect.left), height: Math.max(0, rect.height) }}
+              />
+              <div
+                className="fixed top-0 bg-black/40 z-[9998]"
+                style={{ left: rect.right, top: rect.top, width: Math.max(0, vw - rect.right), height: Math.max(0, rect.height) }}
+              />
+
+              {/* 도구 버튼 - 선택 컨테이너 바로 옆 */}
+              <div className="fixed z-[9999] flex flex-col gap-2" style={{ top: toolsTop, left: toolsLeft }}>
+                <button
+                  onClick={handleZoomIn}
+                  className="w-10 h-10 border-1 border-[#CCCCCC] bg-white border-2 rounded-lg flex items-center justify-center shadow-lg hover:bg-gray-50 transition-colors"
+                  title="확대"
+                  style={{ pointerEvents: "auto" }}
+                >
+                  <MdZoomIn className="w-5 h-5 text-black" />
+                </button>
+                <button
+                  onClick={handleZoomOut}
+                  className="w-10 h-10 bg-white border-2 border-primary rounded-lg flex items-center justify-center shadow-lg hover:bg-gray-50 transition-colors"
+                  title="축소"
+                  style={{ pointerEvents: "auto" }}
+                >
+                  <MdZoomOut className="w-5 h-5 text-black" />
+                </button>
+                <button
+                  onClick={handleReset}
+                  className="w-10 h-10 bg-white border-2 border-primary rounded-lg flex items-center justify-center shadow-lg hover:bg-gray-50 transition-colors"
+                  title="초기화"
+                  style={{ pointerEvents: "auto" }}
+                >
+                  <MdRefresh className="w-5 h-5 text-black" />
+                </button>
+              </div>
+            </>,
+            document.body
+          );
+        })()}
+
+      {/* 인라인 편집 컨트롤 포털 (A타입과 동일하게 배치/스타일) */}
       {inlineEditState.active &&
         typeof window !== "undefined" &&
         ReactDOM.createPortal(
-          <div
-            className="fixed z-[10000]"
-            style={{ left: 0, top: 0, pointerEvents: "none" }}
-          >
+          <div className="fixed z-[10000]" style={{ left: 0, top: 0, pointerEvents: "none" }}>
             <div
               className="absolute -translate-x-1/2 flex gap-2"
               style={{
                 left:
-                  (imageContainerRefs.current[
-                    inlineEditState.imageIndex ?? -1
-                  ]?.getBoundingClientRect().left || 0) +
-                  (imageContainerRefs.current[
-                    inlineEditState.imageIndex ?? -1
-                  ]?.getBoundingClientRect().width || 0) /
-                    2,
+                  (imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().left || 0) +
+                  (imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().width || 0) / 2,
                 top:
-                  (imageContainerRefs.current[
-                    inlineEditState.imageIndex ?? -1
-                  ]?.getBoundingClientRect().bottom || 0) + 8,
+                  (imageContainerRefs.current[inlineEditState.imageIndex ?? -1]?.getBoundingClientRect().bottom || 0) + 8,
               }}
             >
-              <div
-                className="bg-white shadow rounded-md px-2 py-1 border border-gray-200 flex gap-2"
-                style={{ pointerEvents: "auto" }}
-              >
-                {!inlineEditState.cropActive ? (
-                  <Button color="line" size="small" onClick={beginCrop}>
-                    크롭 시작
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      color="primary"
-                      size="small"
-                      onClick={finishCropAndUpload}
-                    >
-                      크롭 완료
-                    </Button>
-                    <Button color="gray" size="small" onClick={cancelCrop}>
-                      크롭 취소
-                    </Button>
-                  </>
-                )}
-                <Button
-                  color="primary"
-                  size="small"
-                  onClick={endInlineEditConfirm}
-                >
-                  확인
-                </Button>
+              <div className="flex items-center gap-2" style={{ pointerEvents: "auto" }}>
                 <Button color="gray" size="small" onClick={endInlineEditCancel}>
                   취소
+                </Button>
+                <Button color="primary" size="small" onClick={endInlineEditConfirm}>
+                  적용
                 </Button>
               </div>
             </div>
