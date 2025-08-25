@@ -783,7 +783,7 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
           <>
             <div
               className={`flex flex-col w-full h-full border rounded-[15px] items-center justify-center cursor-text transition-colors p-2 ${
-                isSaved ? 'bg-transparent border-transparent' : 'bg-white'
+                isSaved ? 'bg-white/90 border-transparent' : 'bg-white'
               } ${
                 !isSaved && (
                   isTextSelected
@@ -815,7 +815,7 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                 onFocus={handleFocus}
                 onBlur={handleBlur}
                 placeholder={text === "" && !isSaved ? "제목을 입력하세요" : ""}
-                className={`w-[401px] outline-none text-center font-medium ${fontSize} transition-all duration-200 leading-tight resize-none`}
+                className={`w-[401px] outline-none text-center font-medium ${fontSize} transition-all duration-200 leading-tight resize-none bg-transparent`}
                 style={{ 
                   fontFamily: "'MaplestoryOTFBold', sans-serif",
                   minHeight: "100%", 
@@ -827,7 +827,8 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                   justifyContent: "center",
                   flexDirection: "column",
                   padding: "8px",
-                  overflow: "hidden"
+                  overflow: "hidden",
+                  backgroundColor: 'transparent'
                 }}
                 rows={2}
                 maxLength={48}
@@ -902,7 +903,7 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
             {/* 상단 박스 */}
             <div
               className={`flex flex-col w-full h-1/2 border rounded-[15px] items-center justify-center cursor-text transition-colors p-1 overflow-hidden ${
-                isSaved ? 'bg-transparent border-transparent' : 'bg-white'
+                isSaved ? 'bg-white/90 border-transparent' : 'bg-white'
               } ${
                 !isSaved && (
                   isDateSelected
@@ -932,11 +933,12 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                 onFocus={handleTopFocus}
                 onBlur={handleTopBlur}
                 placeholder={topText === "" && !isSaved ? "텍스트" : ""}
-                className={`w-full h-full outline-none text-center font-medium ${topFontSize} transition-all duration-200 overflow-hidden`}
+                className={`w-full h-full outline-none text-center font-medium ${topFontSize} transition-all duration-200 overflow-hidden bg-transparent`}
                 style={{
                   minHeight: "1em",
                   maxHeight: "100%",
                   lineHeight: "1.2",
+                  backgroundColor: 'transparent'
                 }}
               />
             </div>
@@ -944,7 +946,7 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
             {/* 하단 박스 */}
             <div
               className={`flex flex-col w-full h-1/2 border rounded-[15px] items-center justify-center cursor-text transition-colors p-1 overflow-hidden ${
-                isSaved ? 'bg-transparent border-transparent' : 'bg-white'
+                isSaved ? 'bg-white/90 border-transparent' : 'bg-white'
               } ${
                 !isSaved && (
                   isDateSelected
@@ -974,11 +976,12 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                 onFocus={handleBottomFocus}
                 onBlur={handleBottomBlur}
                 placeholder={bottomText === "" && !isSaved ? "텍스트" : ""}
-                className={`w-full h-full outline-none text-center font-medium ${bottomFontSize} transition-all duration-200 overflow-hidden`}
+                className={`w-full h-full outline-none text-center font-medium ${bottomFontSize} transition-all duration-200 overflow-hidden bg-transparent`}
                 style={{
                   minHeight: "1em",
                   maxHeight: "100%",
                   lineHeight: "1.2",
+                  backgroundColor: 'transparent'
                 }}
               />
             </div>

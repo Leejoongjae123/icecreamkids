@@ -3,7 +3,6 @@ import * as React from "react";
 import {
   DndContext,
   closestCenter,
-  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -104,6 +103,12 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     maxDataLength: items.length, // 전체 그리드 개수에 따른 최대 업로드 제한
   });
 
+  // GridCElement로부터 native drop 파일을 전달받아 공용 업로드 파이프라인으로 처리
+  const handleDropFilesFromElement = React.useCallback((files: File[]) => {
+    if (!files || files.length === 0) return;
+    processUploadedFiles(files);
+  }, [processUploadedFiles]);
+
   // photoCount가 변경되면 items 재생성
   React.useEffect(() => {
     const defaultImage = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
@@ -170,14 +175,13 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
   // photoCount가 7일 때 두 번째 2x1 블록(인덱스 6)의 시작 열 (1 또는 2)
   const [secondWideColForPhoto7, setSecondWideColForPhoto7] = React.useState<1 | 2>(2);
 
-  // 센서 설정
+  // 센서 설정 (키보드 센서 제거)
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
       },
-    }),
-    useSensor(KeyboardSensor)
+    })
   );
 
   // 간단한 collision detection
@@ -1083,6 +1087,7 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
                   onImageUpload={handleImageUpload}
                   onClipPathChange={handleClipPathChange}
                   onIntegratedUpload={handleOpenIntegratedUpload}
+                  onDropFiles={handleDropFilesFromElement}
                   style={computedStyle}
                   isAnimating={isAnimating}
                   isUploadModalOpen={isUploadModalOpen}

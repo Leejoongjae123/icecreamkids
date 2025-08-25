@@ -106,6 +106,26 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
     } catch {}
   }, [initialData, type]);
 
+  // 타입 변경 시 하단 요약 textarea 및 관련 상태 초기화
+  React.useEffect(() => {
+    if (initialData) {
+      return;
+    }
+    try {
+      setPlayActivityText("");
+      setTeacherSupportText("");
+      setHomeConnectionText("");
+      setVisibleGrids({
+        playActivity: type === "C",
+        teacherSupport: true,
+        homeConnection: true,
+      });
+      setLlmFilled({ playActivity: false, teacherSupport: false, homeConnection: false });
+      setActiveSection(null);
+      setShowToolbar(false);
+    } catch {}
+  }, [type, initialData]);
+
   // 놀이기록 결과가 변경될 때마다 텍스트 필드에 반영
   React.useEffect(() => {
     console.log('ReportBottomSection - playRecordResult 변경됨:', playRecordResult);
@@ -381,7 +401,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
               value={playActivityText}
               onChange={(e) => handleTextChange("playActivity", e.target.value)}
               placeholder=""
-              className="flex-1 mx-2 mb-1 px-1 py-0.5 border-none outline-none resize-none text-[12px] leading-[1.1]"
+              className="flex-1 mx-2 mb-1 px-1 py-0.5 border-none outline-none resize-none text-[12px] leading-[1.1] bg-transparent"
               autoFocus={activeSection === "playActivity"}
               readOnly={!llmFilled.playActivity}
               maxLength={MAX_PLAY_ACTIVITY}
@@ -460,7 +480,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
                   handleTextChange("teacherSupport", e.target.value)
                 }
                 placeholder=""
-                className="flex-1 mx-2 mb-1 px-1 py-0.5 border-none outline-none resize-none text-[12px] leading-[1.1]"
+                className="flex-1 mx-2 mb-1 px-1 py-0.5 border-none outline-none resize-none text-[12px] leading-[1.1] bg-transparent"
                 autoFocus={activeSection === "teacherSupport"}
                 readOnly={!llmFilled.teacherSupport}
                 maxLength={MAX_LEARNING_POINT}
@@ -532,7 +552,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
                   handleTextChange("homeConnection", e.target.value)
                 }
                 placeholder=""
-                className="flex-1 mx-2 mb-1 px-1 py-0.5 border-none outline-none resize-none text-[12px] leading-[1.1]"
+                className="flex-1 mx-2 mb-1 px-1 py-0.5 border-none outline-none resize-none text-[12px] leading-[1.1] bg-transparent"
                 autoFocus={activeSection === "homeConnection"}
                 readOnly={!llmFilled.homeConnection}
                 maxLength={MAX_TEACHER_SUPPORT}

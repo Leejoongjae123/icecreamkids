@@ -5,7 +5,6 @@ import { Suspense } from "react";
 import {
   DndContext,
   closestCenter,
-  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -81,6 +80,13 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
   // 확장된 아이템들을 관리하는 상태 (col-span-2가 적용된 아이템)
   const [expandedItems, setExpandedItems] = React.useState<Set<number>>(new Set());
 
+  // +/− 버튼 hover 시 미리보기 상태
+  const [hoverPreview, setHoverPreview] = React.useState<{
+    type: 'expand' | 'split';
+    first: number;
+    second: number;
+  } | null>(null);
+
   // 센서 설정
   // Hooks는 항상 동일한 순서/개수로 호출되어야 함: 드래그 비활성화 여부와 무관하게 모두 호출
   const pointerSensor = useSensor(PointerSensor, {
@@ -88,8 +94,7 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
       distance: 8,
     },
   });
-  const keyboardSensor = useSensor(KeyboardSensor);
-  const sensorsEnabled = useSensors(pointerSensor, keyboardSensor);
+  const sensorsEnabled = useSensors(pointerSensor);
   const sensorsDisabled = useSensors();
   const sensors = isImageEditModalOpen ? sensorsDisabled : sensorsEnabled;
 
@@ -132,7 +137,7 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
             isExpanded: item.index === firstIndex,
             images: [], // 이미지 초기화
             inputValue: "", // 텍스트 입력값 초기화
-            imageCount: 1 // 이미지 개수도 1로 초기화
+            imageCount: item.index === firstIndex ? 2 : 1 // 합치기 시 확장된 영역은 기본 2개로 설정
           };
         }
         return item;
@@ -483,6 +488,23 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
           onImageCountChange={(count) => handleImageCountChange(item.index, count)}
           isPrintHidden={isPrintHidden}
           isInvisibleInSavedMode={isInvisibleInSavedMode}
+          highlightMode={((): 'none' | 'full' | 'split' => {
+            if (!hoverPreview) return 'none';
+            if (
+              hoverPreview.type === 'expand' &&
+              (item.index === hoverPreview.first || item.index === hoverPreview.second)
+            ) {
+              return 'full';
+            }
+            if (
+              hoverPreview.type === 'split' &&
+              item.index === hoverPreview.first &&
+              expandedItems.has(item.index)
+            ) {
+              return 'split';
+            }
+            return 'none';
+          })()}
         />
       );
     }).filter(Boolean); // null 값 제거
@@ -526,6 +548,8 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
               top: topPercentage,
               left: leftPosition,
             }}
+            onMouseEnter={() => setHoverPreview({ type: 'expand', first, second })}
+            onMouseLeave={() => setHoverPreview(null)}
           >
             <AddButton
               onClick={() => handleExpand(first, second)}
@@ -574,6 +598,8 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
               top: topPercentage,
               left: leftPosition,
             }}
+            onMouseEnter={() => setHoverPreview({ type: 'split', first, second })}
+            onMouseLeave={() => setHoverPreview(null)}
           >
             <button
               onClick={() => handleSplit(first, second)}

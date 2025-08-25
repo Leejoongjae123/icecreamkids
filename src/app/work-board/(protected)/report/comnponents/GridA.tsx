@@ -3,7 +3,6 @@ import * as React from "react";
 import {
   DndContext,
   closestCenter,
-  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -220,14 +219,13 @@ const GridA = React.forwardRef<GridARef, GridAProps>(({ subject, onDecreaseSubje
     });
   }, [subject]);
 
-  // 센서 설정 - 모달이 열려있으면 센서 비활성화
+  // 센서 설정 - 모달이 열려있으면 센서 비활성화 (키보드 센서 제거)
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
       },
-    }),
-    useSensor(KeyboardSensor)
+    })
   );
 
   // 체크 상태 변경 핸들러

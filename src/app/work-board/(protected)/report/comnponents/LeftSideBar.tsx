@@ -6,6 +6,7 @@ import { Plus, ChevronRight } from "lucide-react";
 import ThemeSelectionModal from "./ThemeSelectionModal";
 import type { ThemeItem, ThemeItemListResponse } from "./types";
 import { useGlobalThemeStore, type ReportType } from "@/hooks/store/useGlobalThemeStore";
+import { useStickerStore } from "@/hooks/store/useStickerStore";
 
 function LeftSideBarContent() {
   
@@ -13,6 +14,7 @@ function LeftSideBarContent() {
   const [themes, setThemes] = useState<ThemeItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { setTheme, setCurrentType } = useGlobalThemeStore();
+  const { addSticker, setStickers } = useStickerStore();
 
   const [selectedTab, setSelectedTab] = useState<"theme" | "background">("theme");
   const [selectedTheme, setSelectedTheme] = useState<number>(0);
@@ -32,7 +34,7 @@ function LeftSideBarContent() {
   useEffect(() => {
     const fetchThemes = async () => {
       setIsLoading(true);
-      const endpoint = `/api/report/theme-item-list?offsetWithLimit=0,8&sorts=createdAt.desc,name.asc`;
+      const endpoint = `/api/report/theme-item-list?offsetWithLimit=0,8&sorts=createdAt.desc,name.asc&type=${encodeURIComponent(currentType)}`;
       try {
         const res = await fetch(endpoint, { method: "GET" });
         if (!res.ok) {
@@ -73,16 +75,51 @@ function LeftSideBarContent() {
 
     const theme = themes[index];
     if (theme) {
+      // 테마 전환 시 기존 스티커 초기화
+      setStickers([]);
+
       setTheme({
         id: typeof theme.id === 'string' ? parseInt(theme.id) : theme.id,
         name: theme.name,
         backgroundImage: theme.backgroundImage ? {
           id: 0,
-          imageUrl: typeof theme.backgroundImage === 'string' 
-            ? theme.backgroundImage 
+          imageUrl: typeof theme.backgroundImage === 'string'
+            ? theme.backgroundImage
             : theme.backgroundImage.imageUrl || ''
         } : null
       }, currentType);
+
+      const items = Array.isArray((theme as any).decorationItems) ? (theme as any).decorationItems : [];
+      if (items.length > 0) {
+        items.forEach((item: any, idx: number) => {
+          const url = item.imageUrl || item.thumbUrl || "";
+          if (!url) {
+            return;
+          }
+          addSticker({
+            stickerIndex: idx,
+            url,
+            meta: {
+              id: Number(item.id),
+              categoryId: 0,
+              type: "DecorationItem",
+              name: item.name || "",
+              thumbUrl: item.thumbUrl || url,
+              imageUrl: item.imageUrl || url,
+              createdAt: item.createdAt || new Date().toISOString(),
+            },
+            position: {
+              x: typeof item.posX === "number" ? item.posX : 50,
+              y: typeof item.posY === "number" ? item.posY : 50,
+            },
+            size: {
+              width: typeof item.width === "number" ? item.width : 120,
+              height: typeof item.height === "number" ? item.height : 120,
+            },
+            rotation: 0,
+          });
+        });
+      }
     }
   };
 
@@ -157,20 +194,12 @@ function LeftSideBarContent() {
                           : " border border-gray-200 hover:bg-gray-100"
                       }`}
                     >
-                      {theme?.backgroundImage ? (
-                        <img
-                          src={typeof theme.backgroundImage === 'string' ? theme.backgroundImage : theme.backgroundImage.imageUrl || ''}
-                          className="w-full h-full object-cover rounded"
-                          alt={theme.name}
-                          data-id={theme.id}
-                        />
-                      ) : (
-                        <img
-                          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg"
-                          className="w-6 h-6"
-                          alt="no image"
-                        />
-                      )}
+                      <img
+                        src={theme.thumbUrl || theme.previewUrl || "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage.svg"}
+                        className="w-full h-full object-cover rounded"
+                        alt={theme.name}
+                        data-id={theme.id}
+                      />
                     </div>
                   ))}
                 </div>

@@ -10,6 +10,7 @@ import {
 
 import type { ThemeItem, ThemeItemListResponse } from "./types";
 import { useGlobalThemeStore } from "@/hooks/store/useGlobalThemeStore";
+import { useStickerStore } from "@/hooks/store/useStickerStore";
 
 interface ThemeSelectionModalProps {
   children: React.ReactNode;
@@ -27,13 +28,14 @@ function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
   const [isLoading, setIsLoading] = React.useState(false);
 
   const { setTheme, setBackgroundImageUrlFor, currentType } = useGlobalThemeStore();
+  const { addSticker, setStickers } = useStickerStore();
 
   React.useEffect(() => {
     let isMounted = true;
     const fetchThemes = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/report/theme-item-list?offsetWithLimit=0,20&sorts=createdAt.desc,name.asc`, { method: "GET" });
+        const res = await fetch(`/api/report/theme-item-list?offsetWithLimit=0,20&sorts=createdAt.desc,name.asc&type=${encodeURIComponent(currentType)}`, { method: "GET" });
         if (!res.ok) {
           if (isMounted) {
             setThemeItems([]);
@@ -73,6 +75,9 @@ function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
     if (activeTab === "테마선택" && selectedImage != null) {
       const selected = themeItems.find((it) => Number(it.id) === Number(selectedImage));
       if (selected) {
+        // 테마 전환 시 기존 스티커 초기화
+        setStickers([]);
+
         const themeId = typeof selected.id === "number" ? selected.id : parseInt(String(selected.id));
         const backgroundImageUrl = selected.backgroundImage
           ? typeof selected.backgroundImage === "string"
@@ -92,6 +97,39 @@ function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
           },
           currentType
         );
+
+        // 테마에 decorationItems가 있다면 스티커로 자동 삽입
+        const items = Array.isArray(selected.decorationItems) ? selected.decorationItems : [];
+        if (items.length > 0) {
+          items.forEach((item, idx) => {
+            const url = item.imageUrl || item.thumbUrl || "";
+            if (!url) {
+              return;
+            }
+            addSticker({
+              stickerIndex: idx,
+              url,
+              meta: {
+                id: Number(item.id),
+                categoryId: 0,
+                type: "DecorationItem",
+                name: item.name || "",
+                thumbUrl: item.thumbUrl || url,
+                imageUrl: item.imageUrl || url,
+                createdAt: item.createdAt || new Date().toISOString(),
+              },
+              position: {
+                x: typeof item.posX === "number" ? item.posX : 50,
+                y: typeof item.posY === "number" ? item.posY : 50,
+              },
+              size: {
+                width: typeof item.width === "number" ? item.width : 120,
+                height: typeof item.height === "number" ? item.height : 120,
+              },
+              rotation: 0,
+            });
+          });
+        }
       }
     } else if (activeTab === "배경" && selectedBgImage != null) {
       const selected = bgItems.find((it) => Number(it.id) === Number(selectedBgImage));
@@ -100,7 +138,7 @@ function ThemeSelectionModal({ children }: ThemeSelectionModalProps) {
         setBackgroundImageUrlFor(currentType, bgUrl || null);
       }
     }
-  }, [activeTab, selectedImage, selectedBgImage, themeItems, bgItems, setTheme, setBackgroundImageUrlFor, currentType]);
+  }, [activeTab, selectedImage, selectedBgImage, themeItems, bgItems, setTheme, setBackgroundImageUrlFor, currentType, addSticker]);
 
   return (
     <Dialog>

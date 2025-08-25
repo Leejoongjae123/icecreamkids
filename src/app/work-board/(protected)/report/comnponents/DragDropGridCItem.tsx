@@ -17,6 +17,7 @@ export interface DragDropGridCItemProps {
   onImageUpload: (gridId: string, imageUrl: string, driveItemKey?: string) => void;
   onClipPathChange?: (gridId: string, clipPathData: ClipPathItem) => void;
   onIntegratedUpload?: () => void; // 통합 업로드 핸들러
+  onDropFiles?: (files: File[]) => void; // 파일 드롭 핸들러
   isOverlay?: boolean;
   style?: React.CSSProperties;
   isAnimating?: boolean;
@@ -36,6 +37,7 @@ function DragDropGridCItem({
   onImageUpload,
   onClipPathChange,
   onIntegratedUpload,
+  onDropFiles,
   isOverlay = false,
   style,
   isAnimating = false,
@@ -103,6 +105,7 @@ function DragDropGridCItem({
         onImageUpload={onImageUpload}
         onClipPathChange={onClipPathChange}
         onIntegratedUpload={onIntegratedUpload}
+        onDropFiles={onDropFiles}
         isUploadModalOpen={isUploadModalOpen}
       />
     </div>

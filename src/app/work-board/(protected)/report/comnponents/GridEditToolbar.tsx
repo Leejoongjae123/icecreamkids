@@ -16,6 +16,8 @@ import { ClipPathItem } from "./types";
 import { DecorationItemRemote } from "./types";
 import  useUserStore  from "@/hooks/store/useUserStore";
 import { useGridToolbarStore } from "@/hooks/store/useGridToolbarStore";
+import { useStickerStore } from "@/hooks/store/useStickerStore";
+import { useTextStickerStore } from "@/hooks/store/useTextStickerStore";
 interface GridEditToolbarProps {
   show: boolean;
   isExpanded: boolean;
@@ -221,6 +223,35 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
     console.log("Selected text sticker:", selectedSticker);
     // 여기서 선택된 텍스트 스티커를 적용하는 로직을 구현할 수 있습니다
     onIconClick(1); // 기존 로직도 호출
+    // 텍스트 스티커는 모달 내부에서 이미 추가됨. 마지막 추가 스티커를 대상 그리드 중앙으로 이동
+    const centerize = () => {
+      if (!targetGridId) {
+        return;
+      }
+      const container = document.getElementById("report-download-area");
+      const gridEl = document.querySelector(`[data-grid-id="${targetGridId}"]`) as HTMLElement | null;
+      if (!container || !gridEl) {
+        return;
+      }
+      const { textStickers, updateTextStickerPosition } = useTextStickerStore.getState();
+      const last = textStickers[textStickers.length - 1];
+      if (!last) {
+        return;
+      }
+      const containerRect = container.getBoundingClientRect();
+      const gridRect = gridEl.getBoundingClientRect();
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+      const stickerWidth = last.size?.width ?? 150;
+      const stickerHeight = last.size?.height ?? 50;
+      let x = Math.round(gridRect.left - containerRect.left + gridRect.width / 2 - stickerWidth / 2);
+      let y = Math.round(gridRect.top - containerRect.top + gridRect.height / 2 - stickerHeight / 2);
+      x = Math.max(0, Math.min(x, containerWidth - stickerWidth));
+      y = Math.max(0, Math.min(y, containerHeight - stickerHeight));
+      updateTextStickerPosition(last.id, { x, y });
+    };
+    // 상태 반영 타이밍을 보장하기 위해 다음 틱에 실행
+    setTimeout(centerize, 0);
   };
 
   const handleDecorationStickerModalClose = () => {
@@ -232,6 +263,35 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
     console.log("Selected decoration sticker:", selectedSticker);
     // 여기서 선택된 꾸미기 스티커를 적용하는 로직을 구현할 수 있습니다
     onIconClick(2); // 기존 로직도 호출
+    // 꾸미기 스티커는 모달 내부에서 이미 추가됨. 마지막 추가 스티커를 대상 그리드 중앙으로 이동
+    const centerize = () => {
+      if (!targetGridId) {
+        return;
+      }
+      const container = document.getElementById("report-download-area");
+      const gridEl = document.querySelector(`[data-grid-id="${targetGridId}"]`) as HTMLElement | null;
+      if (!container || !gridEl) {
+        return;
+      }
+      const { stickers, updateStickerPosition } = useStickerStore.getState();
+      const last = stickers[stickers.length - 1];
+      if (!last) {
+        return;
+      }
+      const containerRect = container.getBoundingClientRect();
+      const gridRect = gridEl.getBoundingClientRect();
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+      const stickerWidth = last.size?.width ?? 120;
+      const stickerHeight = last.size?.height ?? 120;
+      let x = Math.round(gridRect.left - containerRect.left + gridRect.width / 2 - stickerWidth / 2);
+      let y = Math.round(gridRect.top - containerRect.top + gridRect.height / 2 - stickerHeight / 2);
+      x = Math.max(0, Math.min(x, containerWidth - stickerWidth));
+      y = Math.max(0, Math.min(y, containerHeight - stickerHeight));
+      updateStickerPosition(last.id, { x, y });
+    };
+    // 상태 반영 타이밍을 보장하기 위해 다음 틱에 실행
+    setTimeout(centerize, 0);
   };
 
   const handleImageCountModalClose = () => {

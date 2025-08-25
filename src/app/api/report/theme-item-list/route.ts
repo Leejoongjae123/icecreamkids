@@ -29,8 +29,9 @@ export async function GET(request: NextRequest) {
   const sorts = searchParams.get('sorts') || 'createdAt.desc,name.asc';
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://3.37.227.162:8080';
-  // 타입 무관하게 모든 테마를 가져오도록 URL 구성
-  const url = `${baseUrl}/file/v1/play-record/theme-item-list?offsetWithLimit=${encodeURIComponent(offsetWithLimit)}&sorts=${encodeURIComponent(sorts)}`;
+  // type 파라미터가 존재하면 typeA/typeB/typeC로 매핑하여 전달
+  const typeQuery = reportType ? `&type${reportType.slice(-1)}=true` : '';
+  const url = `${baseUrl}/file/v1/play-record/theme-item-list?offsetWithLimit=${encodeURIComponent(offsetWithLimit)}&sorts=${encodeURIComponent(sorts)}${typeQuery}`;
 
   try {
     const response = await fetch(url, {

@@ -249,26 +249,6 @@ function ReportCContent() {
               </Button>
               <Button
                 size="sm"
-                className="gap-1 bg-orange-100 hover:bg-orange-200 text-[14px] text-orange-700 shadow-none font-semibold h-[34px]"
-                onClick={handlePreview}
-                disabled={!isSaved}
-              >
-                미리보기
-              </Button>
-              <Button
-                size="sm"
-                className={`gap-1 font-semibold h-[34px] ${
-                  isTracking
-                    ? "bg-red-500 hover:bg-red-600 text-white"
-                    : "bg-blue-500 hover:bg-blue-600 text-white"
-                }`}
-                onClick={toggleTracking}
-                title="마우스 위치 추적 (스티커 좌표계)"
-              >
-                🖱️ {isTracking ? '추적 중지' : '위치 추적'}
-              </Button>
-              <Button
-                size="sm"
                 className={`${isSaved ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-primary hover:bg-primary/80 text-white"} font-semibold h-[34px]`}
                 onClick={isSaved ? undefined : performSave}
                 disabled={isSaved}

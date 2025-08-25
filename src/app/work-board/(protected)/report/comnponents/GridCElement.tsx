@@ -37,6 +37,7 @@ interface GridCElementProps {
   onClipPathChange?: (gridId: string, clipPathData: ClipPathItem) => void;
   onIntegratedUpload?: () => void; // 통합 업로드 핸들러
   isUploadModalOpen?: boolean; // 업로드 모달 열림 여부 (툴바 자동 닫기용)
+  onDropFiles?: (files: File[]) => void; // 네이티브 파일 드롭 처리 콜백
 }
 
 function GridCElement({
@@ -56,6 +57,7 @@ function GridCElement({
   onClipPathChange,
   onIntegratedUpload,
   isUploadModalOpen,
+  onDropFiles,
 }: GridCElementProps) {
   const [activityKeyword, setActivityKeyword] = React.useState("");
   const [isInputFocused, setIsInputFocused] = React.useState(false);
@@ -161,6 +163,36 @@ function GridCElement({
 
   // 이미지가 있는지 확인하는 헬퍼 함수
   const hasImage = currentImageUrl && currentImageUrl !== NO_IMAGE_URL;
+
+  // 네이티브 파일 드래그앤드롭 지원 (react-dnd 외부 파일 허용 없이도 동작)
+  React.useEffect(() => {
+    const el = canvasContainerRef.current;
+    if (!el) return;
+
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const files = Array.from(e.dataTransfer?.files || []);
+      if (files.length > 0) {
+        if (onDropFiles) {
+          onDropFiles(files as File[]);
+        } else if (onIntegratedUpload) {
+          onIntegratedUpload();
+        }
+      }
+    };
+
+    el.addEventListener("dragover", onDragOver as any);
+    el.addEventListener("drop", onDrop as any);
+    return () => {
+      el.removeEventListener("dragover", onDragOver as any);
+      el.removeEventListener("drop", onDrop as any);
+    };
+  }, [onDropFiles, onIntegratedUpload]);
 
   // 이미지 URL로 driveItemKey 찾기
   const getDriveItemKeyByImageUrl = React.useCallback((imageUrl: string): string | undefined => {
@@ -1065,8 +1097,8 @@ function GridCElement({
             </button>
           )}
 
-          {/* 이미지가 없을 때 hover시 업로드 UI 표시 */}
-          {!hasImage && isHovered && (
+          {/* 이미지가 없을 때 GridB 스타일의 비어있는 업로드 안내 영역 표시 (항상 표시) */}
+          {!hasImage && (
             <div className="absolute inset-0 z-20">
               <div 
                 className="absolute inset-0 cursor-pointer"
@@ -1081,32 +1113,23 @@ function GridCElement({
                   }
                 }}
               >
-                {/* 업로드 오버레이 */}
-                <div className="absolute inset-0 bg-black bg-opacity-50 rounded-md flex flex-col items-center justify-center transition-opacity duration-200 z-10">
-                  {/* Upload icon */}
-                  <Image
-                    src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/imageupload3.svg"
-                    width={24}
-                    height={24}
-                    className="object-contain mb-2"
-                    alt="Upload icon"
-                  />
-                  {/* Upload text */}
-                  <div className="text-white text-[10px] font-medium text-center mb-2 px-2">
-                    이미지를 드래그하거나<br />클릭하여 업로드
+                {/* GridB와 유사한 밝은 회색 배경 + 업로드 안내 */}
+                <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center z-10 gap-y-2" style={{ backgroundColor: "#F9FAFB" }}>
+                  <div className="w-[26px] h-[26px] bg-[#E5E7EC] rounded-full flex items-center justify-center">
+                    <Image
+                      src="/report/upload.svg"
+                      width={16}
+                      height={16}
+                      className="object-contain"
+                      alt="Upload icon"
+                      unoptimized={true}
+                    />
                   </div>
-                  {/* File select button */}
-                  <button 
-                    className="bg-primary text-white text-[10px] px-3 py-1.5 rounded hover:bg-primary/80 transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onIntegratedUpload) {
-                        onIntegratedUpload();
-                      }
-                    }}
-                  >
-                    파일선택
-                  </button>
+                  <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
+                    이미지를 드래그하거나
+                    <br />
+                    클릭하여 업로드
+                  </div>
                 </div>
               </div>
             </div>

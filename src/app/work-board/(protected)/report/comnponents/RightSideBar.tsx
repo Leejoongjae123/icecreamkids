@@ -344,7 +344,7 @@ function RightSideBarContent() {
     }
 
     if (pendingAction.type === "TYPE_CHANGE") {
-      return "기존에 작업한 내용이 모두 초기화 됩니다.\n타입을 변경하시겠습니까?";
+      return "타입을 변경할떄 기존에 입력한 내용이 모두  초기화 됩니다. 진행하시겠습니까?";
     } else if (pendingAction.type === "SUBJECT_CHANGE") {
       return `기존에 작업한 내용이 모두 초기화 됩니다.\n놀이 주제 개수를 ${pendingAction.data.count}개로 변경하시겠습니까?`;
     }

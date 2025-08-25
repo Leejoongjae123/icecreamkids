@@ -49,6 +49,7 @@ interface GridBElementProps {
   isHidden?: boolean; // 숨김 처리 여부 (쓰레기통으로 삭제된 경우)
   imageCount?: number; // 초기 이미지 개수
   onImageCountChange?: (count: number) => void; // 이미지 개수 변경 콜백
+  highlightMode?: 'none' | 'full' | 'split';
 }
 
 function GridBElement({
@@ -69,6 +70,7 @@ function GridBElement({
   isHidden = false,
   imageCount: propsImageCount = 1, // 초기 이미지 개수
   onImageCountChange, // 이미지 개수 변경 콜백
+  highlightMode = 'none',
 }: GridBElementProps) {
   // 사용자 정보 가져오기
   const { isSaved } = useSavedDataStore();
@@ -1951,6 +1953,30 @@ function GridBElement({
         onMouseLeave={handleMouseLeave}
         data-grid-id={gridId}
       >
+        {/* Hover 미리보기 오버레이 (합치기: 전체, 쪼개기: 반반) */}
+        {highlightMode !== 'none' && !isSaved && (
+          <div className="absolute inset-0 pointer-events-none z-[1]">
+            {highlightMode === 'full' ? (
+              <div
+                className="absolute inset-0 rounded-2xl"
+                style={{ backgroundColor: '#FAB83D66' }}
+              />
+            ) : (
+              // split 미리보기: 좌/우 색상 분리 표시
+              <div className="absolute inset-0 flex rounded-2xl overflow-hidden">
+                <div
+                  className="flex-1 h-full rounded-2xl"
+                  style={{ backgroundColor: '#FA6F3D66' }}
+                />
+                <div className="w-[12px]" />
+                <div
+                  className="flex-1 h-full rounded-2xl"
+                  style={{ backgroundColor: '#3D8FFA66' }}
+                />
+              </div>
+            )}
+          </div>
+        )}
         {/* 이미지 그리드 - 계산된 높이로 설정하여 공간 최적화 */}
         <div
           ref={dropRef}
@@ -1982,7 +2008,7 @@ function GridBElement({
             return (
               <div key={index} className="w-full h-full">
                 <div
-                  className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-[110px] border border-dashed border-[#AAACB4] rounded-md"
+                  className={`relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-[110px] rounded-md ${isSaved ? "border-none" : "border border-dashed border-[#AAACB4]"} ${isSaved && !(imageSrc && imageSrc !== "" && imageSrc !== "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") ? "invisible" : ""}`}
                   style={gridAreaStyle}
                   onClick={(e) => {
                     // 클릭 시에도 크기 측정
@@ -2126,13 +2152,14 @@ function GridBElement({
               onFocus={() => setIsTextareaFocused(true)}
               onBlur={() => setIsTextareaFocused(false)}
               placeholder={placeholderText}
-              className="w-full h-full px-1 py-0.5  text-xs tracking-tight bg-white border-0 text-zinc-600 placeholder-zinc-400 shadow-none rounded-md focus:ring-0 focus:outline-none resize-none flex-1 scrollbar-hide description-area"
+              className="w-full h-full px-1 py-0.5  text-xs tracking-tight bg-transparent border-0 text-zinc-600 placeholder-zinc-400 shadow-none rounded-md focus:ring-0 focus:outline-none resize-none flex-1 scrollbar-hide description-area"
               style={{
                 borderRadius: "6px",
                 fontSize: "12px",
                 lineHeight: "1.2",
                 scrollbarWidth: "none" /* Firefox */,
                 msOverflowStyle: "none" /* IE and Edge */,
+                backgroundColor: 'transparent'
               }}
               onClick={handleImageClick}
             />
@@ -2184,11 +2211,12 @@ function GridBElement({
                     onKeyUp={(e) => e.stopPropagation()}
                     onKeyPress={(e) => e.stopPropagation()}
                     placeholder={placeholderText}
-                    className="h-full flex-1  text-xs tracking-tight bg-[#F9FAFB] border-none placeholder-zinc-400  shadow-none rounded-md "
+                    className="h-full flex-1  text-xs tracking-tight bg-transparent border-none placeholder-zinc-400  shadow-none rounded-md "
                     style={{
                       borderRadius: "6px",
                       fontSize: "13px",
                       lineHeight: "1",
+                      backgroundColor: 'transparent'
                     }}
                     onClick={handleImageClick}
                     draggable={false}

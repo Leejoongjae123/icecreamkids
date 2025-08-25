@@ -963,6 +963,38 @@ function GridAElement({
     [imageMetadata]
   );
 
+  // 저장된 상태에서 드라이브 임베드가 되지 않은 이미지는 시각적으로만 숨김 처리
+  const isSlotEmbedded = React.useCallback(
+    (imageIndex: number): boolean => {
+      const url = currentImages[imageIndex];
+      if (!url || url === "") {
+        return true; // 비어있는 슬롯은 숨김 대상 아님 (레이아웃 유지)
+      }
+      const key = getDriveItemKeyByImageUrl(url);
+      if (!key) {
+        return false;
+      }
+      if (key.startsWith("local_")) {
+        return false;
+      }
+      return true;
+    },
+    [currentImages, getDriveItemKeyByImageUrl]
+  );
+
+  // 저장 시 비어있는(또는 플레이스홀더) 슬롯은 시각적으로 숨김 처리하되 레이아웃은 유지
+  const isSlotEmpty = React.useCallback(
+    (imageIndex: number): boolean => {
+      const url = currentImages[imageIndex];
+      return (
+        !url ||
+        url === "" ||
+        url === "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+      );
+    },
+    [currentImages]
+  );
+
   // 이미지 메타데이터가 변경될 때마다 메모 상태 체크 (동일 키 세트는 스킵)
   const lastMemoKeysRef = React.useRef<string>("");
   React.useEffect(() => {
@@ -2660,7 +2692,7 @@ function GridAElement({
             {[0, 1, 2, 3].map((imageIndex) => (
               <div key={imageIndex} className="flex-1 h-full">
                 <div
-                  className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full border-solid border-2 border-gray-300"
+                  className={`relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full border-solid border-2 border-gray-300 ${isSaved && (!isSlotEmbedded(imageIndex) || isSlotEmpty(imageIndex)) ? "invisible" : ""}`}
                   onClick={(e) => {
                     measureImageCellSize(imageIndex);
                     if (!currentImages[imageIndex] || currentImages[imageIndex] === "") {
@@ -2783,7 +2815,7 @@ function GridAElement({
             {[0, 1, 2].map((imageIndex) => (
               <div key={imageIndex} className="flex-1 h-full">
                 <div
-                  className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
+                  className={`relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full ${isSaved && (!isSlotEmbedded(imageIndex) || isSlotEmpty(imageIndex)) ? "invisible" : ""}`}
                   onClick={(e) => {
                     measureImageCellSize(imageIndex);
                     if (!currentImages[imageIndex] || currentImages[imageIndex] === "") {
@@ -2826,24 +2858,7 @@ function GridAElement({
                             : undefined
                         }
                       />
-                      {/* Hover overlay - 이미지가 있을 때만 표시 */}
-                      <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
-                        <div className="flex items-center justify-center rounded-full bg-[#E5E7EC] w-[26px] h-[26px]">
-                          <Image
-                            src="/report/upload.svg"
-                            width={16}
-                            height={16}
-                            className="object-contain"
-                            alt="Upload icon"
-                            unoptimized={true}
-                          />
-                        </div>
-                        <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
-                          이미지를 드래그하거나
-                          <br />
-                          클릭하여 업로드
-                        </div>
-                      </div>
+                      
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[imageIndex] && (
                         <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 rounded-md">
@@ -2924,7 +2939,7 @@ function GridAElement({
             {/* 왼쪽: 첫 번째 이미지 */}
             <div className="flex-1 h-full">
               <div
-                className={`relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full rounded-md ${currentImages[0] && currentImages[0] !== "" ? "border-none" : "border border-dashed border-[#AAACB4]"}`}
+                className={`relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full rounded-md ${currentImages[0] && currentImages[0] !== "" ? "border-none" : "border border-dashed border-[#AAACB4]"} ${isSaved && (!isSlotEmbedded(0) || isSlotEmpty(0)) ? "invisible" : ""}`}
                 onClick={(e) => {
                   measureImageCellSize(0);
                   if (!currentImages[0] || currentImages[0] === "") {
@@ -3036,7 +3051,7 @@ function GridAElement({
               {/* 두 번째 이미지 */}
               <div className="flex-1 h-full">
                 <div
-                  className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
+                  className={`relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full ${isSaved && (!isSlotEmbedded(1) || isSlotEmpty(1)) ? "invisible" : ""}`}
                   onClick={(e) => {
                     measureImageCellSize(1);
                     if (!currentImages[1] || currentImages[1] === "") {
@@ -3073,24 +3088,7 @@ function GridAElement({
                         }
                         draggable={false}
                       />
-                      {/* Hover overlay - 이미지가 있을 때만 표시 */}
-                      <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
-                        <div className="flex items-center justify-center rounded-full bg-[#E5E7EC] w-[26px] h-[26px]">
-                          <Image
-                            src="/report/upload.svg"
-                            width={16}
-                            height={16}
-                            className="object-contain"
-                            alt="Upload icon"
-                            unoptimized={true}
-                          />
-                        </div>
-                        <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
-                          이미지를 드래그하거나
-                          <br />
-                          클릭하여 업로드
-                        </div>
-                      </div>
+                      
                       {renderResizeHandles(1)}
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[1] && (
@@ -3169,7 +3167,7 @@ function GridAElement({
               {/* 세 번째 이미지 */}
               <div className="flex-1 h-full">
                 <div
-                  className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
+                  className={`relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full ${isSaved && (!isSlotEmbedded(2) || isSlotEmpty(2)) ? "invisible" : ""}`}
                   onClick={(e) => {
                     measureImageCellSize(2);
                     if (!currentImages[2] || currentImages[2] === "") {
@@ -3206,24 +3204,8 @@ function GridAElement({
                         }
                         draggable={false}
                       />
-                      {/* Hover overlay - 이미지가 있을 때만 표시 */}
-                      <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
-                        <div className="flex items-center justify-center rounded-full bg-[#E5E7EC] w-[26px] h-[26px]">
-                          <Image
-                            src="/report/upload.svg"
-                            width={16}
-                            height={16}
-                            className="object-contain"
-                            alt="Upload icon"
-                            unoptimized={true}
-                          />
-                        </div>
-                        <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
-                          이미지를 드래그하거나
-                          <br />
-                          클릭하여 업로드
-                        </div>
-                      </div>
+                      
+                      
                       {renderResizeHandles(2)}
                       {/* 개별 이미지 배경 제거 로딩 오버레이 */}
                       {imageRemoveLoadingStates[2] && (
@@ -3332,7 +3314,7 @@ function GridAElement({
             })().map((imageSrc, index) => (
               <div key={index} className="w-full h-full">
                 <div
-                  className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
+                  className={`relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full ${isSaved && (!isSlotEmbedded(index) || isSlotEmpty(index)) ? "invisible" : ""}`}
                   onClick={(e) => {
                     // 클릭 시에도 크기 측정
                     measureImageCellSize(index);

@@ -394,7 +394,7 @@ function ReportAContent() {
       console.error('Preview error:', error);
     }
   };
-  
+
 
 
 
@@ -471,18 +471,7 @@ function ReportAContent() {
               </Button>
               {/* 임시 테스트 버튼 */}
 
-              <Button
-                size="sm"
-                className={`gap-1 font-semibold h-[34px] ${
-                  isTracking
-                    ? "bg-red-500 hover:bg-red-600 text-white"
-                    : "bg-blue-500 hover:bg-blue-600 text-white"
-                }`}
-                onClick={toggleTracking}
-                title="마우스 위치 추적 (스티커 좌표계)"
-              >
-                🖱️ {isTracking ? '마우스 위치 추적 중지' : '마우스 위치 추적'}
-              </Button>
+
               <Button
                 className={`gap-1 font-semibold w-[80px] h-[34px] text-[13px] shadow-none ${
                   isSaved
