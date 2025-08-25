@@ -2789,9 +2789,6 @@ function GridAElement({
                     if (!currentImages[imageIndex] || currentImages[imageIndex] === "") {
                       setReplaceTargetIndex(null);
                       handleOpenUploadModal();
-                    } else {
-                      setReplaceTargetIndex(imageIndex);
-                      handleOpenUploadModal();
                     }
                     handleImageClick(e);
                   }}
@@ -3341,9 +3338,6 @@ function GridAElement({
                     measureImageCellSize(index);
                     if (!imageSrc || imageSrc === "" || imageSrc === "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
                       setReplaceTargetIndex(null);
-                      handleOpenUploadModal();
-                    } else {
-                      setReplaceTargetIndex(index);
                       handleOpenUploadModal();
                     }
                     handleImageClick(e);
