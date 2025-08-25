@@ -2,7 +2,7 @@
 import * as React from "react";
 import * as ReactDOM from "react-dom";
 import Image from "next/image";
-import { Input } from "@/components/ui/input";
+ 
 import GridEditToolbar from "./GridEditToolbar";
 import { Loader } from "@/components/ui/loader";
 import ImageEditModal from "./ImageEditModal";
@@ -478,6 +478,9 @@ function GridAElement({
       return;
   }, []);
 
+  // 업로드 모달 싱글 교체 대상 인덱스 (null이면 다중/연속 채우기)
+  const [replaceTargetIndex, setReplaceTargetIndex] = React.useState<number | null>(null);
+
   const { postFile } = useS3FileUpload();
   const finishCropAndUpload = React.useCallback(async () => {
     // GridA 신규 컨셉: 크롭 비활성화 → 상태만 정리
@@ -892,11 +895,20 @@ function GridAElement({
         void uploadResults; // eslint 방지
       }
 
-      if (metadata.length > 0) {
-        setImageMetadata((prev) => [...prev, ...metadata]);
+      const emptySlots = currentImages.filter((img) => !img || img === "").length;
+      const allowedCount = Math.max(emptySlots, 0);
+      if (allowedCount <= 0) {
+        addToast({ message: "이미지를 삭제한 후 업로드하세요." });
+        return;
       }
-      if (imageUrls.length > 0) {
-        handleImagesAdded(imageUrls);
+      const limitedMetadata = metadata.slice(0, allowedCount);
+      const limitedImageUrls = imageUrls.slice(0, allowedCount);
+
+      if (limitedMetadata.length > 0) {
+        setImageMetadata((prev) => [...prev, ...limitedMetadata]);
+      }
+      if (limitedImageUrls.length > 0) {
+        handleImagesAdded(limitedImageUrls);
       }
     },
     maxDataLength: imageCount, // 현재 이미지 개수만큼 제한
@@ -923,8 +935,14 @@ function GridAElement({
       e.stopPropagation();
       const files = Array.from(e.dataTransfer?.files || []);
       if (files.length > 0) {
+        const emptySlots = currentImages.filter((img) => !img || img === "").length;
+        if (emptySlots <= 0) {
+          addToast({ message: "이미지를 삭제한 후 업로드하세요." });
+          return;
+        }
+        const limitedFiles = files.slice(0, emptySlots);
         // useImageUpload 내부 필터/제한 로직 재사용
-        processUploadedFiles(files as File[]);
+        processUploadedFiles(limitedFiles as File[]);
       }
     };
 
@@ -934,7 +952,7 @@ function GridAElement({
       el.removeEventListener("dragover", onDragOver as any);
       el.removeEventListener("drop", onDrop as any);
     };
-  }, [processUploadedFiles]);
+  }, [processUploadedFiles, currentImages, addToast]);
 
   // 이미지 URL로 driveItemKey 찾기
   const getDriveItemKeyByImageUrl = React.useCallback(
@@ -1105,14 +1123,7 @@ function GridAElement({
       const selectedCount = selectedItems.length;
 
       if (selectedCount === 0) {
-        // 아무것도 선택하지 않으면 경고만 표시하고 유지
         addToast({ message: "이미지를 선택해주세요." });
-        return;
-      }
-
-      // imageCount와 선택 개수가 다르면 경고 후 중단 (모달 유지)
-      if (selectedCount !== imageCount) {
-        addToast({ message: `이미지 ${imageCount}개를 선택해주세요.` });
         return;
       }
 
@@ -1128,7 +1139,28 @@ function GridAElement({
         }
       });
 
-      // 메타데이터 주입 및 로컬 이미지 반영
+      // 싱글 교체 모드: 특정 그리드 한 칸만 교체
+      if (replaceTargetIndex !== null) {
+        const firstUrl = urls[0];
+        const firstKey = keys[0];
+        if (firstUrl) {
+          setCurrentImages((prev) => {
+            const next = [...prev];
+            next[replaceTargetIndex] = firstUrl;
+            return next;
+          });
+          setImageMetadata((prev) => {
+            const next = [...prev];
+            if (firstUrl) next.push({ url: firstUrl, driveItemKey: firstKey });
+            return next;
+          });
+        }
+        setReplaceTargetIndex(null);
+        handleCloseUploadModal();
+        return;
+      }
+
+      // 다중/연속 채우기 모드: 비어 있는 칸부터 순차 배치
       if (urls.length > 0) {
         setImageMetadata((prev) => {
           const next = [...prev];
@@ -1141,18 +1173,9 @@ function GridAElement({
         handleImagesAdded(urls);
       }
 
-      // 스토어도 즉시 업데이트
-      if (gridId && urls.length > 0) {
-        updateImages(gridId, urls.slice(0, selectedCount));
-        const validKeys = keys.filter((k) => typeof k === "string" && k.length > 0);
-        if (validKeys.length > 0) {
-          updateDriveItemKeys(gridId, validKeys.slice(0, selectedCount));
-        }
-      }
-
       handleCloseUploadModal();
     },
-    [gridId, imageCount, updateImages, updateDriveItemKeys, setImageMetadata, handleImagesAdded, handleCloseUploadModal, addToast]
+    [gridId, updateImages, updateDriveItemKeys, setImageMetadata, handleImagesAdded, handleCloseUploadModal, addToast, replaceTargetIndex, currentImages]
   );
 
   // 개별 이미지 추가 핸들러
@@ -1611,17 +1634,15 @@ function GridAElement({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentImages]);
 
-  // 스토어(API 주입)의 이미지 개수가 현재 imageCount보다 많으면 imageCount를 올려 동기화 (최대 3)
+  // 스토어(API 주입)의 이미지 개수가 현재 imageCount보다 많을 때만 imageCount를 증가시켜 동기화
+  // 사용자가 설정한 슬롯 수(예: 4)를 임의로 줄이지 않도록 감소 동기화는 하지 않음
   React.useEffect(() => {
     if (!gridId) return;
     const storeImagesRaw = gridContents[gridId]?.imageUrls;
     const storeImages = Array.isArray(storeImagesRaw) ? storeImagesRaw : [];
     const storeCount = storeImages.length;
-    if (storeCount > 0) {
-      const desired = Math.min(3, storeCount);
-      if (desired !== imageCount) {
-        setImageCount(desired);
-      }
+    if (storeCount > imageCount) {
+      setImageCount(storeCount);
     }
   }, [gridId, gridContents, imageCount]);
 
@@ -1939,14 +1960,14 @@ function GridAElement({
   };
 
   const handleImageUpload = () => {
-    console.log("이미지 업로드 버튼 클릭됨");
-    // 새로운 이미지 업로드 모달 열기
-    handleOpenUploadModal();
-
-    // 기존 핸들러도 호출 (필요시)
-    if (onImageUpload) {
-      onImageUpload();
+    const emptySlots = currentImages.filter((img) => !img || img === "").length;
+    if (emptySlots <= 0) {
+      addToast({ message: "이미지를 삭제한 후 업로드하세요." });
+      return;
     }
+    setReplaceTargetIndex(null);
+    handleOpenUploadModal();
+    if (onImageUpload) onImageUpload();
   };
 
   // 텍스트 파일 업로드 핸들러
@@ -2540,7 +2561,7 @@ function GridAElement({
       이전값: categoryValue,
       새값: newValue,
     });
-    setCategoryValue(newValue);
+    setCategoryValue(newValue.slice(0, 24));
   };
 
   const handleCategoryKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -2582,42 +2603,35 @@ function GridAElement({
         {/* 카테고리 섹션 - 고정 높이 */}
         <div className="flex gap-2.5 text-sm font-bold tracking-tight leading-none text-amber-400 whitespace-nowrap flex-shrink-0 mb-1">
           <div
-            className={`flex overflow-hidden flex-col grow shrink-0 justify-center items-start px-2 py-1 rounded-md border border-solid basis-0 w-fit transition-colors ${
+            className={`flex overflow-hidden flex-col grow shrink-0 justify-center items-start px-2 py-1 rounded-md border border-solid basis-0 w-full min-w-0 transition-colors ${
               isSaved
                 ? "cursor-default bg-white border-transparent"
                 : "cursor-text hover:bg-gray-50"
             } ${
-              isSaved
-                ? "border-transparent bg-white"
-                : isEditingCategory
-                  ? "border-primary"
-                  : "border-gray-300"
+              isSaved ? "border-transparent bg-white" : "border-gray-300"
             }`}
             onClick={
               !isEditingCategory && !isSaved ? handleCategoryClick : undefined
             }
           >
             {isEditingCategory ? (
-              <Input
+              <input
                 type="text"
                 value={categoryValue}
+                maxLength={24}
                 onChange={handleCategoryChange}
                 onKeyDown={handleCategoryKeyDown}
-                onKeyUp={(e) => e.stopPropagation()} // 키업 이벤트 전파 방지
-                onKeyPress={(e) => e.stopPropagation()} // 키프레스 이벤트 전파 방지
+                onKeyUp={(e) => e.stopPropagation()}
+                onKeyPress={(e) => e.stopPropagation()}
                 onBlur={handleCategoryBlur}
-                onMouseDown={(e) => e.stopPropagation()} // 드래그 이벤트 방지
-                onDragStart={(e) => e.preventDefault()} // 드래그 시작 방지
+                onMouseDown={(e) => e.stopPropagation()}
+                onDragStart={(e) => e.preventDefault()}
                 placeholder="Text"
-                className="text-[16px] font-bold text-primary bg-transparent border-0 p-0 h-auto leading-tight focus:ring-0 focus-visible:ring-0 focus:outline-none focus:border-primary shadow-none min-w-[60px] w-auto placeholder:text-gray-400 focus:text-primary"
-                style={{
-                  borderRadius: "0px",
-                  fontSize: "16px",
-                  fontWeight: "bold",
-                  color: "#3b82f6 !important", // primary color 강제 적용
-                }}
+                className={`text-[16px] leading-tight px-1 py-0.5 rounded transition-colors ${
+                  categoryValue ? "text-primary" : "text-gray-400"
+                } bg-transparent border-0 p-0 h-auto focus:ring-0 focus-visible:ring-0 focus:outline-none shadow-none min-w-[60px] w-full`}
                 autoFocus
-                draggable={false} // 드래그 완전 비활성화
+                draggable={false}
               />
             ) : (
               <div
@@ -2649,10 +2663,8 @@ function GridAElement({
                   className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full border-solid border-2 border-gray-300"
                   onClick={(e) => {
                     measureImageCellSize(imageIndex);
-                    if (
-                      !currentImages[imageIndex] ||
-                      currentImages[imageIndex] === ""
-                    ) {
+                    if (!currentImages[imageIndex] || currentImages[imageIndex] === "") {
+                      setReplaceTargetIndex(null);
                       handleOpenUploadModal();
                     }
                     handleImageClick(e);
@@ -2690,7 +2702,7 @@ function GridAElement({
                         }
                         draggable={false}
                       />
-                      {/* Hover overlay - 이미지가 있을 때만 표시 */}
+                      {/* Hover overlay - 이미지가 있을 때만 표시 (업로드 안내 문구 제거) */}
                       <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
                         {/* Upload icon */}
                         <div className="flex items-center justify-center rounded-full bg-[#E5E7EC] w-[26px] h-[26px]">
@@ -2703,12 +2715,7 @@ function GridAElement({
                             unoptimized={true}
                           />
                         </div>
-                        {/* Upload text */}
-                        <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
-                          이미지를 드래그하거나
-                          <br />
-                          클릭하여 업로드
-                        </div>
+                        {/* 안내 문구 제거로 더블클릭 편집과 충돌 방지 */}
                       </div>
                       {renderResizeHandles(imageIndex)}
                       {renderResizeHandles(imageIndex)}
@@ -2743,7 +2750,7 @@ function GridAElement({
                           border: "1px dashed #AAACB4",
                         }}
                       />
-                      <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center opacity-100 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
+                      <div className="absolute inset-0 rounded-md flex flex-col items-center justify-center opacity-100 transition-opacity duration-200 z-10 pointer-events-none gap-y-2">
                         <div className="flex items-center justify-center rounded-full bg-[#E5E7EC] w-[26px] h-[26px]">
                           <Image
                             src="/report/upload.svg"
@@ -2754,11 +2761,7 @@ function GridAElement({
                             unoptimized={true}
                           />
                         </div>
-                        <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">
-                          이미지를 드래그하거나
-                          <br />
-                          클릭하여 업로드
-                        </div>
+                        <div className="text-[#8F8F8F] text-[14px] font-medium text-center mb-2 px-1">클릭하여 업로드</div>
                       </div>
                     </>
                   )}
@@ -2783,10 +2786,11 @@ function GridAElement({
                   className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full"
                   onClick={(e) => {
                     measureImageCellSize(imageIndex);
-                    if (
-                      !currentImages[imageIndex] ||
-                      currentImages[imageIndex] === ""
-                    ) {
+                    if (!currentImages[imageIndex] || currentImages[imageIndex] === "") {
+                      setReplaceTargetIndex(null);
+                      handleOpenUploadModal();
+                    } else {
+                      setReplaceTargetIndex(imageIndex);
                       handleOpenUploadModal();
                     }
                     handleImageClick(e);
@@ -2923,10 +2927,11 @@ function GridAElement({
             {/* 왼쪽: 첫 번째 이미지 */}
             <div className="flex-1 h-full">
               <div
-                className="relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full border border-dashed border-[#AAACB4] rounded-md"
+                className={`relative cursor-pointer hover:opacity-80 transition-opacity group w-full h-full rounded-md ${currentImages[0] && currentImages[0] !== "" ? "border-none" : "border border-dashed border-[#AAACB4]"}`}
                 onClick={(e) => {
                   measureImageCellSize(0);
                   if (!currentImages[0] || currentImages[0] === "") {
+                    setReplaceTargetIndex(null);
                     handleOpenUploadModal();
                   }
                   handleImageClick(e);
@@ -3038,6 +3043,7 @@ function GridAElement({
                   onClick={(e) => {
                     measureImageCellSize(1);
                     if (!currentImages[1] || currentImages[1] === "") {
+                      setReplaceTargetIndex(null);
                       handleOpenUploadModal();
                     }
                     handleImageClick(e);
@@ -3170,6 +3176,7 @@ function GridAElement({
                   onClick={(e) => {
                     measureImageCellSize(2);
                     if (!currentImages[2] || currentImages[2] === "") {
+                      setReplaceTargetIndex(null);
                       handleOpenUploadModal();
                     }
                     handleImageClick(e);
@@ -3332,12 +3339,11 @@ function GridAElement({
                   onClick={(e) => {
                     // 클릭 시에도 크기 측정
                     measureImageCellSize(index);
-                    if (
-                      !imageSrc ||
-                      imageSrc === "" ||
-                      imageSrc ===
-                        "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
-                    ) {
+                    if (!imageSrc || imageSrc === "" || imageSrc === "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg") {
+                      setReplaceTargetIndex(null);
+                      handleOpenUploadModal();
+                    } else {
+                      setReplaceTargetIndex(index);
                       handleOpenUploadModal();
                     }
                     handleImageClick(e);
@@ -3572,14 +3578,14 @@ function GridAElement({
                 )
               ) : (
                 <div className="flex items-center justify-center gap-1">
-                  <Input
+                  <input
                     value={keywords}
                     onChange={handleKeywordChange}
-                    onMouseDown={(e) => e.stopPropagation()} // 드래그 이벤트 방지
-                    onDragStart={(e) => e.preventDefault()} // 드래그 시작 방지
-                    onKeyDown={(e) => e.stopPropagation()} // 키보드 이벤트 전파 방지 (스페이스바 포함)
-                    onKeyUp={(e) => e.stopPropagation()} // 키업 이벤트 전파 방지
-                    onKeyPress={(e) => e.stopPropagation()} // 키프레스 이벤트 전파 방지
+                    onMouseDown={(e: React.MouseEvent<HTMLInputElement>) => e.stopPropagation()}
+                    onDragStart={(e: React.DragEvent<HTMLInputElement>) => e.preventDefault()}
+                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.stopPropagation()}
+                    onKeyUp={(e: React.KeyboardEvent<HTMLInputElement>) => e.stopPropagation()}
+                    onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => e.stopPropagation()}
                     placeholder={placeholderText}
                     className="h-[26px] min-h-[26px] max-h-[26px] text-xs tracking-tight bg-[#F9FAFB] border-none placeholder-zinc-400 flex-1 shadow-none rounded-md "
                     style={{
@@ -3588,7 +3594,7 @@ function GridAElement({
                       lineHeight: "1",
                     }}
                     onClick={handleImageClick}
-                    draggable={false} // 드래그 완전 비활성화
+                    draggable={false}
                   />
                   <button
                     onClick={(e) => {
@@ -3806,10 +3812,13 @@ function GridAElement({
       {isUploadModalOpen && (
         <UploadModal
           isOpen={isUploadModalOpen}
-          onCancel={handleCloseUploadModal}
+          onCancel={() => {
+            setReplaceTargetIndex(null);
+            handleCloseUploadModal();
+          }}
           onConfirm={handleConfirmFromUploadModal}
           setItemData={handleSetItemData}
-          isMultiUpload
+          isMultiUpload={replaceTargetIndex === null}
           allowsFileTypes={["IMAGE"]}
           isUploadS3
           isReturnS3UploadedItemData

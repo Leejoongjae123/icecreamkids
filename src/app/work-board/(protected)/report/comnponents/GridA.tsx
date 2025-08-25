@@ -30,6 +30,23 @@ export interface GridARef {
   };
 }
 
+// 놀이 수(subject)에 따른 각 그리드의 기본 이미지 개수 분배
+// 4개: [2,1,1,2], 3개: [3,2,2], 2개: [3,2], 1개: [4]
+const getDefaultImageCount = (total: number, index: number): number => {
+  switch (total) {
+    case 4:
+      return [2, 1, 1, 2][index] ?? 1;
+    case 3:
+      return [3, 2, 2][index] ?? 1;
+    case 2:
+      return [3, 2][index] ?? 1;
+    case 1:
+      return 4;
+    default:
+      return 1;
+  }
+};
+
 const GridA = React.forwardRef<GridARef, GridAProps>(({ subject, onDecreaseSubject, initialGridLayout, initialImagePositionsMap }, ref) => {
   // 각 이미지 영역의 체크 상태 관리
   const [checkedItems, setCheckedItems] = React.useState<Record<string, boolean>>({});
@@ -48,7 +65,7 @@ const GridA = React.forwardRef<GridARef, GridAProps>(({ subject, onDecreaseSubje
         inputValue: "",
         cardType: subject === 3 ? (i === 0 ? 'large' : 'small') : 'small',
         colSpan: subject === 3 ? (i === 0 ? 2 : 1) : 1,
-        imageCount: 1
+        imageCount: getDefaultImageCount(subject, i)
       });
     }
     return initialItems;
@@ -72,7 +89,7 @@ const GridA = React.forwardRef<GridARef, GridAProps>(({ subject, onDecreaseSubje
         
         // gridContents에 이미지 데이터가 있으면 우선 사용
         let images = it.images || [];
-        let imageCount = it.imageCount || 1;
+        let imageCount = typeof it.imageCount === 'number' ? it.imageCount : getDefaultImageCount(subject, i);
         
         if (content && Array.isArray(content.imageUrls) && content.imageUrls.length > 0) {
           // API에서 받아온 이미지 데이터를 우선시
@@ -182,7 +199,8 @@ const GridA = React.forwardRef<GridARef, GridAProps>(({ subject, onDecreaseSubje
             index: i,
             cardType: subject === 3 ? (i === 0 ? 'large' : 'small') : 'small',
             colSpan: subject === 3 ? (i === 0 ? 2 : 1) : 1,
-            imageCount: existingItem.imageCount || 1
+            // subject가 바뀌면 기본 분배에 맞춰 이미지 개수도 재설정
+            imageCount: getDefaultImageCount(subject, i)
           });
         } else {
           // 새 아이템 생성
@@ -194,7 +212,7 @@ const GridA = React.forwardRef<GridARef, GridAProps>(({ subject, onDecreaseSubje
             inputValue: "",
             cardType: subject === 3 ? (i === 0 ? 'large' : 'small') : 'small',
             colSpan: subject === 3 ? (i === 0 ? 2 : 1) : 1,
-            imageCount: 1
+            imageCount: getDefaultImageCount(subject, i)
           });
         }
       }

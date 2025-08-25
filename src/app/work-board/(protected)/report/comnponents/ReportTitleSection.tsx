@@ -34,19 +34,19 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
   const [isTextSelected, setIsTextSelected] = useState(false);
   const [text, setText] = useState("");
   const [fontSize, setFontSize] = useState("text-4xl");
-  const contentRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
 
   // 우측 상단 박스 관련 상태
   const [isTopFocused, setIsTopFocused] = useState(false);
   const [topText, setTopText] = useState("");
   const [topFontSize, setTopFontSize] = useState("text-lg");
-  const topContentRef = useRef<HTMLDivElement>(null);
+  const topContentRef = useRef<HTMLInputElement>(null);
 
   // 우측 하단 박스 관련 상태
   const [isBottomFocused, setIsBottomFocused] = useState(false);
   const [bottomText, setBottomText] = useState("");
   const [bottomFontSize, setBottomFontSize] = useState("text-lg");
-  const bottomContentRef = useRef<HTMLDivElement>(null);
+  const bottomContentRef = useRef<HTMLInputElement>(null);
 
   // 이미지 추가 상태
   const [hasImage, setHasImage] = useState(false);
@@ -139,15 +139,15 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
       setTopText(nextTop);
       setBottomText(nextBottom);
 
-      // contentEditable 영역 DOM 동기화
+      // textarea DOM 동기화
       if (contentRef.current) {
-        contentRef.current.textContent = nextTitle;
+        contentRef.current.value = nextTitle;
       }
       if (topContentRef.current) {
-        topContentRef.current.textContent = nextTop;
+        topContentRef.current.value = nextTop;
       }
       if (bottomContentRef.current) {
-        bottomContentRef.current.textContent = nextBottom;
+        bottomContentRef.current.value = nextBottom;
       }
 
       if (initialData.image && initialData.image.url) {
@@ -188,15 +188,15 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
         setTopText(nextTop);
         setBottomText(nextBottom);
 
-        // contentEditable 영역 DOM 동기화
+        // textarea DOM 동기화
         if (contentRef.current) {
-          contentRef.current.textContent = nextTitle;
+          contentRef.current.value = nextTitle;
         }
         if (topContentRef.current) {
-          topContentRef.current.textContent = nextTop;
+          topContentRef.current.value = nextTop;
         }
         if (bottomContentRef.current) {
-          bottomContentRef.current.textContent = nextBottom;
+          bottomContentRef.current.value = nextBottom;
         }
 
         if (data.image && data.image.url) {
@@ -264,17 +264,10 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
 
   // 텍스트 길이와 줄바꿈에 따라 폰트 사이즈 조절 (제목용)
   useEffect(() => {
-    // 개행 감지 - textContent와 innerHTML 모두 확인
-    const hasLineBreaks = text.includes('\n') || 
-                         (contentRef.current && 
-                          (contentRef.current.innerHTML.includes('<br>') || 
-                           contentRef.current.innerHTML.includes('<div>') ||
-                           contentRef.current.innerHTML.includes('\n')));
-    
+    const hasLineBreaks = text.includes('\n');
     if (text.length === 0) {
       setFontSize("text-4xl");
     } else if (hasLineBreaks) {
-      // 개행이 있으면 바로 작은 크기로
       setFontSize("text-2xl");
     } else if (text.length <= 10) {
       setFontSize("text-4xl");
@@ -370,21 +363,34 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
     setIsFocused(false);
   };
 
-  const handleInput = () => {
-    if (contentRef.current) {
-      // textContent와 innerHTML을 모두 확인하여 개행 감지
-      const textContent = contentRef.current.textContent || "";
-      const innerHTML = contentRef.current.innerHTML || "";
-      
-      // innerHTML에서 <br>이나 <div> 태그가 있으면 개행으로 간주
-      const hasHTMLLineBreaks = innerHTML.includes('<br>') || innerHTML.includes('<div>');
-      
-      // textContent에 실제 줄바꿈 문자가 있거나 HTML에 줄바꿈 태그가 있으면
-      // textContent에 줄바꿈 문자를 추가하여 상태 동기화
-      if (hasHTMLLineBreaks && !textContent.includes('\n')) {
-        setText(textContent + '\n');
-      } else {
-        setText(textContent);
+  const handleTitleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const raw = e.target.value || "";
+    let normalized = raw.replace(/\r\n/g, '\n');
+    normalized = normalized.split('\n').slice(0, 2).join('\n');
+
+    let charCount = 0;
+    let limited = "";
+    for (const ch of normalized) {
+      if (ch === '\n') {
+        limited += ch;
+        continue;
+      }
+      if (charCount >= 48) {
+        break;
+      }
+      limited += ch;
+      charCount += 1;
+    }
+
+    setText(limited);
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      const current = e.currentTarget.value || "";
+      const lineCount = current.split('\n').length;
+      if (lineCount >= 2) {
+        e.preventDefault();
       }
     }
   };
@@ -398,10 +404,9 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
     setIsTopFocused(false);
   };
 
-  const handleTopInput = () => {
-    if (topContentRef.current) {
-      setTopText(topContentRef.current.textContent || "");
-    }
+  const handleTopChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = (e.target.value || "").replace(/\r?\n/g, " ");
+    setTopText(next);
   };
 
   // 우측 하단 박스 핸들러
@@ -413,10 +418,9 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
     setIsBottomFocused(false);
   };
 
-  const handleBottomInput = () => {
-    if (bottomContentRef.current) {
-      setBottomText(bottomContentRef.current.textContent || "");
-    }
+  const handleBottomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = (e.target.value || "").replace(/\r?\n/g, " ");
+    setBottomText(next);
   };
 
   // 이미지 추가 상태 처리
@@ -602,7 +606,7 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
 
       // contentRef 초기화
       if (contentRef.current) {
-        contentRef.current.textContent = "";
+        contentRef.current.value = "";
       }
     } else if (deleteTarget === "date") {
       // 날짜 컨테이너만 삭제
@@ -803,14 +807,15 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
               onMouseEnter={() => showToolbarFor('text')}
               onMouseLeave={scheduleHideToolbar}
             >
-              <div
+              <textarea
                 ref={contentRef}
-                contentEditable
-                className={`w-[401px] outline-none text-center font-medium ${fontSize} transition-all duration-200 leading-tight`}
+                value={text}
+                onChange={handleTitleChange}
+                onKeyDown={handleTitleKeyDown}
                 onFocus={handleFocus}
                 onBlur={handleBlur}
-                onInput={handleInput}
-                suppressContentEditableWarning={true}
+                placeholder={text === "" && !isSaved ? "제목을 입력하세요" : ""}
+                className={`w-[401px] outline-none text-center font-medium ${fontSize} transition-all duration-200 leading-tight resize-none`}
                 style={{ 
                   fontFamily: "'MaplestoryOTFBold', sans-serif",
                   minHeight: "100%", 
@@ -824,17 +829,9 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                   padding: "8px",
                   overflow: "hidden"
                 }}
-                data-placeholder={text === "" && !isSaved ? "제목을 입력하세요" : ""}
+                rows={2}
+                maxLength={48}
               />
-
-              {/* 플레이스홀더 스타일 */}
-              <style jsx>{`
-                div[contenteditable]:empty:before {
-                  content: attr(data-placeholder);
-                  color: #9ca3af;
-                  pointer-events: none;
-                }
-              `}</style>
             </div>
 
             {/* 제목 편집 툴바 - hover 시 노출 및 2초 유지 */}
@@ -897,7 +894,7 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
       </div>
 
       <div
-        className="relative flex flex-col w-[108px] gap-y-2 title-date-container"
+        className="relative flex flex-col w-[108px] h-full gap-y-2 title-date-container"
         ref={dateContainerRef}
       >
         {isDateContainerVisible ? (
@@ -927,21 +924,20 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
               onMouseEnter={() => showToolbarFor('date')}
               onMouseLeave={scheduleHideToolbar}
             >
-              <div
+              <input
                 ref={topContentRef}
-                contentEditable
-                className={`w-full h-full outline-none text-center flex items-center justify-center font-medium ${topFontSize} transition-all duration-200 overflow-hidden break-words`}
+                type="text"
+                value={topText}
+                onChange={handleTopChange}
                 onFocus={handleTopFocus}
                 onBlur={handleTopBlur}
-                onInput={handleTopInput}
-                suppressContentEditableWarning={true}
+                placeholder={topText === "" && !isSaved ? "텍스트" : ""}
+                className={`w-full h-full outline-none text-center font-medium ${topFontSize} transition-all duration-200 overflow-hidden`}
                 style={{
                   minHeight: "1em",
                   maxHeight: "100%",
                   lineHeight: "1.2",
-                  wordBreak: "break-all",
                 }}
-                data-placeholder={topText === "" && !isSaved ? "텍스트" : ""}
               />
             </div>
 
@@ -970,36 +966,34 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
               onMouseEnter={() => showToolbarFor('date')}
               onMouseLeave={scheduleHideToolbar}
             >
-              <div
+              <input
                 ref={bottomContentRef}
-                contentEditable
-                className={`w-full h-full outline-none text-center flex items-center justify-center font-medium ${bottomFontSize} transition-all duration-200 overflow-hidden break-words`}
+                type="text"
+                value={bottomText}
+                onChange={handleBottomChange}
                 onFocus={handleBottomFocus}
                 onBlur={handleBottomBlur}
-                onInput={handleBottomInput}
-                suppressContentEditableWarning={true}
+                placeholder={bottomText === "" && !isSaved ? "텍스트" : ""}
+                className={`w-full h-full outline-none text-center font-medium ${bottomFontSize} transition-all duration-200 overflow-hidden`}
                 style={{
                   minHeight: "1em",
                   maxHeight: "100%",
                   lineHeight: "1.2",
-                  wordBreak: "break-all",
                 }}
-                data-placeholder={bottomText === "" && !isSaved ? "텍스트" : ""}
               />
             </div>
 
-            {/* 플레이스홀더 스타일 - 우측 박스들용 */}
-            <style jsx>{`
-              div[contenteditable]:empty:before {
-                content: attr(data-placeholder);
-                color: #9ca3af;
-                pointer-events: none;
-              }
-            `}</style>
+            
 
-            {/* 날짜 편집 툴바 - hover 시 노출 및 2초 유지 */}
+            {/* 날짜 편집 툴바 - hover 시 노출 및 2초 유지 (absolute로 고정) */}
             {(isTopFocused || isBottomFocused || isDateSelected || (!isSaved && showToolbar && hoveredSection === 'date')) && (
               <div
+                className="absolute z-50"
+                style={{
+                  left: "50%",
+                  top: "calc(100% + 8px)",
+                  transform: "translateX(-50%)",
+                }}
                 onMouseEnter={() => {
                   if (hoverHideTimerRef.current) {
                     window.clearTimeout(hoverHideTimerRef.current);
@@ -1011,7 +1005,7 @@ function ReportTitleSectionImpl({ className = "", initialData }: ReportTitleSect
                 <TitleEditToolbar
                   show={true}
                   isExpanded={true}
-                  position={{ left: "0px", top: "calc(100% + 8px)" }}
+                  position={{ left: "0px", top: "0px" }}
                   onIconClick={(index, data) => {
                     switch (index) {
                       case 4:
