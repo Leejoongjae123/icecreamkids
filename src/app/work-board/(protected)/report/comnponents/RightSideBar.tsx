@@ -79,7 +79,11 @@ function RightSideBarContent() {
   // ApplyModal 관련 상태
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
-    type: "TYPE_CHANGE" | "SUBJECT_CHANGE";
+    type:
+      | "TYPE_CHANGE"
+      | "SUBJECT_CHANGE"
+      | "PHOTO_CHANGE"
+      | "C_KEYWORD_MISSING";
     data: any;
   } | null>(null);
 
@@ -255,11 +259,9 @@ function RightSideBarContent() {
     console.log(`놀이 주제 선택: ${subject}`);
   };
 
-  const handlePhotoSelect = (photo: string) => {
+  const applyPhotoChange = (photo: string, count: number) => {
     setSelectedPhoto(photo);
     setIsPhotoPopoverOpen(false);
-    // Update the count logic as needed
-    const count = parseInt(photo.replace("개", ""));
     setPhotoCount(count);
 
     // searchParams 업데이트
@@ -268,6 +270,53 @@ function RightSideBarContent() {
     router.push(`?${newSearchParams.toString()}`);
 
     console.log(`사진 개수 선택: ${photo}`);
+  };
+
+  const handlePhotoSelect = (photo: string) => {
+    const count = parseInt(photo.replace("개", ""));
+    
+    console.log("=== handlePhotoSelect 디버깅 ===");
+    console.log("선택한 사진 개수:", photo, "→", count);
+    console.log("현재 타입:", currentType);
+    
+    // 기존에 작업한 내용이 있는지 확인 (C타입은 GridCStore 기반으로 별도 체크)
+    const hasTypeCWork = (() => {
+      if (currentType !== "C") {
+        console.log("C타입이 아니므로 hasTypeCWork = false");
+        return false;
+      }
+      // 선택 여부와 로컬 여부에 상관없이, 이미지나 키워드가 하나라도 있으면 작업 존재로 간주
+      const entries = Object.values(gridCMap || {});
+      console.log("GridC entries:", entries);
+      
+      const result = entries.some((it) => {
+        const hasImage = typeof it.driveItemKey === "string" && it.driveItemKey.trim().length > 0;
+        const hasKeyword = typeof it.keywordText === "string" && it.keywordText.trim().length > 0;
+        console.log(`Entry 체크 - driveItemKey: "${it.driveItemKey}", keywordText: "${it.keywordText}", hasImage: ${hasImage}, hasKeyword: ${hasKeyword}`);
+        return hasImage || hasKeyword;
+      });
+      
+      console.log("hasTypeCWork 결과:", result);
+      return result;
+    })();
+
+    const hasContentCheck = hasAnyContent();
+    console.log("hasAnyContent() 결과:", hasContentCheck);
+    console.log("최종 조건 체크:", hasContentCheck || hasTypeCWork);
+
+    if (hasContentCheck || hasTypeCWork) {
+      console.log("ApplyModal을 띄웁니다");
+      setPendingAction({
+        type: "PHOTO_CHANGE",
+        data: { photo, count },
+      });
+      setIsApplyModalOpen(true);
+      setIsPhotoPopoverOpen(false);
+    } else {
+      console.log("바로 적용합니다 (ApplyModal 없이)");
+      applyPhotoChange(photo, count);
+    }
+    console.log("=== handlePhotoSelect 끝 ===");
   };
 
   const handleTypeSelect = (type: "A" | "B" | "C") => {
@@ -326,6 +375,12 @@ function RightSideBarContent() {
       // 현재 타입의 Grid들만 초기화
       clearGridsByType(currentType, subjectCount);
       applySubjectChange(pendingAction.data.subject, pendingAction.data.count);
+    } else if (pendingAction.type === "PHOTO_CHANGE") {
+      // 현재 타입의 Grid들만 초기화 (현재 photoCount 기준)
+      clearGridsByType(currentType, photoCount);
+      applyPhotoChange(pendingAction.data.photo, pendingAction.data.count);
+    } else if (pendingAction.type === "C_KEYWORD_MISSING") {
+      // 안내 전용 모달: 확인 시 아무 변경 없이 닫기
     }
 
     setIsApplyModalOpen(false);
@@ -347,6 +402,10 @@ function RightSideBarContent() {
       return "타입을 변경할떄 기존에 입력한 내용이 모두  초기화 됩니다. 진행하시겠습니까?";
     } else if (pendingAction.type === "SUBJECT_CHANGE") {
       return `기존에 작업한 내용이 모두 초기화 됩니다.\n놀이 주제 개수를 ${pendingAction.data.count}개로 변경하시겠습니까?`;
+    } else if (pendingAction.type === "PHOTO_CHANGE") {
+      return `기존에 작업한 내용이 모두 초기화 됩니다.\n사진 개수를 ${pendingAction.data.count}개로 변경하시겠습니까?`;
+    } else if (pendingAction.type === "C_KEYWORD_MISSING") {
+      return "선택한 그리드 중 키워드가 없습니다.\n 키워드 입력 후 생성해주세요.";
     }
 
     return "";
@@ -381,6 +440,17 @@ function RightSideBarContent() {
     // 타입별 유효성 체크
     const reportCaptions = getReportCaptionsByType(currentType);
     if (currentType === "C") {
+      // 선택된 그리드 중 키워드 누락 여부 먼저 확인 → 누락 시 ApplyModal로 안내
+      const entries = Object.values(gridCMap || {});
+      const hasMissingKeyword = entries.some(
+        (it) => it.isSelected && !(it.keywordText || "").trim()
+      );
+      if (hasMissingKeyword) {
+        setPendingAction({ type: "C_KEYWORD_MISSING", data: {} });
+        setIsApplyModalOpen(true);
+        return;
+      }
+
       const images = getImagesPayload(); // 서버 이미지만 가져오기
       const allImages = getImagesForValidation(); // 로컬 이미지 포함
       const hasText = allImages.some(
@@ -525,14 +595,11 @@ function RightSideBarContent() {
   const hasValidContent =
     currentType === "C"
       ? (() => {
-          const _ = gridCMap; // subscribe only
-          const imgs = getImagesForValidation(); // 로컬 이미지도 포함하여 검증
-          // 체크된 모든 그리드에 이미지와 키워드가 입력되어야 함
-          return (
-            imgs.length > 0 &&
-            imgs.every((it) => (it.userTextForImage || "").trim().length > 0) &&
-            !isLoadingCreate
+          const map = gridCMap; // subscribe to changes
+          const hasAnySelected = Object.values(map || {}).some(
+            (it) => Boolean(it.isSelected)
           );
+          return hasAnySelected && !isLoadingCreate;
         })()
       : reportCaptions.length > 0 &&
         hasAnyAiGeneratedContent() &&

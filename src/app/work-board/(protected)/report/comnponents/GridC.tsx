@@ -63,6 +63,8 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
 
   // 선택된 아이템들 관리
   const [selectedItems, setSelectedItems] = React.useState<Set<string>>(new Set());
+  // 숨겨진 아이템들 관리 (툴바 삭제 → 레이아웃 유지한 채 숨김)
+  const [hiddenItems, setHiddenItems] = React.useState<Set<string>>(new Set());
 
   // ApplyModal 관련 상태
   const [isApplyModalOpen, setIsApplyModalOpen] = React.useState(false);
@@ -73,6 +75,9 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
 
   // 재업로드 시 내부 키워드 입력 로컬 상태 초기화를 강제하기 위한 버전 키
   const [resetVersion, setResetVersion] = React.useState(0);
+  // 단일 업로드 타겟 Grid ID (null이면 통합 업로드 모드)
+  const [singleUploadTargetId, setSingleUploadTargetId] = React.useState<string | null>(null);
+  const singleUploadTargetIdRef = React.useRef<string | null>(null);
 
   // 현재 빈 그리드 개수 계산
   const getEmptyGridCount = React.useCallback(() => {
@@ -86,7 +91,7 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     return items.some(item => item.imageUrl && item.imageUrl !== defaultImage);
   }, [items]);
 
-  // 통합 이미지 업로드 훅
+  // 통합/단일 이미지 업로드 훅
   const {
     isUploadModalOpen,
     handleOpenUploadModal,
@@ -97,15 +102,50 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
   } = useImageUpload({
     uploadedFiles,
     onFilesUpload: (files: File[] | any[]) => {
-      console.log('📥 GridC 통합 이미지 업로드 완료:', files);
-      handleMultipleImageUpload(files);
+      // 초기 업로드(통합): 다중 배치
+      const anyHasImage = hasExistingImages();
+      if (!anyHasImage && !singleUploadTargetIdRef.current) {
+        console.log('📥 GridC 통합 이미지 업로드 완료:', files);
+        handleMultipleImageUpload(files);
+        return;
+      }
+
+      // 이후 업로드(단일): 지정된 타겟 또는 선택된 첫 그리드에 1장만 배치
+      const defaultImage = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
+      const targetId = singleUploadTargetIdRef.current || Array.from(selectedItems)[0] || items.find(it => it.imageUrl === defaultImage)?.id;
+      if (!targetId) {
+        return;
+      }
+      const first = Array.isArray(files) ? files[0] : null;
+      if (!first) {
+        return;
+      }
+      let imageUrl = ""; let driveItemKey = "";
+      if (first instanceof File) {
+        imageUrl = URL.createObjectURL(first);
+        driveItemKey = `local_${Date.now()}_${Math.random()}`;
+      } else if (first && typeof first === 'object' && (first.thumbUrl || first.driveItemResult?.thumbUrl)) {
+        imageUrl = first.thumbUrl || first.driveItemResult?.thumbUrl || "";
+        driveItemKey = first.driveItemKey || first.driveItemResult?.driveItemKey || `external_${Date.now()}_${Math.random()}`;
+      }
+      if (!imageUrl) {
+        return;
+      }
+      setItems(prev => prev.map(it => it.id === targetId ? { ...it, imageUrl, driveItemKey } : it));
+      try { setImage(targetId, driveItemKey); } catch (_) {}
+      // 단일 업로드 종료 후 타겟 초기화
+      setSingleUploadTargetId(null);
+      singleUploadTargetIdRef.current = null;
     },
-    maxDataLength: items.length, // 전체 그리드 개수에 따른 최대 업로드 제한
+    maxDataLength: (hasExistingImages() || !!singleUploadTargetIdRef.current) ? 1 : items.length,
   });
 
-  // GridCElement로부터 native drop 파일을 전달받아 공용 업로드 파이프라인으로 처리
-  const handleDropFilesFromElement = React.useCallback((files: File[]) => {
+  // GridCElement로부터 native drop 파일을 전달받아 해당 그리드에 단일 반영
+  const handleDropFilesFromElement = React.useCallback((gridId: string, files: File[]) => {
     if (!files || files.length === 0) return;
+    // 드롭도 단일 업로드로 처리: 타겟 설정 후 공용 파이프라인 사용
+    singleUploadTargetIdRef.current = gridId;
+    setSingleUploadTargetId(gridId);
     processUploadedFiles(files);
   }, [processUploadedFiles]);
 
@@ -128,30 +168,19 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     setItems(newItems);
     // 아이템이 변경되면 선택 상태 초기화
     setSelectedItems(new Set());
+    // 숨김 상태 초기화
+    setHiddenItems(new Set());
     // photoCount가 3일 때 큰 아이템 위치 초기화 (기본값: 위쪽)
     if (photoCount === 3) {
       setLargeItemPosition(0);
     }
   }, [photoCount]);
 
-  // 이미지가 있는 아이템들을 자동으로 체크박스 선택 상태로 만들기
+  // 이미지 업로드 후 자동 체크 비활성화: 사용자가 수동으로 체크하도록 유지
+  // (이전에는 이미지가 있는 아이템을 자동으로 선택 상태로 변경했음)
   React.useEffect(() => {
-    const defaultImage = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
-    const itemsWithImages = items.filter(item => item.imageUrl && item.imageUrl !== defaultImage);
-    const idsWithImages = new Set(itemsWithImages.map(item => item.id));
-    
-    // 현재 선택된 아이템들과 비교해서 다르면 업데이트
-    if (idsWithImages.size !== selectedItems.size || 
-        !Array.from(idsWithImages).every(id => selectedItems.has(id))) {
-      setSelectedItems(idsWithImages);
-      
-      // GridCStore에도 체크 상태 반영
-      items.forEach(item => {
-        const hasImage = !!(item.imageUrl && item.imageUrl !== defaultImage);
-        setSelected(item.id, hasImage);
-      });
-    }
-  }, [items, selectedItems, setSelected]);
+    // no-op: 의도적으로 자동 선택을 하지 않습니다.
+  }, [items]);
 
   // 현재 드래그 중인 아이템
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -795,8 +824,17 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     }
     
     console.log(`📂 업로드 모달 열기 - 최대 ${totalGridCount}개 이미지 선택 가능 (1번째부터 순차 할당)`);
+    setSingleUploadTargetId(null);
+    singleUploadTargetIdRef.current = null;
     handleOpenUploadModal();
   }, [handleOpenUploadModal, hasExistingImages, items.length]);
+
+  // 특정 그리드 대상 단일 업로드 모달 열기
+  const handleOpenSingleUpload = React.useCallback((targetGridId: string) => {
+    setSingleUploadTargetId(targetGridId);
+    singleUploadTargetIdRef.current = targetGridId;
+    handleOpenUploadModal();
+  }, [handleOpenUploadModal]);
 
   // 클립패스 변경 핸들러
   const handleClipPathChange = (gridId: string, clipPathData: ClipPathItem) => {
@@ -824,17 +862,20 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     setSelected(gridId, isSelected);
   };
 
-  // 아이템 삭제 핸들러
+  // 아이템 삭제 핸들러 (숨김 처리로 변경)
   const handleDelete = (gridId: string) => {
-    setItems(prevItems => prevItems.filter(item => item.id !== gridId));
+    setHiddenItems(prev => {
+      const next = new Set(prev);
+      next.add(gridId);
+      return next;
+    });
     setSelectedItems(prev => {
       const newSelected = new Set(prev);
       newSelected.delete(gridId);
       return newSelected;
     });
-    
-    // GridCStore에서도 제거
-    remove(gridId);
+    // 레이아웃 유지를 위해 items에서는 제거하지 않음
+    // 전역 스토어 상태는 유지 (필요 시 이후 복구 가능)
   };
 
   // ApplyModal 확인 핸들러 - 기존 이미지 초기화하고 새로운 업로드 진행
@@ -852,6 +893,8 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
     
     // 선택 상태 초기화
     setSelectedItems(new Set());
+    // 숨김 상태 초기화 (재업로드 시 모두 표시 상태)
+    setHiddenItems(new Set());
     
     // GridC 전역 스토어의 이미지/키워드/선택 상태 모두 초기화
     try { clearAll(); } catch (_) {}
@@ -1082,11 +1125,14 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
                   driveItemKey={item.driveItemKey}
                   isClippingEnabled={isClippingEnabled}
                   isSelected={selectedItems.has(item.id)}
+                  isHidden={hiddenItems.has(item.id)}
                   onSelectChange={(isSelected) => handleSelectChange(item.id, isSelected)}
                   onDelete={() => handleDelete(item.id)}
                   onImageUpload={handleImageUpload}
                   onClipPathChange={handleClipPathChange}
                   onIntegratedUpload={handleOpenIntegratedUpload}
+                  onSingleUpload={handleOpenSingleUpload}
+                  hasAnyImage={hasExistingImages()}
                   onDropFiles={handleDropFilesFromElement}
                   style={computedStyle}
                   isAnimating={isAnimating}
@@ -1110,7 +1156,7 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
                 processUploadedFiles(files);
               }
             }}
-            isMultiUpload={true} // 다중 이미지 업로드 허용
+            isMultiUpload={!singleUploadTargetIdRef.current && !hasExistingImages()}
             allowsFileTypes={['IMAGE']}
           />
         )}

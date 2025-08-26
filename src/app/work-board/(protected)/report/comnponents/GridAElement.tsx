@@ -3553,7 +3553,7 @@ function GridAElement({
                   </div>
                 )
               ) : (
-                <div className="flex items-center justify-center gap-1">
+                <div className={`flex items-center justify-center gap-1 ${!checked ? 'opacity-50 pointer-events-none' : ''}`} aria-disabled={!checked}>
                   <input
                     value={keywords}
                     onChange={handleKeywordChange}
@@ -3570,6 +3570,7 @@ function GridAElement({
                       lineHeight: "1",
                     }}
                     onClick={handleImageClick}
+                    disabled={!checked}
                     draggable={false}
                   />
                   <button

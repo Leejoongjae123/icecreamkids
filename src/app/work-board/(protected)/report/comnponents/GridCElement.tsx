@@ -16,6 +16,8 @@ import useUserStore from "@/hooks/store/useUserStore";
 import useGridCStore from "@/hooks/store/useGridCStore";
 import useKeywordExpansionStore from "@/hooks/store/useKeywordExpansionStore";
 import { Button } from "@/components/ui/button";
+import { Button as CommonButton } from "@/components/common/Button";
+import { MdZoomIn, MdZoomOut, MdRefresh } from "react-icons/md";
 import { useToast } from "@/hooks/store/useToastStore";
 import { useAlertStore } from "@/hooks/store/useAlertStore";
 import { useGridToolbarStore } from "@/hooks/store/useGridToolbarStore";
@@ -36,8 +38,10 @@ interface GridCElementProps {
   onImageUpload: (gridId: string, imageUrl: string, driveItemKey?: string) => void;
   onClipPathChange?: (gridId: string, clipPathData: ClipPathItem) => void;
   onIntegratedUpload?: () => void; // 통합 업로드 핸들러
+  onSingleUpload?: (gridId: string) => void; // 단일 업로드 핸들러
+  hasAnyImage?: boolean; // 전체 중 하나라도 이미지가 있는가
   isUploadModalOpen?: boolean; // 업로드 모달 열림 여부 (툴바 자동 닫기용)
-  onDropFiles?: (files: File[]) => void; // 네이티브 파일 드롭 처리 콜백
+  onDropFiles?: (gridId: string, files: File[]) => void; // 네이티브 파일 드롭 처리 콜백
 }
 
 function GridCElement({
@@ -56,6 +60,8 @@ function GridCElement({
   onImageUpload,
   onClipPathChange,
   onIntegratedUpload,
+  onSingleUpload,
+  hasAnyImage,
   isUploadModalOpen,
   onDropFiles,
 }: GridCElementProps) {
@@ -179,7 +185,7 @@ function GridCElement({
       const files = Array.from(e.dataTransfer?.files || []);
       if (files.length > 0) {
         if (onDropFiles) {
-          onDropFiles(files as File[]);
+          onDropFiles(gridId, files as File[]);
         } else if (onIntegratedUpload) {
           onIntegratedUpload();
         }
@@ -382,6 +388,10 @@ function GridCElement({
     if (onImageUpload) {
       onImageUpload(gridId, "", "");
     }
+    // 이미지가 삭제되면 선택 해제하여 키워드 영역 숨김
+    if (onSelectChange && isSelected) {
+      try { onSelectChange(false); } catch (_) {}
+    }
     
     console.log("✅ GridC 이미지 삭제 완료:", { gridId });
   };
@@ -558,6 +568,39 @@ function GridCElement({
     window.addEventListener('mouseup', onUp);
   }, [inlineEditState.active]);
 
+  // 인라인 편집 활성 시 키보드 + / - 로 확대/축소 지원 (입력 포커스 시 무시)
+  React.useEffect(() => {
+    if (!inlineEditState.active) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName.toLowerCase();
+        const isEditable = tag === 'input' || tag === 'textarea' || (target as HTMLElement).isContentEditable;
+        if (isEditable) return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return; // 브라우저 페이지 줌과 충돌 방지
+      const isPlus = e.key === '+' || e.code === 'NumpadAdd';
+      const isMinus = e.key === '-' || e.code === 'NumpadSubtract';
+      if (!isPlus && !isMinus) return;
+      e.preventDefault();
+      if (isPlus) {
+        setInlineEditState(prev => ({
+          ...prev,
+          temp: { ...prev.temp, scale: Math.min(3, (prev.temp.scale || 1) * 1.2) }
+        }));
+      } else if (isMinus) {
+        setInlineEditState(prev => ({
+          ...prev,
+          temp: { ...prev.temp, scale: Math.max(0.1, (prev.temp.scale || 1) / 1.2) }
+        }));
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [inlineEditState.active]);
+
   const onResizeHandleDown = React.useCallback((e: React.MouseEvent) => {
     if (!inlineEditState.active) return;
     e.preventDefault(); e.stopPropagation();
@@ -574,19 +617,8 @@ function GridCElement({
   }, [inlineEditState.active]);
 
   const renderResizeHandles = React.useCallback(() => {
-    if (!inlineEditState.active) return null;
-    const s = inlineEditState.temp.scale || 1;
-    const overlayTransform = `translate(${inlineEditState.temp.x}px, ${inlineEditState.temp.y}px) scale(${s})`;
-    const handleScaleStyle: React.CSSProperties = { transform: `scale(${1 / s})`, transformOrigin: 'center' };
-    return (
-      <div className="absolute inset-0 z-50 pointer-events-none" style={{ transform: overlayTransform, transformOrigin: 'center' }}>
-        <div data-handle="true" className="absolute -top-2 -left-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nwse-resize pointer-events-auto" style={handleScaleStyle} onMouseDown={onResizeHandleDown} />
-        <div data-handle="true" className="absolute -top-2 -right-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nesw-resize pointer-events-auto" style={handleScaleStyle} onMouseDown={onResizeHandleDown} />
-        <div data-handle="true" className="absolute -bottom-2 -left-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nesw-resize pointer-events-auto" style={handleScaleStyle} onMouseDown={onResizeHandleDown} />
-        <div data-handle="true" className="absolute -bottom-2 -right-2 w-3 h-3 bg-white rounded-full border-2 border-[#3D8BFF] cursor-nwse-resize pointer-events-auto" style={handleScaleStyle} onMouseDown={onResizeHandleDown} />
-      </div>
-    );
-  }, [inlineEditState.active, inlineEditState.temp, onResizeHandleDown]);
+    return null;
+  }, []);
 
   const confirmInlineEdit = React.useCallback(() => {
     setImageTransformData({ ...(inlineEditState.temp) });
@@ -1005,20 +1037,22 @@ function GridCElement({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        {/* 체크박스 - 좌측 상단 */}
-        <div
-          className="absolute top-2 left-2 z-30"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleCheckboxChange(!isSelected);
-          }}
-        >
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={handleCheckboxChange}
-            className="w-5 h-5 bg-white border-2 border-gray-300 rounded-full data-[state=checked]:bg-white data-[state=checked]:border-primary cursor-pointer"
-          />
-        </div>
+        {/* 체크박스 - 좌측 상단 (이미지 업로드 이후에만 표시) */}
+        {hasImage && (
+          <div
+            className="absolute top-2 left-2 z-30"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCheckboxChange(!isSelected);
+            }}
+          >
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={handleCheckboxChange}
+              className="w-5 h-5 bg-white border-2 border-gray-300 rounded-full data-[state=checked]:bg-white data-[state=checked]:border-primary cursor-pointer"
+            />
+          </div>
+        )}
 
 
 
@@ -1108,7 +1142,11 @@ function GridCElement({
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (onIntegratedUpload) {
+                  // 초기 업로드(전체 비어있음)인 경우: 통합 업로드
+                  // 이후(하나라도 이미지 존재): 해당 그리드만 단일 업로드
+                  if (hasAnyImage && onSingleUpload) {
+                    onSingleUpload(gridId);
+                  } else if (onIntegratedUpload) {
                     onIntegratedUpload();
                   }
                 }}
@@ -1184,14 +1222,13 @@ function GridCElement({
       )}
 
 
-      {/* Keyword Input Component at the bottom - 체크박스 선택 시 및 클리핑 활성화 시에만 표시 (편집 중에는 숨김) */}
-      {isSelected && effectiveClippingEnabled && !inlineEditState.active && (
+      {/* Keyword Input Component - 체크박스 선택 시에만 표시 */}
+      {effectiveClippingEnabled && !inlineEditState.active && hasImage && isSelected && (
         <div 
           ref={photoDescriptionRef}
-          className="absolute bottom-0 left-0 right-0 z-50 p-2 photo-description-input"
-          
+          className={`absolute bottom-0 left-0 right-0 z-50 p-2 photo-description-input`}
         >
-          <div className="flex flex-col px-3 py-2 text-xs tracking-tight leading-none text-gray-700 bg-white rounded-lg w-full shadow-[1px_1px_10px_rgba(0,0,0,0.1)]">
+          <div className="flex flex-col px-3 py-2 text-xs tracking-tight leading-none text-gray-700 bg-white rounded-lg w-full shadow-[1px_1px_10px_rgba(0,0,0,0.1)]" aria-disabled={!isSelected}>
             {/* 검색 입력 */}
             <div className="flex gap-2.5 text-zinc-400 w-full">
               <div className={`flex-1 flex overflow-hidden flex-col justify-center items-start px-2 py-1 bg-white rounded-md border border-solid transition-colors ${isInputFocused ? 'border-primary' : 'border-zinc-100'}`}>
@@ -1209,6 +1246,7 @@ function GridCElement({
                   placeholder="활동주제나 관련 키워드를 입력하세요."
                   className="w-full outline-none border-none bg-transparent placeholder-zinc-400 text-zinc-800"
                   onClick={(e) => e.stopPropagation()}
+                  disabled={!isSelected}
                 />
               </div>
               <button
@@ -1300,6 +1338,100 @@ function GridCElement({
       </div>
       )}
 
+
+      {/* 인라인 편집 시 외곽 어둡게 + 우측 플로팅 확대/축소/되돌리기 버튼 포털 */}
+      {inlineEditState.active && typeof window !== 'undefined' && (() => {
+        const el = canvasContainerRef.current;
+        if (!el) return null;
+        const rect = el.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const gap = 8;
+        const buttonSize = 40;
+        const buttonsCount = 3;
+        const totalHeight = buttonsCount * buttonSize + (buttonsCount - 1) * gap;
+        let toolsLeft = rect.right + gap;
+        let toolsTop = rect.bottom - totalHeight;
+        if (toolsLeft + buttonSize > vw) {
+          toolsLeft = Math.max(0, rect.left - gap - buttonSize);
+        }
+        toolsTop = Math.min(Math.max(0, toolsTop), Math.max(0, vh - totalHeight));
+
+        const handleZoomIn = () => {
+          setInlineEditState((prev) => ({
+            ...prev,
+            temp: { ...prev.temp, scale: Math.min(3, (prev.temp.scale || 1) * 1.2) },
+          }));
+        };
+        const handleZoomOut = () => {
+          setInlineEditState((prev) => ({
+            ...prev,
+            temp: { ...prev.temp, scale: Math.max(0.1, (prev.temp.scale || 1) / 1.2) },
+          }));
+        };
+        const handleReset = () => {
+          const base = imageTransformData || { x: 0, y: 0, scale: 1 };
+          setInlineEditState((prev) => ({ ...prev, temp: { x: base.x || 0, y: base.y || 0, scale: base.scale || 1 } }));
+        };
+
+        return ReactDOM.createPortal(
+          <>
+            {/* 화면 전체 음영 (선택 영역 제외) */}
+            <div className="fixed left-0 top-0 bg-black/40 z-[9998]" style={{ width: "100vw", height: Math.max(0, rect.top) }} />
+            <div className="fixed left-0 bg-black/40 z-[9998]" style={{ top: rect.bottom, width: "100vw", height: Math.max(0, vh - rect.bottom) }} />
+            <div className="fixed top-0 bg-black/40 z-[9998]" style={{ left: 0, top: rect.top, width: Math.max(0, rect.left), height: Math.max(0, rect.height) }} />
+            <div className="fixed top-0 bg-black/40 z-[9998]" style={{ left: rect.right, top: rect.top, width: Math.max(0, vw - rect.right), height: Math.max(0, rect.height) }} />
+
+            {/* 도구 버튼 - 선택 컨테이너 바로 옆 */}
+            <div className="fixed z-[9999] flex flex-col gap-2" style={{ top: toolsTop, left: toolsLeft }}>
+              <button
+                onClick={handleZoomIn}
+                className="w-10 h-10 border-2 border-[#CCCCCC] bg-white rounded-lg flex items-center justify-center shadow-lg hover:bg-gray-50 transition-colors"
+                title="확대"
+                style={{ pointerEvents: "auto" }}
+              >
+                <MdZoomIn className="w-5 h-5 text-black" />
+              </button>
+              <button
+                onClick={handleZoomOut}
+                className="w-10 h-10 bg-white border-2 border-primary rounded-lg flex items-center justify-center shadow-lg hover:bg-gray-50 transition-colors"
+                title="축소"
+                style={{ pointerEvents: "auto" }}
+              >
+                <MdZoomOut className="w-5 h-5 text-black" />
+              </button>
+              <button
+                onClick={handleReset}
+                className="w-10 h-10 bg-white border-2 border-primary rounded-lg flex items-center justify-center shadow-lg hover:bg-gray-50 transition-colors"
+                title="초기화"
+                style={{ pointerEvents: "auto" }}
+              >
+                <MdRefresh className="w-5 h-5 text-black" />
+              </button>
+            </div>
+          </>,
+          document.body
+        );
+      })()}
+
+      {/* 인라인 편집 하단 적용/취소 버튼 포털 */}
+      {inlineEditState.active && typeof window !== 'undefined' && ReactDOM.createPortal(
+        <div className="fixed z-[10000]" style={{ left: 0, top: 0, pointerEvents: "none" }}>
+          <div
+            className="absolute -translate-x-1/2 flex gap-2"
+            style={{
+              left: (canvasContainerRef.current?.getBoundingClientRect().left || 0) + (canvasContainerRef.current?.getBoundingClientRect().width || 0) / 2,
+              top: (canvasContainerRef.current?.getBoundingClientRect().bottom || 0) + 8,
+            }}
+          >
+            <div className="flex items-center gap-2" style={{ pointerEvents: "auto" }}>
+              <CommonButton color="gray" size="small" onClick={cancelInlineEdit}>취소</CommonButton>
+              <CommonButton color="primary" size="small" onClick={confirmInlineEdit}>적용</CommonButton>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
     </div>
   );

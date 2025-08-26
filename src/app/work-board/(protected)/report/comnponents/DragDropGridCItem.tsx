@@ -4,7 +4,7 @@ import { useDraggable, useDroppable } from "@dnd-kit/core";
 import GridCElement from "./GridCElement";
 import { ClipPathItem } from "../dummy/types";
 
-export interface DragDropGridCItemProps {
+export interface GridCItemPropsWithHidden {
   id: string;
   index: number;
   clipPathData: ClipPathItem;
@@ -12,12 +12,15 @@ export interface DragDropGridCItemProps {
   driveItemKey?: string; // driveItemKey 추가
   isClippingEnabled: boolean;
   isSelected?: boolean;
+  isHidden?: boolean;
   onSelectChange?: (isSelected: boolean) => void;
   onDelete?: () => void;
   onImageUpload: (gridId: string, imageUrl: string, driveItemKey?: string) => void;
   onClipPathChange?: (gridId: string, clipPathData: ClipPathItem) => void;
   onIntegratedUpload?: () => void; // 통합 업로드 핸들러
-  onDropFiles?: (files: File[]) => void; // 파일 드롭 핸들러
+  onSingleUpload?: (gridId: string) => void; // 단일 업로드 핸들러
+  hasAnyImage?: boolean;
+  onDropFiles?: (gridId: string, files: File[]) => void; // 파일 드롭 핸들러
   isOverlay?: boolean;
   style?: React.CSSProperties;
   isAnimating?: boolean;
@@ -37,12 +40,15 @@ function DragDropGridCItem({
   onImageUpload,
   onClipPathChange,
   onIntegratedUpload,
+  onSingleUpload,
+  hasAnyImage,
   onDropFiles,
   isOverlay = false,
   style,
   isAnimating = false,
   isUploadModalOpen,
-}: DragDropGridCItemProps) {
+  isHidden = false,
+}: GridCItemPropsWithHidden) {
   const {
     attributes,
     listeners,
@@ -51,6 +57,7 @@ function DragDropGridCItem({
     isDragging,
   } = useDraggable({
     id,
+    disabled: isHidden,
     data: {
       type: 'grid-item',
       index,
@@ -70,13 +77,14 @@ function DragDropGridCItem({
 
   const dragDropStyle = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isHidden ? 0 : (isDragging ? 0.5 : 1),
     backgroundColor: isOver ? 'rgba(0, 123, 255, 0.1)' : undefined,
-    transition: isDragging ? 'none' : isAnimating ? 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'all 0.2s ease-out', // 애니메이션 상태에 따른 transition
-    willChange: isDragging || isAnimating ? 'transform, opacity' : 'auto', // 성능 최적화
-    zIndex: isDragging ? 1000 : isAnimating ? 10 : 1, // 드래그/애니메이션 중 z-index 조정
-    ...style, // 그리드 레이아웃 스타일 적용
-  };
+    transition: isDragging ? 'none' : isAnimating ? 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'all 0.2s ease-out',
+    willChange: isDragging || isAnimating ? 'transform, opacity' : 'auto',
+    zIndex: isDragging ? 1000 : isAnimating ? 10 : 1,
+    pointerEvents: isHidden ? 'none' : undefined,
+    ...style,
+  } as React.CSSProperties;
 
   const setNodeRef = (node: HTMLDivElement | null) => {
     setDragRef(node);
@@ -87,7 +95,7 @@ function DragDropGridCItem({
     <div
       ref={setNodeRef}
       style={dragDropStyle}
-      className={`touch-none ${isDragging ? 'z-50' : ''} ${isOverlay ? 'ring-2 ring-primary ring-opacity-50' : ''} ${isOver ? 'ring-2 ring-blue-400 ring-opacity-50' : ''}`}
+      className={`touch-none ${isDragging ? 'z-50' : ''} ${isOverlay ? 'ring-2 ring-primary ring-opacity-50' : ''} ${isOver ? 'ring-2 ring-blue-400 ring-opacity-50' : ''} ${isHidden ? 'pointer-events-none' : ''}`}
     >
       <GridCElement
         index={index}
@@ -98,13 +106,15 @@ function DragDropGridCItem({
         isClippingEnabled={isClippingEnabled}
         isDragging={isDragging}
         dragAttributes={attributes}
-        dragListeners={listeners}
+        dragListeners={isHidden ? undefined : listeners}
         isSelected={isSelected}
         onSelectChange={onSelectChange}
         onDelete={onDelete}
         onImageUpload={onImageUpload}
         onClipPathChange={onClipPathChange}
         onIntegratedUpload={onIntegratedUpload}
+        onSingleUpload={onSingleUpload}
+        hasAnyImage={hasAnyImage}
         onDropFiles={onDropFiles}
         isUploadModalOpen={isUploadModalOpen}
       />

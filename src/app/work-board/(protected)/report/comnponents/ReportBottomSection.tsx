@@ -394,7 +394,7 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
                 height={16}
               />
             </div>
-            이렇게 놀이 했어요
+            놀이의 흐름
           </h3>
           {(activeSection === "playActivity" || playActivityText.length > 0) && (
             <textarea

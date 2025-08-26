@@ -8,7 +8,7 @@ interface PhotoSelectorProps {
 }
 
 function PhotoSelectorContent({
-  selectedPhoto = "4개",
+  selectedPhoto = "9개",
   onPhotoSelect,
 }: PhotoSelectorProps) {
   const searchParams = useSearchParams();

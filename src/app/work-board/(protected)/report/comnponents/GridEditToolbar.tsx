@@ -18,6 +18,8 @@ import  useUserStore  from "@/hooks/store/useUserStore";
 import { useGridToolbarStore } from "@/hooks/store/useGridToolbarStore";
 import { useStickerStore } from "@/hooks/store/useStickerStore";
 import { useTextStickerStore } from "@/hooks/store/useTextStickerStore";
+import { LuCrop } from "react-icons/lu";
+
 interface GridEditToolbarProps {
   show: boolean;
   isExpanded: boolean;
@@ -349,8 +351,12 @@ const GridEditToolbar: React.FC<GridEditToolbarProps> = ({
                         height={18}
                         className="object-contain"
                       />
-                    ) : index === 0 && (type === "A" || type === "B") ? (
-                      <MdPhotoLibrary size={18} className="text-white" />
+                    ) : index === 0 ? (
+                      (type === "A" || type === "B") ? (
+                        <MdPhotoLibrary size={18} className="text-white" />
+                      ) : (
+                        <LuCrop size={18} className="text-white" />
+                      )
                     ) : (
                       <Image
                         src={`https://icecreamkids.s3.ap-northeast-2.amazonaws.com/fix${index + 1}.svg`}

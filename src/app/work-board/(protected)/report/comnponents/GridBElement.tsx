@@ -2201,7 +2201,7 @@ function GridBElement({
                   </div>
                 )
               ) : (
-                <div className="flex items-center justify-center gap-1 h-full input-area">
+                <div className={`flex items-center justify-center gap-1 h-full input-area ${!isSelected ? 'opacity-50 pointer-events-none' : ''}`} aria-disabled={!isSelected}>
                   <textarea
                     value={keywords}
                     onChange={handleKeywordChange}
@@ -2219,6 +2219,7 @@ function GridBElement({
                       backgroundColor: 'transparent'
                     }}
                     onClick={handleImageClick}
+                    disabled={!isSelected}
                     draggable={false}
                   />
                   <button
