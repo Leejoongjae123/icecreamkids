@@ -37,9 +37,11 @@ interface GridPosition {
 interface GridCProps {
   isClippingEnabled: boolean;
   photoCount: number;
+  showOnlySelected?: boolean;
+  isReadOnly?: boolean;
 }
 
-function GridC({ isClippingEnabled, photoCount }: GridCProps) {
+function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isReadOnly = false }: GridCProps) {
   const { setSelected, remove, setImage, clearAll } = useGridCStore();
   const { expandFirstImageGrid } = useKeywordExpansionStore();
   // photoCount에 따라 그리드 아이템 데이터 관리
@@ -1124,8 +1126,9 @@ function GridC({ isClippingEnabled, photoCount }: GridCProps) {
                   imageUrl={item.imageUrl}
                   driveItemKey={item.driveItemKey}
                   isClippingEnabled={isClippingEnabled}
+                  isReadOnly={isReadOnly}
                   isSelected={selectedItems.has(item.id)}
-                  isHidden={hiddenItems.has(item.id)}
+                  isHidden={hiddenItems.has(item.id) || (showOnlySelected && !selectedItems.has(item.id))}
                   onSelectChange={(isSelected) => handleSelectChange(item.id, isSelected)}
                   onDelete={() => handleDelete(item.id)}
                   onImageUpload={handleImageUpload}

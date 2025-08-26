@@ -473,6 +473,27 @@ function GridAElement({
     }));
   }, []);
 
+  // 인라인 편집 활성 시 Enter 키로 적용 (입력 포커스 시 무시)
+  React.useEffect(() => {
+    if (!inlineEditState.active) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName.toLowerCase();
+        const isEditable = tag === 'input' || tag === 'textarea' || (target as HTMLElement).isContentEditable;
+        if (isEditable) return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        endInlineEditConfirm();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [inlineEditState.active, endInlineEditConfirm]);
+
   // 크롭 제어 핸들러
   const beginCrop = React.useCallback(() => {
       return;

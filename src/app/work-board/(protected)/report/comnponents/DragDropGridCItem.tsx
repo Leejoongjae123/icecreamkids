@@ -11,6 +11,7 @@ export interface GridCItemPropsWithHidden {
   imageUrl: string;
   driveItemKey?: string; // driveItemKey 추가
   isClippingEnabled: boolean;
+  isReadOnly?: boolean;
   isSelected?: boolean;
   isHidden?: boolean;
   onSelectChange?: (isSelected: boolean) => void;
@@ -34,6 +35,7 @@ function DragDropGridCItem({
   imageUrl,
   driveItemKey,
   isClippingEnabled,
+  isReadOnly = false,
   isSelected = false,
   onSelectChange,
   onDelete,
@@ -57,7 +59,7 @@ function DragDropGridCItem({
     isDragging,
   } = useDraggable({
     id,
-    disabled: isHidden,
+    disabled: isHidden || isReadOnly,
     data: {
       type: 'grid-item',
       index,
@@ -104,16 +106,17 @@ function DragDropGridCItem({
         imageUrl={imageUrl}
         driveItemKey={driveItemKey}
         isClippingEnabled={isClippingEnabled}
+        isReadOnly={isReadOnly}
         isDragging={isDragging}
         dragAttributes={attributes}
-        dragListeners={isHidden ? undefined : listeners}
+        dragListeners={isHidden || isReadOnly ? undefined : listeners}
         isSelected={isSelected}
         onSelectChange={onSelectChange}
-        onDelete={onDelete}
+        onDelete={isReadOnly ? undefined : onDelete}
         onImageUpload={onImageUpload}
         onClipPathChange={onClipPathChange}
-        onIntegratedUpload={onIntegratedUpload}
-        onSingleUpload={onSingleUpload}
+        onIntegratedUpload={isReadOnly ? undefined : onIntegratedUpload}
+        onSingleUpload={isReadOnly ? undefined : onSingleUpload}
         hasAnyImage={hasAnyImage}
         onDropFiles={onDropFiles}
         isUploadModalOpen={isUploadModalOpen}

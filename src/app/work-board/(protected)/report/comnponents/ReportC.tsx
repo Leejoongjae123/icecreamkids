@@ -26,6 +26,7 @@ import useSimpleCaptureImage from "@/hooks/useSimpleCaptureImage";
 function ReportCContent() {
   const searchParams = useSearchParams();
   const [isClippingEnabled, setIsClippingEnabled] = React.useState(true);
+  const [showOnlySelected, setShowOnlySelected] = React.useState(false);
   
   // 스티커 관련
   const { stickers } = useStickerStore();
@@ -119,7 +120,7 @@ function ReportCContent() {
     try { await previewSimpleImage('report-download-area'); } catch (_error) {}
   };
 
-  const handleEdit = () => { setSaved(false); };
+  const handleEdit = () => { setSaved(false); setShowOnlySelected(false); };
 
   const performSave = () => {
     try {
@@ -163,6 +164,7 @@ function ReportCContent() {
 
       exportToArticleDataFile(completeReportData as any);
       setSaved(true);
+      setShowOnlySelected(true);
       alert('리포트가 저장되었습니다. articleData.ts 파일이 다운로드됩니다.');
     } catch (_error) {
       alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
@@ -300,7 +302,7 @@ function ReportCContent() {
                 overflow: "hidden"
               }}
             >
-              <GridC isClippingEnabled={isClippingEnabled} photoCount={photoCount} />
+              <GridC isClippingEnabled={isClippingEnabled} photoCount={photoCount} showOnlySelected={showOnlySelected} isReadOnly={isSaved} />
             </div>
 
             {/* Bottom Section - 고정 높이 */}

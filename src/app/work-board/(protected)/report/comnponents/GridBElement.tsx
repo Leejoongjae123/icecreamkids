@@ -615,6 +615,27 @@ function GridBElement({
     setImageEditModalOpen(false);
   }, [setImageEditModalOpen]);
 
+  // 인라인 편집 활성 시 Enter 키로 적용 (입력 포커스 시 무시)
+  React.useEffect(() => {
+    if (!inlineEditState.active) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName.toLowerCase();
+        const isEditable = tag === 'input' || tag === 'textarea' || (target as HTMLElement).isContentEditable;
+        if (isEditable) return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        endInlineEditConfirm();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [inlineEditState.active, endInlineEditConfirm]);
+
   // 크롭 제어 (신규 컨셉: 비활성화)
   const beginCrop = React.useCallback(() => {
     const idx = inlineEditState.imageIndex;
@@ -1935,10 +1956,10 @@ function GridBElement({
     };
   }, [toolbarState.show]);
 
-  // 툴바 표시 상태 또는 기존 선택 상태에 따른 border 스타일 결정
+  // 툴바 표시 상태에 따른 border 스타일 결정 (체크박스 선택과 무관)
   const borderClass = isSaved
     ? ""
-    : toolbarState.show || isSelected
+    : toolbarState.show
       ? "border-solid border-primary border-2"
       : "border-dashed border-zinc-400";
 

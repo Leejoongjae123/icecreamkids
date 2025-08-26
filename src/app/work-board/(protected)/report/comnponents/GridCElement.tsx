@@ -29,6 +29,7 @@ interface GridCElementProps {
   imageUrl: string;
   driveItemKey?: string; // driveItemKey 추가
   isClippingEnabled: boolean;
+  isReadOnly?: boolean;
   isDragging?: boolean;
   dragAttributes?: any;
   dragListeners?: any;
@@ -51,6 +52,7 @@ function GridCElement({
   imageUrl,
   driveItemKey,
   isClippingEnabled,
+  isReadOnly = false,
   isDragging = false,
   dragAttributes,
   dragListeners,
@@ -268,7 +270,7 @@ function GridCElement({
     event.stopPropagation(); 
 
     // 클리핑이 활성화되어 있을 때만 툴바 표시 (개별 해제 상태 고려)
-    if (effectiveClippingEnabled) {
+    if (effectiveClippingEnabled && !isReadOnly) {
       // 툴바 위치 업데이트
       if (canvasContainerRef.current) {
         const rect = canvasContainerRef.current.getBoundingClientRect();
@@ -293,7 +295,7 @@ function GridCElement({
       clearTimeout(hoverTimerRef.current);
       hoverTimerRef.current = null;
     }
-    if (effectiveClippingEnabled) {
+    if (effectiveClippingEnabled && !isReadOnly) {
       setToolbarState({ show: true, isExpanded: true });
       if (canvasContainerRef.current) {
         const rect = canvasContainerRef.current.getBoundingClientRect();
@@ -344,7 +346,11 @@ function GridCElement({
       
       // 체크박스가 선택되면 해당 아이템만 키워드 영역 펼치고 나머지는 축소
       if (checked) {
-        expandOnlyOne(gridId);
+        if (filteredRecommendedKeywords.length > 0) {
+          expandOnlyOne(gridId);
+        } else {
+          setExpanded(gridId, false);
+        }
       } else {
         setExpanded(gridId, false);
       }
@@ -541,7 +547,11 @@ function GridCElement({
       
       // 이미지가 첨부되면 현재 그리드의 키워드 영역만 확장하고 나머지는 축소
       if (isSelected) {
-        expandOnlyOne(gridId);
+        if (filteredRecommendedKeywords.length > 0) {
+          expandOnlyOne(gridId);
+        } else {
+          setExpanded(gridId, false);
+        }
       }
     } else {
       // 이미지가 제거된 경우
@@ -628,6 +638,27 @@ function GridCElement({
   const cancelInlineEdit = React.useCallback(() => {
     setInlineEditState(prev => ({ ...prev, active: false, cropActive: false, cropRect: null, cropDraggingEdge: null, cropStartPointer: null, cropBounds: null }));
   }, []);
+
+  // 인라인 편집 활성 시 Enter 키로 적용 (입력 포커스 시 무시)
+  React.useEffect(() => {
+    if (!inlineEditState.active) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName.toLowerCase();
+        const isEditable = tag === 'input' || tag === 'textarea' || (target as HTMLElement).isContentEditable;
+        if (isEditable) return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        confirmInlineEdit();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [inlineEditState.active, confirmInlineEdit]);
 
   // 배경 제거 API 호출 함수
   const callRemoveBackgroundAPI = React.useCallback(async () => {
@@ -901,7 +932,7 @@ function GridCElement({
 
   // 툴바 표시 상태 또는 선택 상태에 따른 border 스타일 결정
   const borderClass =
-    toolbarState.show || isSelected
+    toolbarState.show
       ? "border-solid border-primary border-2 rounded-xl border-2"
       : "border-none";
 
@@ -909,6 +940,24 @@ function GridCElement({
   React.useEffect(() => {
     loadKeywords();
   }, [loadKeywords]);
+
+  // 추천 키워드에서 현재 입력/선택된 키워드 제외
+  const filteredRecommendedKeywords = React.useMemo(() => {
+    const setSelected = new Set(
+      selectedKeywords.map((k) => k.trim()).filter((k) => k.length > 0)
+    );
+    return recommendedKeywords.filter((k) => !setSelected.has(k));
+  }, [recommendedKeywords, selectedKeywords]);
+
+  // 표시 가능한 추천 키워드 유무 (필터링 결과 기준)
+  const hasDisplayableRecommendedKeywords = filteredRecommendedKeywords.length > 0;
+
+  // 추천 키워드가 없으면 펼침 상태를 강제로 접음
+  React.useEffect(() => {
+    if (!hasDisplayableRecommendedKeywords && isRecommendedKeywordsExpanded) {
+      try { setExpanded(gridId, false); } catch (_) {}
+    }
+  }, [hasDisplayableRecommendedKeywords, isRecommendedKeywordsExpanded, gridId, setExpanded]);
 
   // isSelected 상태 변경 시 키워드 확장 처리는 체크박스 핸들러에서 수행
 
@@ -1038,7 +1087,7 @@ function GridCElement({
         onMouseLeave={handleMouseLeave}
       >
         {/* 체크박스 - 좌측 상단 (이미지 업로드 이후에만 표시) */}
-        {hasImage && (
+        {hasImage && !isReadOnly && (
           <div
             className="absolute top-2 left-2 z-30"
             onClick={(e) => {
@@ -1077,7 +1126,7 @@ function GridCElement({
           className="relative w-full h-full canvas-container"
           onMouseEnter={() => !hasImage && setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
-          onDoubleClick={handleDoubleClick}
+          onDoubleClick={isReadOnly ? undefined : handleDoubleClick}
         >
           {/* 배경 제거 로딩 오버레이 */}
           {isRemoveBackgroundLoading && (
@@ -1115,13 +1164,13 @@ function GridCElement({
               }}
               draggable={false}
               onMouseDown={inlineEditState.active ? onEditMouseDown : undefined}
-              onDoubleClick={handleDoubleClick}
+              onDoubleClick={isReadOnly ? undefined : handleDoubleClick}
             />
             {inlineEditState.active && renderResizeHandles()}
           </div>
 
           {/* 이미지가 있을 때 X 삭제 버튼 표시 */}
-          {hasImage && !inlineEditState.active && (
+          {hasImage && !inlineEditState.active && !isReadOnly && (
             <button
               className="absolute top-2 right-2 bg-white w-6 h-6 rounded-full flex items-center justify-center border border-solid border-[#F0F0F0] z-20 hover:bg-red-50 transition-colors"
               onClick={handleImageDelete}
@@ -1132,7 +1181,7 @@ function GridCElement({
           )}
 
           {/* 이미지가 없을 때 GridB 스타일의 비어있는 업로드 안내 영역 표시 (항상 표시) */}
-          {!hasImage && (
+          {!hasImage && !isReadOnly && (
             <div className="absolute inset-0 z-20">
               <div 
                 className="absolute inset-0 cursor-pointer"
@@ -1178,7 +1227,7 @@ function GridCElement({
       </div>
 
       {/* GridEditToolbar - element 하단 좌측에 위치 (클리핑 활성화 시에만) */}
-      {(toolbarState.show || toolbarModalOpen) && effectiveClippingEnabled && !inlineEditState.active && typeof window !== 'undefined' && ReactDOM.createPortal(
+      {(toolbarState.show || toolbarModalOpen) && effectiveClippingEnabled && !inlineEditState.active && !isReadOnly && typeof window !== 'undefined' && ReactDOM.createPortal(
         <div 
           className="grid-edit-toolbar fixed"
           style={{
@@ -1223,7 +1272,7 @@ function GridCElement({
 
 
       {/* Keyword Input Component - 체크박스 선택 시에만 표시 */}
-      {effectiveClippingEnabled && !inlineEditState.active && hasImage && isSelected && (
+      {effectiveClippingEnabled && !inlineEditState.active && hasImage && isSelected && !isReadOnly && (
         <div 
           ref={photoDescriptionRef}
           className={`absolute bottom-0 left-0 right-0 z-50 p-2 photo-description-input`}
@@ -1239,7 +1288,11 @@ function GridCElement({
                   onFocus={() => {
                     setIsInputFocused(true);
                     // input에 포커스가 가면 해당 아이템만 확장하고 나머지는 축소
-                    expandOnlyOne(gridId);
+                    if (hasDisplayableRecommendedKeywords) {
+                      expandOnlyOne(gridId);
+                    } else {
+                      try { setExpanded(gridId, false); } catch (_) {}
+                    }
                   }}
                   onBlur={handleKeywordBlur}
                   onKeyDown={handleKeywordKeyDown}
@@ -1274,15 +1327,19 @@ function GridCElement({
                 <div className="flex items-center justify-between mt-3.5">
                   <div className="font-semibold">추천 키워드</div>
                   <button
-                    className="flex-shrink-0 p-1 hover:bg-gray-100 rounded transition-colors"
+                    className={`flex-shrink-0 p-1 rounded transition-colors ${hasDisplayableRecommendedKeywords ? 'hover:bg-gray-100' : 'opacity-40 cursor-not-allowed'}`}
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (!hasDisplayableRecommendedKeywords) {
+                        return;
+                      }
                       if (isRecommendedKeywordsExpanded) {
                         setExpanded(gridId, false);
                       } else {
                         expandOnlyOne(gridId);
                       }
                     }}
+                    disabled={!hasDisplayableRecommendedKeywords}
                   >
                     <ChevronDown
                       className={`h-4 w-4 transition-transform duration-200 ${
@@ -1301,10 +1358,10 @@ function GridCElement({
                 >
                   <div className=" mt-2 pt-2">
                     {/* 추천 키워드 목록 - 2줄까지만 표시하고 나머지는 스크롤 */}
-                    {recommendedKeywords.length > 0 && (
+                    {filteredRecommendedKeywords.length > 0 && (
                       <div className="max-h-[4.5rem] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
                         <div className="flex flex-wrap gap-1.5 font-medium">
-                          {recommendedKeywords.map((keyword, index) => (
+                          {filteredRecommendedKeywords.map((keyword, index) => (
                             <div 
                               key={`${keyword}-${index}`}
                               className={`flex overflow-hidden flex-col justify-center px-2.5 py-1.5 whitespace-nowrap rounded-[50px] cursor-pointer transition-colors ${
@@ -1328,6 +1385,12 @@ function GridCElement({
                     {recommendedKeywords.length === 0 && (
                       <div className="text-center text-gray-400 text-xs py-2">
                         키워드를 입력하면 추천 키워드로 저장됩니다.
+                      </div>
+                    )}
+                    {/* 모든 추천 키워드가 현재 입력/선택으로 제외된 경우 */}
+                    {recommendedKeywords.length > 0 && filteredRecommendedKeywords.length === 0 && (
+                      <div className="text-center text-gray-400 text-xs py-2">
+                        현재 입력한 키워드를 제외한 추천 키워드가 없습니다.
                       </div>
                     )}
                   </div>
