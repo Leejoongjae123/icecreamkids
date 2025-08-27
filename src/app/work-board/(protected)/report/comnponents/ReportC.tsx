@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { Suspense, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,25 +21,30 @@ import { useTextStickerStore } from "@/hooks/store/useTextStickerStore";
 import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
 import useGridContentStore from "@/hooks/store/useGridContentStore";
 import useSimpleCaptureImage from "@/hooks/useSimpleCaptureImage";
+import useCaptureImage from "@/hooks/useCaptureImage";
+import useS3FileUpload from "@/hooks/useS3FileUpload";
 
 // searchParams를 사용하는 컴포넌트 분리
 function ReportCContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [isClippingEnabled, setIsClippingEnabled] = React.useState(true);
   const [showOnlySelected, setShowOnlySelected] = React.useState(false);
   
   // 스티커 관련
-  const { stickers } = useStickerStore();
+  const { stickers, setStickers } = useStickerStore();
   const { backgroundImageUrlByType } = useGlobalThemeStore();
   const backgroundImageUrl = backgroundImageUrlByType['C'];
   const stickerContainerRef = useRef<HTMLDivElement>(null);
   const reportBottomRef = useRef<ReportBottomSectionRef>(null);
   const reportTitleRef = useRef<ReportTitleSectionRef>(null);
 
-  const { textStickers } = useTextStickerStore();
-  const { gridContents } = useGridContentStore();
+  const { textStickers, setTextStickers } = useTextStickerStore();
+  const { gridContents, setAllGridContents } = useGridContentStore();
   const { saveCurrentReport, isSaved, setSaved, exportToArticleDataFile } = useSavedDataStore();
   const { downloadSimpleImage, previewSimpleImage, checkElement, getSimpleImageDataUrl } = useSimpleCaptureImage();
+  const { getImageFile } = useCaptureImage();
+  const { postFile } = useS3FileUpload();
 
   // 마우스 위치 추적 기능
   const { startTracking, stopTracking, toggleTracking, isTracking } = useMousePositionTracker({
@@ -59,6 +64,53 @@ function ReportCContent() {
   React.useEffect(() => {
     setSaved(false);
   }, [setSaved]);
+
+  // 초기 데이터 상태 (타이틀/하단)
+  const [initialReportBottomData, setInitialReportBottomData] = React.useState<any | undefined>(undefined);
+  const [initialReportTitleData, setInitialReportTitleData] = React.useState<any | undefined>(undefined);
+
+  // articleId가 있으면 API에서 취득한 데이터로 상태 초기화 (ReportB와 동일 패턴)
+  React.useEffect(() => {
+    const articleId = searchParams.get('articleId');
+    if (!articleId) {
+      return;
+    }
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const url = `/api/report/article?articleId=${encodeURIComponent(articleId)}`;
+        const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+        const json = await res.json();
+        if (json && json.success && json.data) {
+          const data = json.data as any;
+          // 스티커/텍스트 스티커
+          if (Array.isArray(data.stickers)) {
+            setStickers(data.stickers);
+          }
+          if (Array.isArray(data.textStickers)) {
+            setTextStickers(data.textStickers);
+          }
+          // 하단/타이틀 초기 데이터 저장
+          setInitialReportBottomData(data.reportBottomData || undefined);
+          setInitialReportTitleData(data.reportTitleData || undefined);
+          // Grid 컨텐츠 초기화
+          if (data.gridContents && typeof data.gridContents === 'object') {
+            setAllGridContents(data.gridContents);
+          }
+          // photo 덮어쓰기: URL에 photo 없으면 데이터 subject를 사용 (1~9로 제한)
+          if (!searchParams.get('photo') && typeof data.subject === 'number') {
+            const next = Math.min(Math.max(parseInt(String(data.subject), 10), 1), 9);
+            const currentParams = new URLSearchParams(searchParams.toString());
+            currentParams.set('photo', String(next));
+            router.replace(`?${currentParams.toString()}`);
+          }
+        }
+      } catch {}
+    };
+    load();
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handlePrint = async () => {
     try {
@@ -122,7 +174,7 @@ function ReportCContent() {
 
   const handleEdit = () => { setSaved(false); setShowOnlySelected(false); };
 
-  const performSave = () => {
+  const performSave = async () => {
     try {
       const reportBottomData = reportBottomRef.current?.getReportBottomData();
       const reportTitleData = reportTitleRef.current?.getReportTitleData();
@@ -144,7 +196,7 @@ function ReportCContent() {
         reportTitleData
       );
 
-      const completeReportData = {
+      const completeReportData: any = {
         id: savedId,
         reportType: 'C' as const,
         subject: photoCount,
@@ -162,10 +214,77 @@ function ReportCContent() {
         reportTitleData,
       } as const;
 
-      exportToArticleDataFile(completeReportData as any);
+      // 캡처 이미지 생성 및 업로드 → thumbUrl 획득 (실패해도 저장은 진행)
+      try {
+        const today = new Date();
+        const dateString = `${today.getFullYear()}${(today.getMonth() + 1)
+          .toString()
+          .padStart(2, "0")}${today
+          .getDate()
+          .toString()
+          .padStart(2, "0")}_${today
+          .getHours()
+          .toString()
+          .padStart(2, "0")}${today
+          .getMinutes()
+          .toString()
+          .padStart(2, "0")}`;
+        const fileName = `report_thumb_${dateString}.png`;
+        const file = await getImageFile("report-download-area", fileName);
+        if (file) {
+          const uploadRes = await postFile({
+            file,
+            fileType: "IMAGE",
+            taskType: "ETC",
+            source: "FILE",
+            thumbFile: file,
+          });
+          const anyRes = uploadRes as any;
+          const url = anyRes?.thumbUrl || anyRes?.driveItemResult?.thumbUrl;
+          if (url) {
+            completeReportData.thumbUrl = url;
+          }
+        }
+      } catch {}
+
+      const ageParam = searchParams.get('age');
+      const studentAge = ageParam ? parseInt(ageParam, 10) : 6;
+
+      const payload = {
+        type: 'TypeC',
+        subjectCount: photoCount,
+        studentAge,
+        stringData: JSON.stringify(completeReportData),
+      } as const;
+
+      const existingArticleId = searchParams.get('articleId');
+      const response = await fetch('/api/file/v1/play-record', {
+        method: existingArticleId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json', accept: '*/*' },
+        body: JSON.stringify(
+          existingArticleId
+            ? { ...payload, playRecordId: parseInt(existingArticleId, 10) }
+            : payload
+        ),
+      });
+
+      if (!response.ok) {
+        alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+        return;
+      }
+
       setSaved(true);
       setShowOnlySelected(true);
-      alert('리포트가 저장되었습니다. articleData.ts 파일이 다운로드됩니다.');
+      try {
+        const json = await response.json().catch(() => null);
+        const newId = (json && (json.result?.id ?? json.id)) || null;
+        if (!existingArticleId && newId) {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set('articleId', String(newId));
+          window.history.replaceState(null, '', `?${params.toString()}`);
+        }
+      } catch { /* noop */ }
+      // alert('리포트가 저장되었습니다.');
     } catch (_error) {
       alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
     }
@@ -202,56 +321,45 @@ function ReportCContent() {
               {isSaved && (
                 <Button
                   size="sm"
-                  className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+                  className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[13px] text-black shadow-none font-semibold h-[34px] w-[80px] border-solid border-[1px] border-[#CCCCCC]"
                   onClick={handleEdit}
                 >
-                  <Image src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/edit.svg" alt="edit" width={16} height={16} />
+                  <Image src="/report/edit.svg" alt="edit" width={14} height={14} />
                   편집
                 </Button>
               )}
               <Button
                 size="sm"
-                className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+                className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[13px] text-black shadow-none font-semibold h-[34px] w-[80px] border-solid border-[1px] border-[#CCCCCC]"
                 onClick={handlePrint}
                 disabled={!isSaved}
               >
-                <Image
-                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/print.svg"
-                  alt="print"
-                  width={16}
-                  height={16}
-                />
+                <Image src="/report/print.svg" alt="print" width={14} height={14} />
                 인쇄
               </Button>
               <Button
                 size="sm"
-                className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+                className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[13px] text-black shadow-none font-semibold h-[34px] w-[80px] border-solid border-[1px] border-[#CCCCCC]"
               >
-                <Image
-                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/share.svg"
-                  alt="share"
-                  width={16}
-                  height={16}
-                />
+                <Image src="/report/share.svg" alt="share" width={14} height={14} />
                 공유
               </Button>
               <Button
                 size="sm"
-                className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[14px] text-black shadow-none font-semibold h-[34px]"
+                className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[13px] text-black shadow-none font-semibold h-[34px] w-[80px] border-solid border-[1px] border-[#CCCCCC]"
                 onClick={handleDownload}
                 disabled={!isSaved}
               >
-                <Image
-                  src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/download.svg"
-                  alt="download"
-                  width={16}
-                  height={16}
-                />
+                <Image src="/report/download.svg" alt="download" width={14} height={14} />
                 다운로드
               </Button>
               <Button
                 size="sm"
-                className={`${isSaved ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-primary hover:bg-primary/80 text-white"} font-semibold h-[34px]`}
+                className={`gap-1 font-semibold w-[80px] h-[34px] text-[13px] shadow-none ${
+                  isSaved
+                    ? "bg-gray-300 hover:bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-primary hover:bg-primary/80 text-white"
+                }`}
                 onClick={isSaved ? undefined : performSave}
                 disabled={isSaved}
               >
@@ -289,7 +397,7 @@ function ReportCContent() {
             )}
             {/* Title Section - 고정 높이 */}
             <div style={{ height: "84px", flexShrink: 0 }}>
-              <ReportTitleSection ref={reportTitleRef} />
+              <ReportTitleSection ref={reportTitleRef} initialData={initialReportTitleData} />
             </div>
 
             {/* GridC 컴포넌트 - flex로 나머지 공간 자동 할당 */}
@@ -307,7 +415,7 @@ function ReportCContent() {
 
             {/* Bottom Section - 고정 높이 */}
             <div style={{ height: "287px", flexShrink: 0 }}>
-              <ReportBottomSection ref={reportBottomRef} type="C" />
+              <ReportBottomSection ref={reportBottomRef} type="C" initialData={initialReportBottomData} />
             </div>
             
             {/* 스티커 렌더링 */}

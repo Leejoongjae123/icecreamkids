@@ -354,6 +354,21 @@ function GridAElement({
       return Array(imageCount).fill({ x: 0, y: 0, scale: 1 });
     }
   );
+  // 외부/내부 동기화 루프 방지용 플래그
+  const updatingFromParentRef = React.useRef(false);
+
+  const arePositionsEqual = React.useCallback((a: ImagePosition[] = [], b: ImagePosition[] = []) => {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      const pa = a[i] as any;
+      const pb = b[i] as any;
+      if (!pa || !pb) return false;
+      if (pa.x !== pb.x || pa.y !== pb.y || pa.scale !== pb.scale) return false;
+    }
+    return true;
+  }, []);
+
+  // 연속 동기화는 루프를 만들 수 있어 제거. 저장/편집 확정 시에만 부모로 전달됨.
 
   // 이미지 편집 모달 상태
   const [imageEditModal, setImageEditModal] = React.useState<{
@@ -462,6 +477,19 @@ function GridAElement({
       cropActive: false,
     }));
   }, [inlineEditState, imagePositions, onImagePositionsUpdate]);
+
+  // 저장 시 미확정 편집 상태를 커밋하기 위한 전역 이벤트 리스너
+  React.useEffect(() => {
+    const onCommitEdits = () => {
+      if (inlineEditState.active) {
+        endInlineEditConfirm();
+      }
+    };
+    window.addEventListener("reportA:commit-edits", onCommitEdits);
+    return () => {
+      window.removeEventListener("reportA:commit-edits", onCommitEdits);
+    };
+  }, [inlineEditState.active, endInlineEditConfirm]);
 
   const endInlineEditCancel = React.useCallback(() => {
     setInlineEditState((prev) => ({
@@ -1284,13 +1312,14 @@ function GridAElement({
     console.log("isDescriptionExpanded 상태 변경됨:", isDescriptionExpanded);
   }, [isDescriptionExpanded]);
 
-  // 외부에서 전달받은 이미지 위치 정보 동기화
+  // 외부에서 전달받은 이미지 위치 정보 동기화 (동일 내용이면 무시)
   React.useEffect(() => {
-    if (externalImagePositions.length > 0) {
-      setImagePositions(externalImagePositions);
-      console.log("📍 외부 이미지 위치 정보 동기화:", externalImagePositions);
+    const ext = externalImagePositions || [];
+    if (!arePositionsEqual(ext, imagePositions)) {
+      updatingFromParentRef.current = true;
+      setImagePositions(ext);
     }
-  }, [externalImagePositions]);
+  }, [externalImagePositions, imagePositions, arePositionsEqual]);
 
   // 이미지 그리드 레이아웃 클래스 결정
   const getImageGridClass = (count: number, cardType?: string) => {

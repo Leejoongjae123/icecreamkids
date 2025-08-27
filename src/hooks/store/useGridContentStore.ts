@@ -146,8 +146,18 @@ const useGridContentStore = create<GridContentStore>((set, get) => ({
 
   updateImages: (gridId: string, imageUrls: string[]) => {
     set((state) => {
-      const existingContent = state.gridContents[gridId] || {} as Partial<GridContentData>;
+      const existingContent = state.gridContents[gridId] || ({} as Partial<GridContentData>);
       const { gridId: _ignored, ...existingData } = existingContent;
+
+      const prev = Array.isArray(existingData.imageUrls) ? existingData.imageUrls : [];
+      const next = Array.isArray(imageUrls) ? imageUrls : [];
+
+      // 내용이 완전히 동일하면 상태 변경을 생략하여 불필요한 리렌더/루프 방지
+      const isSameLength = prev.length === next.length;
+      const isSameOrderAndValues = isSameLength && prev.every((v, i) => v === next[i]);
+      if (isSameOrderAndValues && (existingData.hasImages ?? false) === (next.length > 0)) {
+        return state;
+      }
 
       return {
         gridContents: {
@@ -155,11 +165,11 @@ const useGridContentStore = create<GridContentStore>((set, get) => ({
           [gridId]: {
             ...existingData,
             gridId,
-            hasPlaySubject: (existingData.hasPlaySubject ?? false),
-            hasCategoryValue: (existingData.hasCategoryValue ?? false),
-            hasAiGenerated: (existingData.hasAiGenerated ?? false),
-            hasImages: imageUrls.length > 0,
-            imageUrls,
+            hasPlaySubject: existingData.hasPlaySubject ?? false,
+            hasCategoryValue: existingData.hasCategoryValue ?? false,
+            hasAiGenerated: existingData.hasAiGenerated ?? false,
+            hasImages: next.length > 0,
+            imageUrls: next,
             driveItemKeys: existingData.driveItemKeys,
           },
         },

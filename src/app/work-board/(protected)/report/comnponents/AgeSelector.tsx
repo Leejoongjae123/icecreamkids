@@ -83,18 +83,17 @@ export default function AgeSelector({
       <div className="self-start text-xs leading-none text-amber-400">
         연령 선택
       </div>
-      <div className="flex flex-col mt-5 w-full">
+      <div className="flex flex-col mt-5 w-full items-center">
         {ages.map((age, index) => (
           <button
             key={age}
             onClick={() => onAgeSelect(String(ageToNumber(age)))}
             className={`
-              flex overflow-hidden flex-col justify-center items-center w-full whitespace-nowrap h-[46px] rounded-[50px] transition-colors
-              ${index === 0 ? "" : "mt-2.5"}
-              ${age === "0~2세" ? "px-1" : "px-3"}
+              flex justify-center items-center w-[50px] h-[50px] rounded-full transition-colors
+              ${index === 0 ? "" : "mt-2"}
               ${
                 currentSelectedAge === age
-                  ? "font-semibold text-white bg-amber-400 hover:bg-amber-500"
+                  ? "font-semibold text-white bg-primary hover:bg-primary/90"
                   : "bg-gray-50 hover:bg-gray-100"
               }
             `}

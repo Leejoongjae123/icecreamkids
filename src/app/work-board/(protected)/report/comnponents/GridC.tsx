@@ -17,6 +17,7 @@ import { useImageUpload } from "@/hooks/useImageUpload";
 import ApplyModal from "./ApplyModal";
 import useGridCStore from "@/hooks/store/useGridCStore";
 import useKeywordExpansionStore from "@/hooks/store/useKeywordExpansionStore";
+import useGridContentStore from "@/hooks/store/useGridContentStore";
 
 interface GridCItem {
   id: string;
@@ -43,6 +44,7 @@ interface GridCProps {
 
 function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isReadOnly = false }: GridCProps) {
   const { setSelected, remove, setImage, clearAll } = useGridCStore();
+  const { gridContents } = useGridContentStore();
   const { expandFirstImageGrid } = useKeywordExpansionStore();
   // photoCount에 따라 그리드 아이템 데이터 관리
   const [items, setItems] = React.useState<GridCItem[]>(() => {
@@ -177,6 +179,44 @@ function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isRead
       setLargeItemPosition(0);
     }
   }, [photoCount]);
+
+  // articleId로부터 세팅된 gridContents를 GridC 아이템에 초기 반영
+  React.useEffect(() => {
+    // gridContents의 key 끝 숫자를 index로 매핑하여 첫 번째 이미지/driveItemKey를 반영
+    if (!gridContents || Object.keys(gridContents).length === 0) {
+      return;
+    }
+
+    setItems((prev) => {
+      const next = [...prev];
+      const defaultImage = "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg";
+
+      Object.entries(gridContents).forEach(([gridId, content]) => {
+        const parts = gridId.split('-');
+        const last = parts[parts.length - 1];
+        const idx = Number.isFinite(Number(last)) ? parseInt(last, 10) : NaN;
+        if (!Number.isNaN(idx) && idx >= 0 && idx < next.length) {
+          const imageUrl = Array.isArray(content.imageUrls) && content.imageUrls.length > 0
+            ? content.imageUrls[0]
+            : undefined;
+          const driveItemKey = Array.isArray(content.driveItemKeys) && content.driveItemKeys.length > 0
+            ? content.driveItemKeys[0]
+            : undefined;
+
+          if (imageUrl && imageUrl !== '' && imageUrl !== defaultImage) {
+            const prevUrl = next[idx]?.imageUrl;
+            const prevKey = next[idx]?.driveItemKey;
+            if (prevUrl !== imageUrl || prevKey !== driveItemKey) {
+              next[idx] = { ...next[idx], imageUrl, driveItemKey };
+              try { if (driveItemKey) setImage(next[idx].id, driveItemKey); } catch (_) {}
+            }
+          }
+        }
+      });
+
+      return next;
+    });
+  }, [gridContents, setItems, setImage]);
 
   // 이미지 업로드 후 자동 체크 비활성화: 사용자가 수동으로 체크하도록 유지
   // (이전에는 이미지가 있는 아이템을 자동으로 선택 상태로 변경했음)
@@ -409,8 +449,12 @@ function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isRead
         const cellIndex = index - 1; // 인덱스 1~5를 0~4로 변환
         if (cellIndex >= 0 && cellIndex < freeCells.length) {
           const pos = freeCells[cellIndex];
-          return { row: pos.row, col: pos.col, width: 1, height: 1 };
+          if (pos) {
+            return { row: pos.row, col: pos.col, width: 1, height: 1 };
+          }
         }
+        // 가드: 계산 불가 시 기본 위치 반환
+        return { row: 1, col: 1, width: 1, height: 1 };
         break;
       }
       
@@ -421,6 +465,10 @@ function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isRead
         // 나머지 인덱스는 현재 wideRowForPhoto8 기준 freeCells로 계산
         const freeCells = generatePositionsForPhoto8(wideRowForPhoto8, wideColForPhoto8);
         const pos = freeCells[index];
+        // 가드: 인덱스 범위를 벗어나거나 pos가 없을 경우 안전한 기본값 반환
+        if (!pos) {
+          return { row: 1, col: 1, width: 1, height: 1 };
+        }
         return { row: pos.row, col: pos.col, width: 1, height: 1 };
       }
       

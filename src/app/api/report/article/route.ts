@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import articleData from '@/app/work-board/(protected)/report/comnponents/articleData';
 import { createClient } from '@/utils/supabase/server';
 
 type RouteParams = {
@@ -28,14 +27,57 @@ export async function GET(request: NextRequest, ctx?: RouteParams) {
     );
   }
 
-  // 모사: 실제 외부 요청 없이, 로컬 articleData를 반환
-  return NextResponse.json(
-    {
-      success: true,
-      data: articleData,
-    },
-    { status: 200 }
-  );
+  // 외부 API 프록시 호출: GET /file/v1/play-record/{id}?includes=smartFolderItem
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://3.37.227.162:8080';
+  const url = `${baseUrl}/file/v1/play-record/${encodeURIComponent(articleId)}?includes=smartFolderItem`;
+
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { accept: '*/*' },
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return NextResponse.json(
+        {
+          success: false,
+          message: '원격 API 호출 실패',
+          status: res.status,
+          details: text,
+        },
+        { status: 200 }
+      );
+    }
+
+    const payload = await res.json();
+    const record: any = (payload && typeof payload === 'object' && 'result' in payload) ? (payload as any).result : payload;
+
+    // stringData(JSON 문자열)에 저장된 리포트 본문을 파싱하여 반환
+    let parsed: unknown = undefined;
+    try {
+      if (record && typeof record === 'object' && 'stringData' in record && typeof (record as any).stringData === 'string') {
+        parsed = JSON.parse((record as any).stringData as string);
+      }
+    } catch {}
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: parsed ?? {},
+      },
+      { status: 200 }
+    );
+  } catch (_e) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: '요청 처리 중 오류가 발생했습니다.',
+      },
+      { status: 200 }
+    );
+  }
 }
 
 

@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { Suspense, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { HiOutlineViewColumns } from "react-icons/hi2";
 import Image from "next/image";
 import HomeIcon from "@/components/common/Icons/HomeIcon";
@@ -18,7 +18,7 @@ import ConfirmModal from "./ConfirmModal";
 import GridEditToolbar from "./GridEditToolbar";
 import ReportBottomSection, { ReportBottomSectionRef } from "./ReportBottomSection";
 import ReportTitleSection, { ReportTitleSectionRef } from "./ReportTitleSection";
-import GridB from "./GridB";
+import GridB, { GridBRef } from "./GridB";
 import { useStickerStore } from "@/hooks/store/useStickerStore";
 import { useGlobalThemeStore } from "@/hooks/store/useGlobalThemeStore";
 import DraggableSticker from "./DraggableSticker";
@@ -27,26 +27,32 @@ import { useTextStickerStore } from "@/hooks/store/useTextStickerStore";
 import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
 import useGridContentStore from "@/hooks/store/useGridContentStore";
 import useSimpleCaptureImage from "@/hooks/useSimpleCaptureImage";
+import useCaptureImage from "@/hooks/useCaptureImage";
+import useS3FileUpload from "@/hooks/useS3FileUpload";
 
 // searchParams를 사용하는 컴포넌트 분리
 function ReportBContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [showCircles, setShowCircles] = React.useState(false);
   const [isAnimating, setIsAnimating] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);
   
   // 스티커 관련
-  const { stickers } = useStickerStore();
+  const { stickers, setStickers } = useStickerStore();
   const { backgroundImageUrlByType } = useGlobalThemeStore();
   const backgroundImageUrl = backgroundImageUrlByType['B'];
   const stickerContainerRef = useRef<HTMLDivElement>(null);
   const reportBottomRef = useRef<ReportBottomSectionRef>(null);
   const reportTitleRef = useRef<ReportTitleSectionRef>(null);
+  const gridBRef = useRef<GridBRef>(null);
 
-  const { textStickers } = useTextStickerStore();
-  const { gridContents } = useGridContentStore();
+  const { textStickers, setTextStickers } = useTextStickerStore();
+  const { gridContents, setAllGridContents } = useGridContentStore();
   const { saveCurrentReport, isSaved, setSaved, exportToArticleDataFile } = useSavedDataStore();
   const { downloadSimpleImage, previewSimpleImage, checkElement, getSimpleImageDataUrl } = useSimpleCaptureImage();
+  const { getImageFile } = useCaptureImage();
+  const { postFile } = useS3FileUpload();
 
   // 마우스 위치 추적 기능
   const { startTracking, stopTracking, toggleTracking, isTracking } = useMousePositionTracker({
@@ -58,14 +64,71 @@ function ReportBContent() {
   // searchParams에서 gridCount 값 가져오기 (1-12 범위, 기본값 6)
   const gridCountParam = searchParams.get("gridCount");
   const gridCount = React.useMemo(() => {
-    const parsed = parseInt(gridCountParam || "6", 10);
-    return parsed >= 1 && parsed <= 12 ? parsed : 6;
+    const parsed = parseInt(gridCountParam || "12", 10);
+    return parsed >= 1 && parsed <= 12 ? parsed : 12;
   }, [gridCountParam]);
 
   // 처음 진입 시 편집 모드로 설정
   React.useEffect(() => {
     setSaved(false);
   }, [setSaved]);
+
+  // 초기 데이터 상태 (타이틀/하단)
+  const [initialReportBottomData, setInitialReportBottomData] = React.useState<any | undefined>(undefined);
+  const [initialReportTitleData, setInitialReportTitleData] = React.useState<any | undefined>(undefined);
+  const [initialGridBLayout, setInitialGridBLayout] = React.useState<{
+    expanded?: number[];
+    removed?: number[];
+    hidden?: number[];
+    imageCountByIndex?: Record<number, number>;
+  } | undefined>(undefined);
+
+  // articleId가 있으면 API에서 취득한 데이터로 상태 초기화 (ReportA와 동일 패턴)
+  React.useEffect(() => {
+    const articleId = searchParams.get('articleId');
+    if (!articleId) {
+      return;
+    }
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const url = `/api/report/article?articleId=${encodeURIComponent(articleId)}`;
+        const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+        const json = await res.json();
+        if (json && json.success && json.data) {
+          const data = json.data as any;
+          // 스티커/텍스트 스티커
+          if (Array.isArray(data.stickers)) {
+            setStickers(data.stickers);
+          }
+          if (Array.isArray(data.textStickers)) {
+            setTextStickers(data.textStickers);
+          }
+          // 하단/타이틀 초기 데이터 저장
+          setInitialReportBottomData(data.reportBottomData || undefined);
+          setInitialReportTitleData(data.reportTitleData || undefined);
+          // Grid 컨텐츠 초기화
+          if (data.gridContents && typeof data.gridContents === 'object') {
+            setAllGridContents(data.gridContents);
+          }
+          // GridB 레이아웃 초기화 (합치기 등)
+          if (data.gridBLayout && typeof data.gridBLayout === 'object') {
+            setInitialGridBLayout(data.gridBLayout);
+          }
+          // gridCount 덮어쓰기: URL에 gridCount 없으면 데이터 subject를 사용 (1~12로 제한)
+          if (!searchParams.get('gridCount') && typeof data.subject === 'number') {
+            const next = Math.min(Math.max(parseInt(String(data.subject), 10), 1), 12);
+            const currentParams = new URLSearchParams(searchParams.toString());
+            currentParams.set('gridCount', String(next));
+            router.replace(`?${currentParams.toString()}`);
+          }
+        }
+      } catch {}
+    };
+    load();
+    return () => controller.abort();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
 
@@ -180,10 +243,11 @@ function ReportBContent() {
 
   const handleEdit = () => { setSaved(false); };
 
-  const performSave = () => {
+  const performSave = async () => {
     try {
       const reportBottomData = reportBottomRef.current?.getReportBottomData();
       const reportTitleData = reportTitleRef.current?.getReportTitleData();
+      const gridBData = gridBRef.current?.getGridData();
       const searchParamsObj: Record<string, string> = {};
       searchParams.forEach((value, key) => { searchParamsObj[key] = value; });
       const savedId = saveCurrentReport(
@@ -202,7 +266,7 @@ function ReportBContent() {
         reportTitleData
       );
 
-      const completeReportData = {
+      const completeReportData: any = {
         id: savedId,
         reportType: 'B' as const,
         subject: gridCount,
@@ -218,11 +282,79 @@ function ReportBContent() {
         backgroundImageUrl: backgroundImageUrl || undefined,
         imagePositionsMap: undefined,
         reportTitleData,
+        gridBLayout: gridBData?.gridBLayout,
       } as const;
 
-      exportToArticleDataFile(completeReportData as any);
+      // 캡처 이미지 생성 및 업로드 → thumbUrl 획득 (실패해도 저장은 진행)
+      try {
+        const today = new Date();
+        const dateString = `${today.getFullYear()}${(today.getMonth() + 1)
+          .toString()
+          .padStart(2, "0")}${today
+          .getDate()
+          .toString()
+          .padStart(2, "0")}_${today
+          .getHours()
+          .toString()
+          .padStart(2, "0")}${today
+          .getMinutes()
+          .toString()
+          .padStart(2, "0")}`;
+        const fileName = `report_thumb_${dateString}.png`;
+        const file = await getImageFile("report-download-area", fileName);
+        if (file) {
+          const uploadRes = await postFile({
+            file,
+            fileType: "IMAGE",
+            taskType: "ETC",
+            source: "FILE",
+            thumbFile: file,
+          });
+          const anyRes = uploadRes as any;
+          const url = anyRes?.thumbUrl || anyRes?.driveItemResult?.thumbUrl;
+          if (url) {
+            completeReportData.thumbUrl = url;
+          }
+        }
+      } catch {}
+
+      const ageParam = searchParams.get('age');
+      const studentAge = ageParam ? parseInt(ageParam, 10) : 6;
+
+      const payload = {
+        type: 'TypeB',
+        subjectCount: gridCount,
+        studentAge,
+        stringData: JSON.stringify(completeReportData),
+      } as const;
+
+      const existingArticleId = searchParams.get('articleId');
+      const response = await fetch('/api/file/v1/play-record', {
+        method: existingArticleId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json', accept: '*/*' },
+        body: JSON.stringify(
+          existingArticleId
+            ? { ...payload, playRecordId: parseInt(existingArticleId, 10) }
+            : payload
+        ),
+      });
+
+      if (!response.ok) {
+        alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+        return;
+      }
+
       setSaved(true);
-      alert('리포트가 저장되었습니다. articleData.ts 파일이 다운로드됩니다.');
+      try {
+        const json = await response.json().catch(() => null);
+        const newId = (json && (json.result?.id ?? json.id)) || null;
+        if (!existingArticleId && newId) {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set('articleId', String(newId));
+          window.history.replaceState(null, '', `?${params.toString()}`);
+        }
+      } catch { /* noop */ }
+      // alert('리포트가 저장되었습니다.');
     } catch (_error) {
       alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
     }
@@ -314,7 +446,7 @@ function ReportBContent() {
             
             {/* 타이틀 섹션 - 고정 높이 84px */}
             <div className="flex-shrink-0 pb-4">
-              <ReportTitleSection ref={reportTitleRef} />
+              <ReportTitleSection ref={reportTitleRef} initialData={initialReportTitleData} />
             </div>
 
             {/* 이미지 그리드 - 계산된 정확한 높이 차지 */}
@@ -324,12 +456,12 @@ function ReportBContent() {
                 height: 'calc(100% - 84px - 16px - 174px - 12px)' // 전체 - 타이틀 - 타이틀패딩 - 하단 - 간격
               }}
             >
-              <GridB gridCount={gridCount} />
+              <GridB ref={gridBRef} gridCount={gridCount} initialLayout={initialGridBLayout} />
             </div>
 
             {/* 하단 텍스트 부위 - 고정 높이 174px */}
             <div className="flex-shrink-0">
-              <ReportBottomSection ref={reportBottomRef} type="B" />
+              <ReportBottomSection ref={reportBottomRef} type="B" initialData={initialReportBottomData} />
             </div>
             
             {/* 스티커 렌더링 */}

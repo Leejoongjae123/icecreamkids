@@ -335,7 +335,10 @@ function RightSideBarContent() {
     }
   };
 
-  const applyTypeChange = (type: "A" | "B" | "C") => {
+  const applyTypeChange = (
+    type: "A" | "B" | "C",
+    options?: { removeArticleId?: boolean }
+  ) => {
     const newSearchParams = new URLSearchParams(searchParams);
     newSearchParams.set("type", type);
 
@@ -351,6 +354,9 @@ function RightSideBarContent() {
       // C타입일 때 photo 기본값을 9로 설정
       newSearchParams.set("photo", "9");
     }
+
+    // 타입 변경 시 articleId는 항상 제거
+    newSearchParams.delete("articleId");
 
     router.push(`?${newSearchParams.toString()}`);
     setIsTypeModalOpen(false);
@@ -370,7 +376,7 @@ function RightSideBarContent() {
     if (pendingAction.type === "TYPE_CHANGE") {
       // 모든 Grid 내용 초기화
       clearAllGridContents();
-      applyTypeChange(pendingAction.data.type);
+      applyTypeChange(pendingAction.data.type, { removeArticleId: true });
     } else if (pendingAction.type === "SUBJECT_CHANGE") {
       // 현재 타입의 Grid들만 초기화
       clearGridsByType(currentType, subjectCount);
@@ -748,7 +754,7 @@ function RightSideBarContent() {
             <div className="text-[14px] font-medium leading-3 text-black whitespace-nowrap flex items-center gap-1">
               연령 선택
               <div className="text-amber-400">
-                ({getAgeDisplay(selectedAge)})
+                ({searchParams.get("age") || getAgeDisplay(selectedAge)})
               </div>
             </div>
           </Button>

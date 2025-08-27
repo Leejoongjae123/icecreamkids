@@ -3,6 +3,7 @@ import * as React from "react";
 import { Suspense, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import useCaptureImage from "@/hooks/useCaptureImage";
+import useS3FileUpload from "@/hooks/useS3FileUpload";
 import useSimpleCaptureImage from "@/hooks/useSimpleCaptureImage";
 
 
@@ -47,7 +48,8 @@ function ReportAContent() {
   const { backgroundImageUrlByType } = useGlobalThemeStore();
   const { saveCurrentReport, currentSavedData, isSaved, setSaved, exportToArticleDataFile } = useSavedDataStore();
   const { gridContents, setAllGridContents } = useGridContentStore();
-  const { downloadImage } = useCaptureImage();
+  const { downloadImage, getImageFile } = useCaptureImage();
+  const { postFile } = useS3FileUpload();
   const { downloadSimpleImage, previewSimpleImage, checkElement, getSimpleImageDataUrl } = useSimpleCaptureImage();
   const backgroundImageUrl = backgroundImageUrlByType["A"];
   const stickerContainerRef = useRef<HTMLDivElement>(null);
@@ -219,8 +221,16 @@ function ReportAContent() {
   };
 
   // 실제 저장을 수행하는 함수
-  const performSave = () => {
+  const performSave = async () => {
     try {
+      // 그리드 내부 인라인 편집이 진행 중이면 우선 커밋 이벤트 전파
+      try {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('reportA:commit-edits'));
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+      } catch {}
+
       // 모든 데이터 수집
       const gridData = gridARef.current?.getGridData();
       const reportBottomData = reportBottomRef.current?.getReportBottomData();
@@ -249,9 +259,8 @@ function ReportAContent() {
         reportTitleData // 제목 영역 데이터
       );
       
-      // 저장된 데이터로 articleData.js 파일 생성
-      // saveCurrentReport가 완료된 후 최신 데이터를 다시 구성
-      const completeReportData = {
+      // 저장된 데이터로 전송할 JSON 구성
+      const completeReportData: any = {
         id: savedId,
         reportType: "A" as const,
         subject,
@@ -268,15 +277,82 @@ function ReportAContent() {
         imagePositionsMap: gridData?.imagePositionsMap,
         reportTitleData,
       };
-      
-      exportToArticleDataFile(completeReportData);
-      
-      // useSavedDataStore의 isSaved 상태를 true로 설정
+
+      // 캡처 이미지 생성 및 업로드 → thumbUrl 획득 (실패해도 저장은 진행)
+      try {
+        const today = new Date();
+        const dateString = `${today.getFullYear()}${(today.getMonth() + 1)
+          .toString()
+          .padStart(2, "0")}${today
+          .getDate()
+          .toString()
+          .padStart(2, "0")}_${today
+          .getHours()
+          .toString()
+          .padStart(2, "0")}${today
+          .getMinutes()
+          .toString()
+          .padStart(2, "0")}`;
+        const fileName = `report_thumb_${dateString}.png`;
+        const file = await getImageFile("report-download-area", fileName);
+        if (file) {
+          const uploadRes = await postFile({
+            file,
+            fileType: "IMAGE",
+            taskType: "ETC",
+            source: "FILE",
+            thumbFile: file,
+          });
+          const anyRes = uploadRes as any;
+          const url = anyRes?.thumbUrl || anyRes?.driveItemResult?.thumbUrl;
+          if (url) {
+            completeReportData.thumbUrl = url;
+          }
+        }
+      } catch {}
+      // 나이 파라미터 수집 (기본값 6)
+      const ageParam = searchParams.get('age');
+      const studentAge = ageParam ? parseInt(ageParam, 10) : 6;
+
+      // 외부 API로 전달할 페이로드 구성
+      const payload = {
+        type: 'TypeA',
+        subjectCount: subject,
+        studentAge,
+        // accountId/profileId는 로컬 API 라우트에서 쿠키 기반으로 주입됨
+        stringData: JSON.stringify(completeReportData),
+      } as const;
+
+      const existingArticleId = searchParams.get('articleId');
+      const response = await fetch('/api/file/v1/play-record', {
+        method: existingArticleId ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          accept: '*/*',
+        },
+        body: JSON.stringify(
+          existingArticleId
+            ? { ...payload, playRecordId: parseInt(existingArticleId, 10) }
+            : payload
+        ),
+      });
+
+      if (!response.ok) {
+        alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+        return;
+      }
+
       setSaved(true);
-      
-      // 저장 성공 알림
-      console.log('리포트가 성공적으로 저장되었습니다. ID:', savedId);
-      alert('리포트가 저장되었습니다. articleData.ts 파일이 다운로드됩니다.');
+      try {
+        const json = await response.json().catch(() => null);
+        const newId = (json && (json.result?.id ?? json.id)) || null;
+        if (!existingArticleId && newId) {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set('articleId', String(newId));
+          router.replace(`?${params.toString()}`);
+        }
+      } catch { /* noop */ }
+      // alert('리포트가 저장되었습니다.');
     } catch (error) {
       console.log('저장 중 오류가 발생했습니다:', error);
       alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
@@ -303,7 +379,7 @@ function ReportAContent() {
   // ApplyModal 확인 핸들러
   const handleApplyModalConfirm = () => {
     setIsApplyModalOpen(false);
-    performSave();
+    void performSave();
   };
 
   // ApplyModal 취소 핸들러

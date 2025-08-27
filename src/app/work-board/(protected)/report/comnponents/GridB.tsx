@@ -22,14 +22,36 @@ import { useImageEditModalStore } from "@/hooks/store/useImageEditModalStore";
 
 interface GridBProps {
   gridCount?: number;
+  initialLayout?: {
+    expanded?: number[];
+    removed?: number[];
+    hidden?: number[];
+    imageCountByIndex?: Record<number, number>;
+  };
 }
 
-function GridBContent({ gridCount = 12 }: GridBProps) {
+export type GridBRef = {
+  getGridData: () => {
+    gridBLayout: {
+      expanded: number[];
+      removed: number[];
+      hidden: number[];
+      imageCountByIndex: Record<number, number>;
+    };
+  };
+};
+
+function GridBContentImpl({ gridCount = 12, initialLayout }: GridBProps, ref: React.Ref<GridBRef>) {
   const searchParams = useSearchParams();
   
-  // searchParams에서 subject 값을 가져오고, 1~12 범위로 제한
+  // B타입에서는 prop으로 전달된 gridCount를 우선 사용, 없으면 URL subject 사용
   const subjectParam = searchParams.get('subject');
-  const subjectCount = subjectParam ? Math.min(Math.max(parseInt(subjectParam), 1), 12) : 12;
+  const subjectCount = React.useMemo(() => {
+    if (typeof gridCount === 'number') {
+      return Math.min(Math.max(gridCount, 1), 12);
+    }
+    return subjectParam ? Math.min(Math.max(parseInt(subjectParam), 1), 12) : 12;
+  }, [gridCount, subjectParam]);
   
   // Grid content store 사용 (초기화용)
   const { updatePlaySubject, updateImages, updateCategoryValue, updateAiGenerated, gridContents } = useGridContentStore();
@@ -86,6 +108,30 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
     first: number;
     second: number;
   } | null>(null);
+
+  // 초기 레이아웃 주입 (합치기/삭제/숨김/이미지 개수)
+  React.useEffect(() => {
+    if (!initialLayout) {
+      return;
+    }
+    try {
+      if (Array.isArray(initialLayout.expanded)) {
+        setExpandedItems(new Set(initialLayout.expanded));
+      }
+      if (Array.isArray(initialLayout.removed)) {
+        setRemovedItems(new Set(initialLayout.removed));
+      }
+      if (Array.isArray(initialLayout.hidden)) {
+        setHiddenItems(new Set(initialLayout.hidden));
+      }
+      if (initialLayout.imageCountByIndex && typeof initialLayout.imageCountByIndex === 'object') {
+        setItems(prev => prev.map(it => ({
+          ...it,
+          imageCount: initialLayout.imageCountByIndex?.[it.index] ?? it.imageCount,
+        })));
+      }
+    } catch {}
+  }, [initialLayout]);
 
   // 센서 설정
   // Hooks는 항상 동일한 순서/개수로 호출되어야 함: 드래그 비활성화 여부와 무관하게 모두 호출
@@ -467,8 +513,12 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
       }
       // 저장 상태에서는 description(playSubjectText)이 비어있는 항목을 시각적으로만 숨김 처리 (공간은 유지)
       const gridId = `grid-b-${item.index}`;
-      const content = gridContents[gridId];
+      const content = gridContents[gridId] || gridContents[`grid-${item.index}`];
       const hasDescription = !!(content && content.playSubjectText && content.playSubjectText.trim().length > 0);
+      // 저장된 이미지가 있으면 우선 사용
+      const imagesFromStore = Array.isArray(content?.imageUrls) ? content?.imageUrls : undefined;
+      const effectiveImages = imagesFromStore && imagesFromStore.length > 0 ? imagesFromStore : item.images;
+      const effectiveImageCount = imagesFromStore && imagesFromStore.length > 0 ? imagesFromStore.length : item.imageCount;
       // 캡처 시 레이아웃이 유지되도록 print-hide는 사용하지 않음 (display:none으로 제거되면 그리드가 당겨짐)
       const isPrintHidden = false;
       const isInvisibleInSavedMode = isSaved && !hasDescription; // 화면/캡처 모두에서 시각적으로만 숨김 (레이아웃 유지)
@@ -483,8 +533,8 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
           onDelete={() => handleDelete(item.index)}
           isExpanded={expandedItems.has(item.index)}
           isHidden={hiddenItems.has(item.index)}
-          images={item.images}
-          imageCount={item.imageCount}
+          images={effectiveImages}
+          imageCount={effectiveImageCount}
           onImageCountChange={(count) => handleImageCountChange(item.index, count)}
           isPrintHidden={isPrintHidden}
           isInvisibleInSavedMode={isInvisibleInSavedMode}
@@ -633,6 +683,22 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
 
   const activeItem = items.find(item => item.id === activeId);
 
+  // ref로 GridB 상태를 외부로 노출
+  React.useImperativeHandle(ref, () => ({
+    getGridData: () => {
+      const imageCountByIndex: Record<number, number> = {};
+      items.forEach(it => { imageCountByIndex[it.index] = it.imageCount; });
+      return {
+        gridBLayout: {
+          expanded: Array.from(expandedItems),
+          removed: Array.from(removedItems),
+          hidden: Array.from(hiddenItems),
+          imageCountByIndex,
+        },
+      };
+    }
+  }), [items, expandedItems, removedItems, hiddenItems]);
+
   return (
     <DndContext
       sensors={sensors}
@@ -672,12 +738,14 @@ function GridBContent({ gridCount = 12 }: GridBProps) {
   );
 }
 
-function GridB(props: GridBProps) {
+const GridBContent = React.forwardRef<GridBRef, GridBProps>(GridBContentImpl);
+
+const GridB = React.forwardRef<GridBRef, GridBProps>((props, ref) => {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <GridBContent {...props} />
+      <GridBContent {...props} ref={ref} />
     </Suspense>
   );
-}
+});
 
 export default GridB; 

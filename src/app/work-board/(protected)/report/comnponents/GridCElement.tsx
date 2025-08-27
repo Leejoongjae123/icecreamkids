@@ -1151,10 +1151,13 @@ function GridCElement({
               overflow: inlineEditState.active ? 'visible' : undefined,
             }}
           >
+            {(() => {
+              const imageObjectFitClass = (!inlineEditState.active && effectiveClippingEnabled && !imageTransformData) ? "object-cover" : "object-contain";
+              return (
             <img
               src={hasImage ? currentImageUrl : NO_IMAGE_URL}
               alt="GridC image"
-              className="absolute inset-0 w-full h-full object-contain rounded-md select-none"
+              className={`absolute inset-0 w-full h-full ${imageObjectFitClass} rounded-md select-none`}
               style={{
                 transform: inlineEditState.active
                   ? `translate(${inlineEditState.temp.x || 0}px, ${inlineEditState.temp.y || 0}px) scale(${inlineEditState.temp.scale || 1})`
@@ -1166,6 +1169,8 @@ function GridCElement({
               onMouseDown={inlineEditState.active ? onEditMouseDown : undefined}
               onDoubleClick={isReadOnly ? undefined : handleDoubleClick}
             />
+              );
+            })()}
             {inlineEditState.active && renderResizeHandles()}
           </div>
 

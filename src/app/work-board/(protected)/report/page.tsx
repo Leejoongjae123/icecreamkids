@@ -38,13 +38,19 @@ function ReportPageContent() {
   useEffect(() => {
     const typeParam = searchParams.get('type') as ReportType | null;
     const subjectParam = searchParams.get('subject');
-    
+
     if (typeParam && ['A', 'B', 'C'].includes(typeParam)) {
-      // URL에 type 파라미터가 있으면 바로 설정
-      setSelectedReportType(typeParam);
-      setFirstVisit(false);
-      setShowTypeSelectionModal(false);
-      
+      // 동일 값 재설정을 방지하여 불필요한 재렌더/루프 차단
+      if (selectedReportType !== typeParam) {
+        setSelectedReportType(typeParam);
+      }
+      if (isFirstVisit) {
+        setFirstVisit(false);
+      }
+      if (showTypeSelectionModal) {
+        setShowTypeSelectionModal(false);
+      }
+
       // 타입 A일 때만 subject 파라미터가 없으면 기본값으로 설정
       if (typeParam === "A" && !subjectParam) {
         const defaultSubject = getDefaultSubject(typeParam);
@@ -54,9 +60,11 @@ function ReportPageContent() {
       }
     } else if (isFirstVisit && !selectedReportType) {
       // URL에 type 파라미터가 없고 첫 방문이면 모달 표시
-      setShowTypeSelectionModal(true);
+      if (!showTypeSelectionModal) {
+        setShowTypeSelectionModal(true);
+      }
     }
-  }, [searchParams, isFirstVisit, selectedReportType, setShowTypeSelectionModal, setSelectedReportType, setFirstVisit, getDefaultSubject, router]);
+  }, [searchParams, isFirstVisit, selectedReportType, showTypeSelectionModal, setShowTypeSelectionModal, setSelectedReportType, setFirstVisit, getDefaultSubject, router]);
 
   const handleTypeSelect = (type: ReportType) => {
     setSelectedReportType(type);

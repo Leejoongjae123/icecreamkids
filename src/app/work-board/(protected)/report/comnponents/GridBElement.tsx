@@ -457,20 +457,28 @@ function GridBElement({
         }
       );
 
-      // props images가 비어있으면 currentImages도 초기화
+      // props images가 비어있으면 currentImages도 초기화 (필요 시에만 변경)
       if (images.length === 0 || images.every((img) => !img || img === "")) {
-        setCurrentImages(new Array(imageCount).fill(""));
-        setImageMetadata([]); // 메타데이터도 초기화
-        setUploadedFiles([]); // 업로드 파일도 초기화
+        const next = new Array(imageCount).fill("");
+        const same = currentImages.length === next.length && currentImages.every((v, i) => v === next[i]);
+        if (!same) {
+          setCurrentImages(next);
+        }
+        // 메타데이터/업로드 파일도 중복 초기화 방지
+        if (imageMetadata.length !== 0) setImageMetadata([]);
+        if (uploadedFiles.length !== 0) setUploadedFiles([]);
       } else {
-        // props images를 currentImages에 반영
+        // props images를 currentImages에 반영 (내용이 달라질 때만)
         const newCurrentImages = new Array(imageCount).fill("");
         images.forEach((img, index) => {
           if (index < newCurrentImages.length && img && img !== "") {
             newCurrentImages[index] = img;
           }
         });
-        setCurrentImages(newCurrentImages);
+        const same = currentImages.length === newCurrentImages.length && currentImages.every((v, i) => v === newCurrentImages[i]);
+        if (!same) {
+          setCurrentImages(newCurrentImages);
+        }
       }
     }
   }, [images, imageCount]);
@@ -1254,19 +1262,25 @@ function GridBElement({
 
   const displayImages = images.length > 0 ? images : defaultImages;
 
-  // currentImages가 변경될 때 store 업데이트
+  // currentImages가 변경될 때 store 업데이트 (동일 내용이면 생략)
   React.useEffect(() => {
-    if (gridId && currentImages.length > 0) {
-      // 기본 이미지가 아닌 실제 업로드된 이미지들만 필터링
-      const validImages = currentImages.filter(
-        (img) =>
-          img &&
-          img !==
-            "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
-      );
-      updateImages(gridId, validImages);
+    if (!gridId) return;
+    // 기본 이미지가 아닌 실제 업로드된 이미지들만 필터링
+    const validImages = currentImages.filter(
+      (img) =>
+        img &&
+        img !==
+          "https://icecreamkids.s3.ap-northeast-2.amazonaws.com/noimage2.svg"
+    );
+
+    const storeImages = gridContents?.[gridId]?.imageUrls || [];
+    const sameLength = storeImages.length === validImages.length;
+    const sameOrderAndValues = sameLength && storeImages.every((v, i) => v === validImages[i]);
+    if (sameOrderAndValues) {
+      return;
     }
-  }, [currentImages, gridId, updateImages]);
+    updateImages(gridId, validImages);
+  }, [currentImages, gridId, updateImages, gridContents]);
 
   // 키워드 입력 변경 (store에 반영하지 않음)
   const handleKeywordChange = (
