@@ -23,6 +23,9 @@ import useGridContentStore from "@/hooks/store/useGridContentStore";
 import useSimpleCaptureImage from "@/hooks/useSimpleCaptureImage";
 import useCaptureImage from "@/hooks/useCaptureImage";
 import useS3FileUpload from "@/hooks/useS3FileUpload";
+import Loader from "@/components/common/Loader";
+import { useLoadingState } from "@/hooks/useLoadingState";
+import { StickerItem } from "./types";
 
 // searchParams를 사용하는 컴포넌트 분리
 function ReportCContent() {
@@ -45,6 +48,15 @@ function ReportCContent() {
   const { downloadSimpleImage, previewSimpleImage, checkElement, getSimpleImageDataUrl } = useSimpleCaptureImage();
   const { getImageFile } = useCaptureImage();
   const { postFile } = useS3FileUpload();
+  const [isSaving, setIsSaving] = React.useState(false);
+  const { isLoading: isSavingLoading, message: savingMessage } = useLoadingState([
+    {
+      name: "SaveReport",
+      isLoading: isSaving,
+      message: "저장중입니다. 잠시만 기다려주세요.",
+      priority: 1,
+    },
+  ]);
 
   // 마우스 위치 추적 기능
   const { startTracking, stopTracking, toggleTracking, isTracking } = useMousePositionTracker({
@@ -175,6 +187,7 @@ function ReportCContent() {
   const handleEdit = () => { setSaved(false); setShowOnlySelected(false); };
 
   const performSave = async () => {
+    setIsSaving(true);
     try {
       const reportBottomData = reportBottomRef.current?.getReportBottomData();
       const reportTitleData = reportTitleRef.current?.getReportTitleData();
@@ -287,6 +300,8 @@ function ReportCContent() {
       // alert('리포트가 저장되었습니다.');
     } catch (_error) {
       alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsSaving(false);
     }
   };
   // 이미지 로드 상태 확인을 위한 핸들러
@@ -356,12 +371,12 @@ function ReportCContent() {
               <Button
                 size="sm"
                 className={`gap-1 font-semibold w-[80px] h-[34px] text-[13px] shadow-none ${
-                  isSaved
+                  isSaved || isSaving
                     ? "bg-gray-300 hover:bg-gray-300 text-gray-500 cursor-not-allowed"
                     : "bg-primary hover:bg-primary/80 text-white"
                 }`}
-                onClick={isSaved ? undefined : performSave}
-                disabled={isSaved}
+                onClick={isSaved || isSaving ? undefined : performSave}
+                disabled={isSaved || isSaving}
               >
                 저장
               </Button>
@@ -378,10 +393,8 @@ function ReportCContent() {
           <div
             ref={stickerContainerRef}
             id="report-download-area"
-            className="flex flex-col w-full px-4 py-4 rounded-br-xl rounded-bl-xl relative overflow-hidden"
-            style={{
-              height: "calc(1123px - 66px)", // 전체 높이에서 헤더 높이만 제외
-            }}
+            className="flex flex-col aspect-[210/297] w-full px-4 py-4 rounded-br-xl rounded-bl-xl relative overflow-hidden"
+            
           >
             {/* 배경 이미지 */}
             {backgroundImageUrl && (
@@ -419,7 +432,7 @@ function ReportCContent() {
             </div>
             
             {/* 스티커 렌더링 */}
-            {stickers.map((sticker) => (
+            {stickers.map((sticker: StickerItem) => (
               <DraggableSticker
                 key={sticker.id}
                 sticker={sticker}
@@ -429,6 +442,10 @@ function ReportCContent() {
           </div>
         </div>
       </div>
+      {/* 저장 로딩 오버레이 */}
+      {isSavingLoading && (
+        <Loader hasOverlay loadingMessage={savingMessage || "저장중입니다. 잠시만 기다려주세요."} />
+      )}
     </TooltipProvider>
   );
 }

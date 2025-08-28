@@ -44,7 +44,7 @@ function Navbar({
       title: "업무 보드",
       items: [
         { title: "놀이계획", href: "/work-board/plan" },
-        { title: "놀이기록", href: "/work-board/report" },
+        { title: "놀이기록", href: "/work-board/playing-report" },
         { title: "놀이보고서", href: "/work-board/report/list" },
         { title: "놀이보고서 작성", href: "/work-board/report/create" },
       ],

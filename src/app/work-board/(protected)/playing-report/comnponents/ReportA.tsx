@@ -34,6 +34,8 @@ import DraggableSticker from "./DraggableSticker";
 import DraggableTextSticker from "./DraggableTextSticker";
 import useMousePositionTracker from "@/hooks/useMousePositionTracker";
 import { StickerItem, TextStickerItem } from "./types";
+import Loader from "@/components/common/Loader";
+import { useLoadingState } from "@/hooks/useLoadingState";
 // searchParams를 사용하는 컴포넌트 분리
 function ReportAContent() {
   const searchParams = useSearchParams();
@@ -66,6 +68,16 @@ function ReportAContent() {
 
   // ApplyModal 상태
   const [isApplyModalOpen, setIsApplyModalOpen] = React.useState(false);
+  // 저장 로딩 상태
+  const [isSaving, setIsSaving] = React.useState(false);
+  const { isLoading: isSavingLoading, message: savingMessage } = useLoadingState([
+    {
+      name: "SaveReport",
+      isLoading: isSaving,
+      message: "저장중입니다. 잠시만 기다려주세요.",
+      priority: 1,
+    },
+  ]);
 
   // searchParams에서 subject 값 가져오기 (1-4 범위, 타입 A의 기본값은 4)
   const subjectParam = searchParams.get("subject");
@@ -222,6 +234,7 @@ function ReportAContent() {
 
   // 실제 저장을 수행하는 함수
   const performSave = async () => {
+    setIsSaving(true);
     try {
       // 그리드 내부 인라인 편집이 진행 중이면 우선 커밋 이벤트 전파
       try {
@@ -356,6 +369,8 @@ function ReportAContent() {
     } catch (error) {
       console.log('저장 중 오류가 발생했습니다:', error);
       alert('저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -550,12 +565,12 @@ function ReportAContent() {
 
               <Button
                 className={`gap-1 font-semibold w-[80px] h-[34px] text-[13px] shadow-none ${
-                  isSaved
+                  isSaved || isSaving
                     ? "bg-gray-300 hover:bg-gray-300 text-gray-500 cursor-not-allowed"
                     : "bg-primary hover:bg-primary/80 text-white"
                 }`}
-                onClick={isSaved ? undefined : handleSave}
-                disabled={isSaved}
+                onClick={isSaved || isSaving ? undefined : handleSave}
+                disabled={isSaved || isSaving}
               >
                 저장
               </Button>
@@ -634,6 +649,11 @@ function ReportAContent() {
         >
           <div></div>
         </ApplyModal>
+
+        {/* 저장 로딩 오버레이 */}
+        {isSavingLoading && (
+          <Loader hasOverlay loadingMessage={savingMessage || "저장중입니다. 잠시만 기다려주세요."} />
+        )}
       </div>
     </TooltipProvider>
   );
