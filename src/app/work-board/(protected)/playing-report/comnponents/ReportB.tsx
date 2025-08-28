@@ -93,6 +93,7 @@ function ReportBContent() {
     removed?: number[];
     hidden?: number[];
     imageCountByIndex?: Record<number, number>;
+    orderIndices?: number[];
   } | undefined>(undefined);
 
   // articleId가 있으면 API에서 취득한 데이터로 상태 초기화 (ReportA와 동일 패턴)

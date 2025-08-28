@@ -43,6 +43,9 @@ interface GridCElementProps {
   hasAnyImage?: boolean; // 전체 중 하나라도 이미지가 있는가
   isUploadModalOpen?: boolean; // 업로드 모달 열림 여부 (툴바 자동 닫기용)
   onDropFiles?: (gridId: string, files: File[]) => void; // 네이티브 파일 드롭 처리 콜백
+  // 이미지 변환 데이터 초기값/변경 콜백
+  initialTransform?: { x: number; y: number; scale: number } | null;
+  onTransformChange?: (gridId: string, transform: { x: number; y: number; scale: number } | null) => void;
 }
 
 function GridCElement({
@@ -66,6 +69,8 @@ function GridCElement({
   hasAnyImage,
   isUploadModalOpen,
   onDropFiles,
+  initialTransform,
+  onTransformChange,
 }: GridCElementProps) {
   const [activityKeyword, setActivityKeyword] = React.useState("");
   const [isInputFocused, setIsInputFocused] = React.useState(false);
@@ -133,6 +138,13 @@ function GridCElement({
     y: number;
     scale: number;
   } | null>(null);
+
+  // 초기 변환 데이터 주입
+  React.useEffect(() => {
+    if (initialTransform && (!imageTransformData || initialTransform.x !== imageTransformData.x || initialTransform.y !== imageTransformData.y || initialTransform.scale !== imageTransformData.scale)) {
+      setImageTransformData({ ...initialTransform });
+    }
+  }, [initialTransform]);
 
   // 툴바 상태 관리
   const [toolbarState, setToolbarState] = React.useState({
@@ -547,6 +559,13 @@ function GridCElement({
       // hover 상태 해제
       setIsHovered(false);
       
+      // 새 이미지 기본 변환값 초기화 및 상위에 알림
+      const defaultTransform = { x: 0, y: 0, scale: 1 };
+      setImageTransformData(defaultTransform);
+      if (onTransformChange) {
+        onTransformChange(gridId, defaultTransform);
+      }
+      
       // 이미지가 첨부되면 현재 그리드의 키워드 영역만 확장하고 나머지는 축소
       if (isSelected) {
         if (filteredRecommendedKeywords.length > 0) {
@@ -633,7 +652,11 @@ function GridCElement({
   }, []);
 
   const confirmInlineEdit = React.useCallback(() => {
-    setImageTransformData({ ...(inlineEditState.temp) });
+    const next = { ...(inlineEditState.temp) };
+    setImageTransformData(next);
+    if (onTransformChange) {
+      onTransformChange(gridId, next);
+    }
     setInlineEditState(prev => ({ ...prev, active: false, cropActive: false, cropRect: null, cropDraggingEdge: null, cropStartPointer: null, cropBounds: null }));
   }, [inlineEditState.temp]);
 
@@ -778,7 +801,11 @@ function GridCElement({
           }
           
           // 이미지 변환 데이터 초기화 (새로운 이미지이므로)
-          setImageTransformData({ x: 0, y: 0, scale: 1 });
+          const defaultTransform = { x: 0, y: 0, scale: 1 };
+          setImageTransformData(defaultTransform);
+          if (onTransformChange) {
+            onTransformChange(gridId, defaultTransform);
+          }
           
           console.log("✅ GridC 배경제거 이미지 상태 업데이트 완료:", {
             gridId,

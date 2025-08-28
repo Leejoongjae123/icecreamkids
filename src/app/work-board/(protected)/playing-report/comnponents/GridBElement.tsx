@@ -38,6 +38,7 @@ interface GridBElementProps {
   children?: React.ReactNode;
   onClick?: () => void;
   style?: React.CSSProperties;
+  isDragging?: boolean;
   isSelected?: boolean;
   onSelectChange?: (isSelected: boolean) => void;
   images?: string[];
@@ -59,6 +60,7 @@ function GridBElement({
   children,
   onClick,
   style,
+  isDragging = false,
   isSelected = false,
   onSelectChange,
   images = [],
@@ -256,12 +258,12 @@ function GridBElement({
       newImages.push("");
     }
     const initialImages = newImages.slice(0, imageCount);
-    console.log("🏁 GridB 초기 currentImages 설정:", {
-      원본이미지: images,
-      새이미지: newImages,
-      초기이미지: initialImages,
-      imageCount: imageCount,
-    });
+    // console.log("🏁 GridB 초기 currentImages 설정:", {
+    //   원본이미지: images,
+    //   새이미지: newImages,
+    //   초기이미지: initialImages,
+    //   imageCount: imageCount,
+    // });
     return initialImages;
   });
 
@@ -345,13 +347,19 @@ function GridBElement({
 
   // ref를 drop에 연결
   React.useEffect(() => {
-    if (dropRef.current) {
-      drop(dropRef);
+    if (isDragging) {
+      return;
     }
-  }, [drop]);
+    if (dropRef.current) {
+      drop(dropRef.current);
+    }
+  }, [drop, isDragging]);
 
   // 네이티브 파일 드래그앤드롭 지원 (react-dnd 외부 파일 허용 없이도 동작)
   React.useEffect(() => {
+    if (isDragging) {
+      return;
+    }
     const el = dropRef.current;
     if (!el) return;
 
@@ -374,7 +382,7 @@ function GridBElement({
       el.removeEventListener("dragover", onDragOver as any);
       el.removeEventListener("drop", onDrop as any);
     };
-  }, [processUploadedFiles]);
+  }, [processUploadedFiles, isDragging]);
 
   // 이미지 URL로 driveItemKey 찾기
   const getDriveItemKeyByImageUrl = React.useCallback(
@@ -448,37 +456,50 @@ function GridBElement({
   // props에서 받은 images가 변경될 때 currentImages 상태 업데이트 (초기화 반영)
   React.useEffect(() => {
     if (Array.isArray(images)) {
-      console.log(
-        "🔄 GridBElement props.images 변경됨, currentImages 업데이트:",
-        {
-          propsImages: images,
-          이전currentImages: currentImages,
-          imageCount: imageCount,
-        }
-      );
-
       // props images가 비어있으면 currentImages도 초기화 (필요 시에만 변경)
       if (images.length === 0 || images.every((img) => !img || img === "")) {
-        const next = new Array(imageCount).fill("");
-        const same = currentImages.length === next.length && currentImages.every((v, i) => v === next[i]);
-        if (!same) {
-          setCurrentImages(next);
-        }
+        setCurrentImages(prev => {
+          const next = new Array(imageCount).fill("");
+          const same = prev.length === next.length && prev.every((v, i) => v === next[i]);
+          if (!same) {
+            console.log(
+              "🔄 GridBElement props.images 변경됨, currentImages 업데이트:",
+              {
+                propsImages: images,
+                이전currentImages: prev,
+                imageCount: imageCount,
+              }
+            );
+            return next;
+          }
+          return prev;
+        });
         // 메타데이터/업로드 파일도 중복 초기화 방지
-        if (imageMetadata.length !== 0) setImageMetadata([]);
-        if (uploadedFiles.length !== 0) setUploadedFiles([]);
+        setImageMetadata(prev => prev.length !== 0 ? [] : prev);
+        setUploadedFiles(prev => prev.length !== 0 ? [] : prev);
       } else {
         // props images를 currentImages에 반영 (내용이 달라질 때만)
-        const newCurrentImages = new Array(imageCount).fill("");
-        images.forEach((img, index) => {
-          if (index < newCurrentImages.length && img && img !== "") {
-            newCurrentImages[index] = img;
+        setCurrentImages(prev => {
+          const newCurrentImages = new Array(imageCount).fill("");
+          images.forEach((img, index) => {
+            if (index < newCurrentImages.length && img && img !== "") {
+              newCurrentImages[index] = img;
+            }
+          });
+          const same = prev.length === newCurrentImages.length && prev.every((v, i) => v === newCurrentImages[i]);
+          if (!same) {
+            console.log(
+              "🔄 GridBElement props.images 변경됨, currentImages 업데이트:",
+              {
+                propsImages: images,
+                이전currentImages: prev,
+                imageCount: imageCount,
+              }
+            );
+            return newCurrentImages;
           }
+          return prev;
         });
-        const same = currentImages.length === newCurrentImages.length && currentImages.every((v, i) => v === newCurrentImages[i]);
-        if (!same) {
-          setCurrentImages(newCurrentImages);
-        }
       }
     }
   }, [images, imageCount]);
@@ -911,7 +932,7 @@ function GridBElement({
 
   // imageCount 변경 시 currentImages와 imagePositions 업데이트
   React.useEffect(() => {
-    console.log("🔄 GridB imageCount 변경됨:", imageCount);
+    // console.log("🔄 GridB imageCount 변경됨:", imageCount);
 
     setCurrentImages((prev) => {
       const newImages = [...prev];
@@ -922,12 +943,12 @@ function GridBElement({
       // 항상 imageCount로 길이 제한
       const limitedImages = newImages.slice(0, imageCount);
 
-      console.log("🔄 GridB currentImages 업데이트:", {
-        이전이미지: prev,
-        새이미지: newImages,
-        제한된이미지: limitedImages,
-        imageCount: imageCount,
-      });
+      // console.log("🔄 GridB currentImages 업데이트:", {
+      //   이전이미지: prev,
+      //   새이미지: newImages,
+      //   제한된이미지: limitedImages,
+      //   imageCount: imageCount,
+      // });
 
       return limitedImages;
     });
@@ -1220,7 +1241,7 @@ function GridBElement({
         }
       }
     }
-  }, [gridContents, gridId, descriptionText]);
+  }, [gridContents, gridId, updateAiGenerated]);
 
   // 툴바 상태 관리
   const [toolbarState, setToolbarState] = React.useState({
@@ -1815,6 +1836,9 @@ function GridBElement({
   // 이미지가 아닌 영역 클릭 핸들러 - 툴바 표시 및 기존 선택 로직
   const handleNonImageClick = (event: React.MouseEvent) => {
     event.stopPropagation(); // 이벤트 전파 방지
+    if (isDragging) {
+      return;
+    }
 
     // 툴바 표시
     setToolbarState({
@@ -1851,6 +1875,9 @@ function GridBElement({
 
   // hover 진입/이탈 핸들러 (GridAElement 참고)
   const handleMouseEnter = () => {
+    if (isDragging) {
+      return;
+    }
     setIsHovered(true);
     isHoveredRef.current = true;
     if (hoverTimerRef.current) {
@@ -1866,6 +1893,9 @@ function GridBElement({
   };
 
   const handleMouseLeave = () => {
+    if (isDragging) {
+      return;
+    }
     setIsHovered(false);
     isHoveredRef.current = false;
     const timer = setTimeout(() => {
@@ -2367,7 +2397,7 @@ function GridBElement({
       </div>
 
       {/* GridEditToolbar - Portal로 렌더링하여 최상위에 위치 (GridAElement 참고) */}
-      {!isSaved &&
+      {!isSaved && !isDragging &&
         (toolbarState.show || toolbarModalOpen) &&
         typeof window !== "undefined" &&
         ReactDOM.createPortal(

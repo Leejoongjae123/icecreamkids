@@ -27,6 +27,7 @@ interface GridBProps {
     removed?: number[];
     hidden?: number[];
     imageCountByIndex?: Record<number, number>;
+    orderIndices?: number[];
   };
 }
 
@@ -37,6 +38,7 @@ export type GridBRef = {
       removed: number[];
       hidden: number[];
       imageCountByIndex: Record<number, number>;
+      orderIndices: number[];
     };
   };
 };
@@ -129,6 +131,22 @@ function GridBContentImpl({ gridCount = 12, initialLayout }: GridBProps, ref: Re
           ...it,
           imageCount: initialLayout.imageCountByIndex?.[it.index] ?? it.imageCount,
         })));
+      }
+      if (Array.isArray(initialLayout.orderIndices) && initialLayout.orderIndices.length > 0) {
+        setItems(prev => {
+          const indexToItem = new Map<number, GridBItem>();
+          prev.forEach(it => { indexToItem.set(it.index, it); });
+          const reordered: GridBItem[] = [];
+          initialLayout.orderIndices!.forEach(idx => {
+            const found = indexToItem.get(idx);
+            if (found) reordered.push(found);
+          });
+          // 누락된 항목은 기존 순서대로 뒤에 붙이기
+          prev.forEach(it => {
+            if (!reordered.includes(it)) reordered.push(it);
+          });
+          return reordered;
+        });
       }
     } catch {}
   }, [initialLayout]);
@@ -383,11 +401,16 @@ function GridBContentImpl({ gridCount = 12, initialLayout }: GridBProps, ref: Re
     // 작은 → 큰 금지
     if (!activeIsBig && overIsBig) return;
 
-    setItems(currentItems => {
-      const result = [...currentItems];
+    // 상태 업데이트를 위한 변수들
+    let newExpandedItems: Set<number> | null = null;
+    let newRemovedItems: Set<number> | null = null;
+    let newSelectedItem: number | null = selectedItem;
+
+    const newItems = (() => {
+      const result = [...items];
       const aIdx = result.findIndex(it => it.id === activeItemId);
       const oIdx = result.findIndex(it => it.id === overItemId);
-      if (aIdx < 0 || oIdx < 0) return currentItems;
+      if (aIdx < 0 || oIdx < 0) return items;
 
       const findByGridIndex = (gridIndex: number) => result.findIndex(it => it.index === gridIndex);
 
@@ -396,7 +419,7 @@ function GridBContentImpl({ gridCount = 12, initialLayout }: GridBProps, ref: Re
         const targetFirst = getPairFirst(overGridIndex);
         const targetSecond = getPairSecond(targetFirst);
         const leftIdx = findByGridIndex(targetFirst);
-        if (leftIdx < 0) return currentItems;
+        if (leftIdx < 0) return items;
 
         const aItem = result[aIdx];
         const leftItem = result[leftIdx];
@@ -408,21 +431,16 @@ function GridBContentImpl({ gridCount = 12, initialLayout }: GridBProps, ref: Re
         const sourceFirst = activeGridIndex;
         const sourceSecond = getPairSecond(sourceFirst);
 
-        setExpandedItems(prev => {
-          const s = new Set(prev);
-          s.delete(sourceFirst);
-          s.add(targetFirst);
-          return s;
-        });
-        setRemovedItems(prev => {
-          const s = new Set(prev);
-          s.delete(sourceSecond);
-          s.add(targetSecond);
-          return s;
-        });
+        newExpandedItems = new Set(expandedItems);
+        newExpandedItems.delete(sourceFirst);
+        newExpandedItems.add(targetFirst);
 
-        if (selectedItem === sourceFirst) setSelectedItem(targetFirst);
-        else if (selectedItem === targetFirst) setSelectedItem(sourceFirst);
+        newRemovedItems = new Set(removedItems);
+        newRemovedItems.delete(sourceSecond);
+        newRemovedItems.add(targetSecond);
+
+        if (selectedItem === sourceFirst) newSelectedItem = targetFirst;
+        else if (selectedItem === targetFirst) newSelectedItem = sourceFirst;
 
         return result;
       }
@@ -433,11 +451,23 @@ function GridBContentImpl({ gridCount = 12, initialLayout }: GridBProps, ref: Re
       result[aIdx] = { ...b, index: a.index };
       result[oIdx] = { ...a, index: b.index };
 
-      if (selectedItem === a.index) setSelectedItem(b.index);
-      else if (selectedItem === b.index) setSelectedItem(a.index);
+      if (selectedItem === a.index) newSelectedItem = b.index;
+      else if (selectedItem === b.index) newSelectedItem = a.index;
 
       return result;
-    });
+    })();
+
+    // 모든 상태를 한 번에 업데이트
+    setItems(newItems);
+    if (newExpandedItems !== null) {
+      setExpandedItems(newExpandedItems);
+    }
+    if (newRemovedItems !== null) {
+      setRemovedItems(newRemovedItems);
+    }
+    if (newSelectedItem !== selectedItem) {
+      setSelectedItem(newSelectedItem);
+    }
   };
 
   // ApplyModal 핸들러들
@@ -512,8 +542,8 @@ function GridBContentImpl({ gridCount = 12, initialLayout }: GridBProps, ref: Re
         return null;
       }
       // 저장 상태에서는 description(playSubjectText)이 비어있는 항목을 시각적으로만 숨김 처리 (공간은 유지)
-      const gridId = `grid-b-${item.index}`;
-      const content = gridContents[gridId] || gridContents[`grid-${item.index}`];
+      const gridId = item.id;
+      const content = gridContents[gridId];
       const hasDescription = !!(content && content.playSubjectText && content.playSubjectText.trim().length > 0);
       // 저장된 이미지가 있으면 우선 사용
       const imagesFromStore = Array.isArray(content?.imageUrls) ? content?.imageUrls : undefined;
@@ -694,6 +724,7 @@ function GridBContentImpl({ gridCount = 12, initialLayout }: GridBProps, ref: Re
           removed: Array.from(removedItems),
           hidden: Array.from(hiddenItems),
           imageCountByIndex,
+          orderIndices: items.map(it => it.index),
         },
       };
     }

@@ -139,7 +139,7 @@ function RightSideBarContent() {
 
   // 타입이 변경될 때 subject 관련 상태 업데이트
   useEffect(() => {
-    console.log("useEffect 실행 - 현재 타입:", currentType);
+    // console.log("useEffect 실행 - 현재 타입:", currentType);
 
     // B타입과 C타입일 때는 subject 관련 상태를 설정하지 않음
     if (currentType === "B" || currentType === "C") {
@@ -147,17 +147,17 @@ function RightSideBarContent() {
     }
 
     const subjectParam = searchParams.get("subject");
-    console.log("subjectParam:", subjectParam);
+    // console.log("subjectParam:", subjectParam);
 
     if (!subjectParam) {
       // URL에 subject 파라미터가 없으면 타입에 따른 기본값 설정
       const defaultSubject = getDefaultSubject(currentType);
-      console.log("기본값 설정:", defaultSubject);
+      // console.log("기본값 설정:", defaultSubject);
       setSelectedSubject(defaultSubject);
       setSubjectCount(parseInt(defaultSubject.replace("개", "")));
     } else {
       // URL에 subject 파라미터가 있으면 그 값 사용
-      console.log("URL 파라미터 사용:", `${subjectParam}개`);
+      // console.log("URL 파라미터 사용:", `${subjectParam}개`);
       setSelectedSubject(`${subjectParam}개`);
       setSubjectCount(parseInt(subjectParam));
     }
@@ -165,10 +165,10 @@ function RightSideBarContent() {
 
   // 타입이 변경될 때 photo 관련 상태 업데이트
   useEffect(() => {
-    console.log(
-      "useEffect 실행 - photo 상태 업데이트, 현재 타입:",
-      currentType
-    );
+    // console.log(
+    //   "useEffect 실행 - photo 상태 업데이트, 현재 타입:",
+    //   currentType
+    // );
 
     // C타입이 아닐 때는 photo 관련 상태를 초기화
     if (currentType !== "C") {
@@ -185,7 +185,7 @@ function RightSideBarContent() {
       setPhotoCount(9);
     } else {
       // URL에 photo 파라미터가 있으면 그 값 사용
-      console.log("URL 파라미터 사용:", `${photoParam}개`);
+      // console.log("URL 파라미터 사용:", `${photoParam}개`);
       setSelectedPhoto(`${photoParam}개`);
       setPhotoCount(parseInt(photoParam));
     }

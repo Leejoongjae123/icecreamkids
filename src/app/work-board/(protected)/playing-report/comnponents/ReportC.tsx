@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/tooltip";
 import ReportBottomSection, { ReportBottomSectionRef } from "./ReportBottomSection";
 import ReportTitleSection, { ReportTitleSectionRef } from "./ReportTitleSection";
-import GridC from "./GridC";
+import GridC, { GridCRef } from "./GridC";
 import { useStickerStore } from "@/hooks/store/useStickerStore";
 import { useGlobalThemeStore } from "@/hooks/store/useGlobalThemeStore";
 import DraggableSticker from "./DraggableSticker";
@@ -41,6 +41,7 @@ function ReportCContent() {
   const stickerContainerRef = useRef<HTMLDivElement>(null);
   const reportBottomRef = useRef<ReportBottomSectionRef>(null);
   const reportTitleRef = useRef<ReportTitleSectionRef>(null);
+  const gridCRef = useRef<GridCRef>(null);
 
   const { textStickers, setTextStickers } = useTextStickerStore();
   const { gridContents, setAllGridContents } = useGridContentStore();
@@ -80,6 +81,8 @@ function ReportCContent() {
   // 초기 데이터 상태 (타이틀/하단)
   const [initialReportBottomData, setInitialReportBottomData] = React.useState<any | undefined>(undefined);
   const [initialReportTitleData, setInitialReportTitleData] = React.useState<any | undefined>(undefined);
+  const [initialGridCLayout, setInitialGridCLayout] = React.useState<any | undefined>(undefined);
+  const [initialImagePositionsMap, setInitialImagePositionsMap] = React.useState<Record<string, any[]> | undefined>(undefined);
 
   // articleId가 있으면 API에서 취득한 데이터로 상태 초기화 (ReportB와 동일 패턴)
   React.useEffect(() => {
@@ -108,6 +111,14 @@ function ReportCContent() {
           // Grid 컨텐츠 초기화
           if (data.gridContents && typeof data.gridContents === 'object') {
             setAllGridContents(data.gridContents);
+          }
+          // GridC 레이아웃 초기화 (순서/프레임/숨김/특수 배치 상태)
+          if (data.gridCLayout && typeof data.gridCLayout === 'object') {
+            setInitialGridCLayout(data.gridCLayout);
+          }
+          // 이미지 위치/배율 초기화
+          if (data.imagePositionsMap && typeof data.imagePositionsMap === 'object') {
+            setInitialImagePositionsMap(data.imagePositionsMap);
           }
           // photo 덮어쓰기: URL에 photo 없으면 데이터 subject를 사용 (1~9로 제한)
           if (!searchParams.get('photo') && typeof data.subject === 'number') {
@@ -191,6 +202,7 @@ function ReportCContent() {
     try {
       const reportBottomData = reportBottomRef.current?.getReportBottomData();
       const reportTitleData = reportTitleRef.current?.getReportTitleData();
+      const gridCData = gridCRef.current?.getGridData();
       const searchParamsObj: Record<string, string> = {};
       searchParams.forEach((value, key) => { searchParamsObj[key] = value; });
       const savedId = saveCurrentReport(
@@ -205,7 +217,7 @@ function ReportCContent() {
         gridContents,
         reportBottomData,
         backgroundImageUrl || undefined,
-        undefined,
+        gridCData?.imagePositionsMap,
         reportTitleData
       );
 
@@ -223,8 +235,9 @@ function ReportCContent() {
         gridContents,
         reportBottomData,
         backgroundImageUrl: backgroundImageUrl || undefined,
-        imagePositionsMap: undefined,
+        imagePositionsMap: gridCData?.imagePositionsMap,
         reportTitleData,
+        gridCLayout: gridCData?.gridCLayout,
       } as const;
 
       // 캡처 이미지 생성 및 업로드 → thumbUrl 획득 (실패해도 저장은 진행)
@@ -423,7 +436,7 @@ function ReportCContent() {
                 overflow: "hidden"
               }}
             >
-              <GridC isClippingEnabled={isClippingEnabled} photoCount={photoCount} showOnlySelected={showOnlySelected} isReadOnly={isSaved} />
+              <GridC ref={gridCRef} isClippingEnabled={isClippingEnabled} photoCount={photoCount} showOnlySelected={showOnlySelected} isReadOnly={isSaved} initialLayout={initialGridCLayout} initialImagePositionsMap={initialImagePositionsMap} />
             </div>
 
             {/* Bottom Section - 고정 높이 */}

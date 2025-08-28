@@ -41,9 +41,44 @@ interface GridCProps {
   photoCount: number;
   showOnlySelected?: boolean;
   isReadOnly?: boolean;
+  initialLayout?: {
+    orderIds?: string[];
+    orderIndices?: number[];
+    framesByGridId?: Record<string, { id: string; pathData?: string }>;
+    hiddenIds?: string[];
+    largeItemPosition?: number;
+    wideRowForPhoto8?: 1 | 2 | 3;
+    wideColForPhoto8?: 1 | 2;
+    wideColForPhoto5Row3?: 1 | 2;
+    firstWideRowForPhoto7?: 1 | 2 | 3;
+    firstWideColForPhoto7?: 1 | 2;
+    secondWideRowForPhoto7?: 1 | 2 | 3;
+    secondWideColForPhoto7?: 1 | 2;
+  };
+  initialImagePositionsMap?: Record<string, any[]>;
 }
 
-function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isReadOnly = false }: GridCProps) {
+export type GridCRef = {
+  getGridData: () => {
+    gridCLayout: {
+      orderIds: string[];
+      orderIndices: number[];
+      framesByGridId: Record<string, { id: string; pathData?: string }>;
+      hiddenIds: string[];
+      largeItemPosition: number;
+      wideRowForPhoto8: 1 | 2 | 3;
+      wideColForPhoto8: 1 | 2;
+      wideColForPhoto5Row3: 1 | 2;
+      firstWideRowForPhoto7: 1 | 2 | 3;
+      firstWideColForPhoto7: 1 | 2;
+      secondWideRowForPhoto7: 1 | 2 | 3;
+      secondWideColForPhoto7: 1 | 2;
+    };
+    imagePositionsMap: Record<string, any[]>;
+  };
+};
+
+const GridC = React.forwardRef<GridCRef, GridCProps>(function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isReadOnly = false, initialLayout, initialImagePositionsMap }: GridCProps, ref) {
   const { setSelected, remove, setImage, clearAll } = useGridCStore();
   const { gridContents } = useGridContentStore();
   const { expandFirstImageGrid } = useKeywordExpansionStore();
@@ -71,6 +106,8 @@ function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isRead
   const [selectedItems, setSelectedItems] = React.useState<Set<string>>(new Set());
   // 숨겨진 아이템들 관리 (툴바 삭제 → 레이아웃 유지한 채 숨김)
   const [hiddenItems, setHiddenItems] = React.useState<Set<string>>(new Set());
+  // 이미지 변환(위치/배율) 맵: gridId -> [{ x, y, scale }]
+  const [imagePositionsMap, setImagePositionsMap] = React.useState<Record<string, any[]>>({});
 
   // ApplyModal 관련 상태
   const [isApplyModalOpen, setIsApplyModalOpen] = React.useState(false);
@@ -200,6 +237,72 @@ function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isRead
       setLargeItemPosition(0);
     }
   }, [photoCount]);
+
+  // 초기 레이아웃/이미지 변환 주입 (frames, hidden, order, 위치 상태)
+  React.useEffect(() => {
+    if (!initialLayout && !initialImagePositionsMap) {
+      return;
+    }
+    try {
+      if (initialImagePositionsMap && Object.keys(initialImagePositionsMap).length > 0) {
+        setImagePositionsMap({ ...initialImagePositionsMap });
+      }
+      if (typeof initialLayout.largeItemPosition === 'number') {
+        setLargeItemPosition(initialLayout.largeItemPosition);
+      }
+      if (typeof initialLayout.wideRowForPhoto8 !== 'undefined') {
+        setWideRowForPhoto8(initialLayout.wideRowForPhoto8 as 1 | 2 | 3);
+      }
+      if (typeof initialLayout.wideColForPhoto8 !== 'undefined') {
+        setWideColForPhoto8(initialLayout.wideColForPhoto8 as 1 | 2);
+      }
+      if (typeof initialLayout.wideColForPhoto5Row3 !== 'undefined') {
+        setWideColForPhoto5Row3(initialLayout.wideColForPhoto5Row3 as 1 | 2);
+      }
+      if (typeof initialLayout.firstWideRowForPhoto7 !== 'undefined') {
+        setFirstWideRowForPhoto7(initialLayout.firstWideRowForPhoto7 as 1 | 2 | 3);
+      }
+      if (typeof initialLayout.firstWideColForPhoto7 !== 'undefined') {
+        setFirstWideColForPhoto7(initialLayout.firstWideColForPhoto7 as 1 | 2);
+      }
+      if (typeof initialLayout.secondWideRowForPhoto7 !== 'undefined') {
+        setSecondWideRowForPhoto7(initialLayout.secondWideRowForPhoto7 as 1 | 2 | 3);
+      }
+      if (typeof initialLayout.secondWideColForPhoto7 !== 'undefined') {
+        setSecondWideColForPhoto7(initialLayout.secondWideColForPhoto7 as 1 | 2);
+      }
+
+      if (Array.isArray(initialLayout.hiddenIds)) {
+        setHiddenItems(new Set(initialLayout.hiddenIds));
+      }
+
+      if (initialLayout.framesByGridId && typeof initialLayout.framesByGridId === 'object') {
+        setItems(prev => prev.map(it => {
+          const f = initialLayout.framesByGridId![it.id];
+          if (f) {
+            const found = clipPathItems.find(cp => cp.id === f.id);
+            if (found) return { ...it, clipPathData: found };
+          }
+          return it;
+        }));
+      }
+
+      if ((Array.isArray(initialLayout.orderIds) && initialLayout.orderIds.length > 0) || (Array.isArray(initialLayout.orderIndices) && initialLayout.orderIndices.length > 0)) {
+        setItems(prev => {
+          const idToItem = new Map(prev.map(x => [x.id, x] as const));
+          const idxToItem = new Map(prev.map(x => [x.index, x] as const));
+          const reordered: GridCItem[] = [];
+          if (Array.isArray(initialLayout.orderIds)) {
+            initialLayout.orderIds.forEach(id => { const it = idToItem.get(id); if (it) reordered.push(it); });
+          } else if (Array.isArray(initialLayout.orderIndices)) {
+            initialLayout.orderIndices.forEach(idx => { const it = idxToItem.get(idx); if (it) reordered.push(it); });
+          }
+          prev.forEach(it => { if (!reordered.includes(it)) reordered.push(it); });
+          return reordered.map((it, idx) => ({ ...it, index: idx }));
+        });
+      }
+    } catch {}
+  }, [initialLayout, initialImagePositionsMap]);
 
   // articleId로부터 세팅된 gridContents를 GridC 아이템에 초기 반영
   React.useEffect(() => {
@@ -1198,6 +1301,38 @@ function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isRead
     }
   };
 
+  // ref 노출: 현재 레이아웃/프레임/숨김/특수 배치 상태 수집
+  React.useImperativeHandle(ref, () => ({
+    getGridData: () => ({
+      gridCLayout: {
+        orderIds: items.map(it => it.id),
+        orderIndices: items.map((_, idx) => idx),
+        framesByGridId: items.reduce((acc, it) => {
+          acc[it.id] = { id: it.clipPathData?.id };
+          return acc;
+        }, {} as Record<string, { id: string }>),
+        hiddenIds: Array.from(hiddenItems),
+        largeItemPosition,
+        wideRowForPhoto8,
+        wideColForPhoto8,
+        wideColForPhoto5Row3,
+        firstWideRowForPhoto7,
+        firstWideColForPhoto7,
+        secondWideRowForPhoto7,
+        secondWideColForPhoto7,
+      },
+      imagePositionsMap: { ...imagePositionsMap },
+    }),
+  }), [items, hiddenItems, largeItemPosition, wideRowForPhoto8, wideColForPhoto8, wideColForPhoto5Row3, firstWideRowForPhoto7, firstWideColForPhoto7, secondWideRowForPhoto7, secondWideColForPhoto7, imagePositionsMap]);
+
+  // 하위 GridCElement로부터 이미지 변환 업데이트 수신하여 맵에 반영
+  const handleImageTransformChange = React.useCallback((gridId: string, transform: { x: number; y: number; scale: number } | null) => {
+    setImagePositionsMap(prev => ({
+      ...prev,
+      [gridId]: transform ? [transform] : [],
+    }));
+  }, []);
+
   return (
     <DndContext
       sensors={sensors}
@@ -1240,6 +1375,8 @@ function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isRead
                   style={computedStyle}
                   isAnimating={isAnimating}
                   isUploadModalOpen={isUploadModalOpen}
+                  initialTransform={(imagePositionsMap[item.id] && imagePositionsMap[item.id][0]) || null}
+                  onTransformChange={handleImageTransformChange}
                 />
               );
             })}
@@ -1280,6 +1417,15 @@ function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isRead
         </ApplyModal>
       </DndContext>
   );
-}
+},);
 
-export default GridC; 
+// ref 노출: 현재 레이아웃/프레임/숨김 상태를 반환
+// eslint-disable-next-line react/display-name
+export default React.forwardRef<GridCRef, GridCProps>(function GridCRefWrapper(props, ref) {
+  return (
+    <GridC
+      {...props}
+      ref={ref}
+    />
+  );
+});

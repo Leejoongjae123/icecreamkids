@@ -9,7 +9,7 @@ export function MemoEditModal({ isOpen, memo, onChangeMemo, onSave, onCancel }: 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChangeMemo({ title: e.target.value });
   };
-  console.log("memo:", memo);
+  // console.log("memo:", memo);
   const [currentMemo, setCurrentMemo] = useState<string>(memo?.memo ?? '');
 
   // memo prop이 변경될 때 내부 상태 업데이트

@@ -31,8 +31,8 @@ function ReportPageContent() {
   // store에서 profileId와 accountId 직접 추출
   const profileId = useMemo(() => userInfo?.id || null, [userInfo?.id]);
   const accountId = useMemo(() => userInfo?.accountId || null, [userInfo?.accountId]);
-  console.log('profileId', profileId);
-  console.log('accountId', accountId);
+  // console.log('profileId', profileId);
+  // console.log('accountId', accountId);
 
   // searchParams에 type이 없을 때만 모달 표시
   useEffect(() => {

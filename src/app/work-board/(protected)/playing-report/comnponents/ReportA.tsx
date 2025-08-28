@@ -486,10 +486,32 @@ function ReportAContent() {
     }
   };
 
+  // 임시 캡쳐/다운로드 버튼 핸들러 (저장 여부와 무관하게 실행)
+  const handleTempCaptureDownload = async () => {
+    try {
+      const today = new Date();
+      const dateString = `${today.getFullYear()}${(today.getMonth() + 1)
+        .toString()
+        .padStart(2, '0')}${today
+        .getDate()
+        .toString()
+        .padStart(2, '0')}_${today
+        .getHours()
+        .toString()
+        .padStart(2, '0')}${today
+        .getMinutes()
+        .toString()
+        .padStart(2, '0')}`;
+      const fileName = `놀이기록_임시_${dateString}.png`;
+      await downloadSimpleImage('report-download-area', fileName);
+    } catch (_e) {
+      alert('임시 캡쳐에 실패했습니다. 다시 시도해주세요.');
+    }
+  };
 
 
 
-  console.log("backgroundImageUrl:", backgroundImageUrl);
+
   return (
     <TooltipProvider>
       <div className="w-full h-full relative flex flex-col">
@@ -561,7 +583,13 @@ function ReportAContent() {
                 다운로드
               </Button>
               {/* 임시 테스트 버튼 */}
-
+              <Button
+                size="sm"
+                className="gap-1 bg-emerald-50 hover:bg-emerald-100 text-[13px] text-emerald-700 shadow-none font-semibold h-[34px] w-[110px] border-solid border-[1px] border-emerald-300"
+                onClick={handleTempCaptureDownload}
+              >
+                임시 캡쳐
+              </Button>
 
               <Button
                 className={`gap-1 font-semibold w-[80px] h-[34px] text-[13px] shadow-none ${

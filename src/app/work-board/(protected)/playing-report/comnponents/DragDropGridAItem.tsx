@@ -77,10 +77,10 @@ function DragDropGridAItem({
     ...style, // 그리드 레이아웃 스타일 적용
   };
 
-  const setNodeRef = (node: HTMLDivElement | null) => {
+  const setNodeRef = React.useCallback((node: HTMLDivElement | null) => {
     setDragRef(node);
     setDropRef(node);
-  };
+  }, [setDragRef, setDropRef]);
 
   return (
     <div

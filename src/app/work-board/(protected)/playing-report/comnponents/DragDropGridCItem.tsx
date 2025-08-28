@@ -26,6 +26,9 @@ export interface GridCItemPropsWithHidden {
   style?: React.CSSProperties;
   isAnimating?: boolean;
   isUploadModalOpen?: boolean;
+  // 이미지 변환 데이터 전달/콜백
+  initialTransform?: { x: number; y: number; scale: number } | null;
+  onTransformChange?: (gridId: string, transform: { x: number; y: number; scale: number } | null) => void;
 }
 
 function DragDropGridCItem({
@@ -50,6 +53,8 @@ function DragDropGridCItem({
   isAnimating = false,
   isUploadModalOpen,
   isHidden = false,
+  initialTransform,
+  onTransformChange,
 }: GridCItemPropsWithHidden) {
   const {
     attributes,
@@ -88,10 +93,10 @@ function DragDropGridCItem({
     ...style,
   } as React.CSSProperties;
 
-  const setNodeRef = (node: HTMLDivElement | null) => {
+  const setNodeRef = React.useCallback((node: HTMLDivElement | null) => {
     setDragRef(node);
     setDropRef(node);
-  };
+  }, [setDragRef, setDropRef]);
 
   return (
     <div
@@ -120,6 +125,8 @@ function DragDropGridCItem({
         hasAnyImage={hasAnyImage}
         onDropFiles={onDropFiles}
         isUploadModalOpen={isUploadModalOpen}
+        initialTransform={initialTransform || null}
+        onTransformChange={onTransformChange}
       />
     </div>
   );

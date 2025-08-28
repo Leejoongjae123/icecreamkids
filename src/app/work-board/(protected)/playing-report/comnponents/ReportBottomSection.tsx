@@ -128,13 +128,13 @@ const ReportBottomSection = React.forwardRef<ReportBottomSectionRef, ReportBotto
 
   // 놀이기록 결과가 변경될 때마다 텍스트 필드에 반영
   React.useEffect(() => {
-    console.log('ReportBottomSection - playRecordResult 변경됨:', playRecordResult);
+    // console.log('ReportBottomSection - playRecordResult 변경됨:', playRecordResult);
     if (playRecordResult) {
-      console.log('ReportBottomSection - 각 필드 확인:', {
-        subject: playRecordResult.subject,
-        objective: playRecordResult.objective, 
-        support: playRecordResult.support
-      });
+      // console.log('ReportBottomSection - 각 필드 확인:', {
+      //   subject: playRecordResult.subject,
+      //   objective: playRecordResult.objective, 
+      //   support: playRecordResult.support
+      // });
       
       if (playRecordResult.subject && playRecordResult.subject.trim()) {
         console.log('playActivity 텍스트 설정:', playRecordResult.subject);

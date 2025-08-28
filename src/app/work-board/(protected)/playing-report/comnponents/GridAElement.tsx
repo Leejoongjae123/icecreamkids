@@ -259,8 +259,7 @@ function GridAElement({
     }
   };
 
-  console.log("GridAElement profileId:", profileId);
-  console.log("GridAElement accountId:", accountId);
+
 
   // 이미지 개수 상태 관리
   const [imageCount, setImageCount] = React.useState(propsImageCount);
@@ -308,12 +307,12 @@ function GridAElement({
       newImages.push("");
     }
     const initialImages = newImages.slice(0, imageCount);
-    console.log("🏁 초기 currentImages 설정:", {
-      원본이미지: images,
-      새이미지: newImages,
-      초기이미지: initialImages,
-      imageCount: imageCount,
-    });
+    // console.log("🏁 초기 currentImages 설정:", {
+    //   원본이미지: images,
+    //   새이미지: newImages,
+    //   초기이미지: initialImages,
+    //   imageCount: imageCount,
+    // });
     return initialImages;
   });
 
@@ -1269,7 +1268,7 @@ function GridAElement({
 
   // imageCount 변경 시 currentImages와 imagePositions, imageMetadata 업데이트
   React.useEffect(() => {
-    console.log("🔄 imageCount 변경됨:", imageCount);
+    // console.log("🔄 imageCount 변경됨:", imageCount);
 
     setCurrentImages((prev) => {
       const newImages = [...prev];
@@ -1280,12 +1279,12 @@ function GridAElement({
       // 항상 imageCount로 길이 제한
       const limitedImages = newImages.slice(0, imageCount);
 
-      console.log("🔄 currentImages 업데이트:", {
-        이전이미지: prev,
-        새이미지: newImages,
-        제한된이미지: limitedImages,
-        imageCount: imageCount,
-      });
+      // console.log("🔄 currentImages 업데이트:", {
+      //   이전이미지: prev,
+      //   새이미지: newImages,
+      //   제한된이미지: limitedImages,
+      //   imageCount: imageCount,
+      // });
 
       return limitedImages;
     });
@@ -1308,9 +1307,7 @@ function GridAElement({
   }, [imageCount]);
 
   // isDescriptionExpanded 상태 변경 추적
-  React.useEffect(() => {
-    console.log("isDescriptionExpanded 상태 변경됨:", isDescriptionExpanded);
-  }, [isDescriptionExpanded]);
+
 
   // 외부에서 전달받은 이미지 위치 정보 동기화 (동일 내용이면 무시)
   React.useEffect(() => {
@@ -1774,10 +1771,10 @@ function GridAElement({
 
   React.useEffect(() => {
     if (gridId && !isUpdatingFromStore.current) {
-      console.log("📝 categoryValue store 업데이트:", {
-        gridId,
-        categoryValue,
-      });
+      // console.log("📝 categoryValue store 업데이트:", {
+      //   gridId,
+      //   categoryValue,
+      // });
       updateCategoryValue(gridId, categoryValue);
     }
   }, [categoryValue, gridId, updateCategoryValue]);
@@ -1816,7 +1813,7 @@ function GridAElement({
       setHasClickedAIGenerate(false);
       setIsEditingCategory(false);
       setIsTextareaFocused(false);
-      console.log(`GridAElement ${gridId} 상태 초기화됨`);
+      // console.log(`GridAElement ${gridId} 상태 초기화됨`);
     }
   }, [gridContents, gridId, imageCount]);
 
@@ -3353,13 +3350,13 @@ function GridAElement({
               const imagesToRender = Array.isArray(currentImages)
                 ? currentImages.slice(0, imageCount)
                 : [];
-              console.log("🎨 일반 그리드 렌더링:", {
-                cardType,
-                imageCount,
-                currentImages,
-                imagesToRender,
-                gridClass: getImageGridClass(imageCount, cardType),
-              });
+              // console.log("🎨 일반 그리드 렌더링:", {
+              //   cardType,
+              //   imageCount,
+              //   currentImages,
+              //   imagesToRender,
+              //   gridClass: getImageGridClass(imageCount, cardType),
+              // });
               return imagesToRender;
             })().map((imageSrc, index) => (
               <div key={index} className="w-full h-full">
@@ -3485,10 +3482,7 @@ function GridAElement({
         )}
 
         {/* 하단 입력 영역 - 남은 공간(약 40%)을 차지 */}
-        {console.log(
-          "렌더링 시점 isDescriptionExpanded:",
-          isDescriptionExpanded
-        )}
+
         {isLoading ? (
           // 로딩 중일 때
           <div

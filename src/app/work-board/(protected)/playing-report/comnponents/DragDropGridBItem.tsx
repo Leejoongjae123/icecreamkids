@@ -62,10 +62,10 @@ function DragDropGridBItem({
     ...style,
   };
 
-  const setNodeRef = (node: HTMLDivElement | null) => {
+  const setNodeRef = React.useCallback((node: HTMLDivElement | null) => {
     setDragRef(node);
     setDropRef(node);
-  };
+  }, [setDragRef, setDropRef]);
 
   return (
     <div
@@ -81,6 +81,7 @@ function DragDropGridBItem({
         index={index}
         gridId={id}
         style={style}
+        isDragging={isDragging}
         isSelected={isSelected}
         onSelectChange={onSelectChange}
         onDelete={onDelete}
