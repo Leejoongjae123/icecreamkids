@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { SavedDataStore, SavedReportData, ReportType, StickerItem, TextStickerItem, GridItem, ReportBottomData, ReportTitleData } from '@/app/work-board/(protected)/report/comnponents/types';
+import { SavedDataStore, SavedReportData, ReportType, StickerItem, TextStickerItem, GridItem, ReportBottomData, ReportTitleData } from '@/app/work-board/(protected)/playing-report/comnponents/types';
 
 export const useSavedDataStore = create<SavedDataStore>()(
   persist(

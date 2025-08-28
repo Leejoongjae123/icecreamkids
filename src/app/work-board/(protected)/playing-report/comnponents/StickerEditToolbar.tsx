@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/tooltip";
 import DecorationStickerModal from "./DecorationStickerModal";
 import { useStickerStore } from "@/hooks/store/useStickerStore";
+import { StickerItem } from "./types";
 
 interface StickerEditToolbarProps {
   show: boolean;
@@ -85,7 +86,7 @@ const StickerEditToolbar: React.FC<StickerEditToolbarProps> = ({
       return;
     }
 
-    const currentSticker = stickers.find(s => s.id === selectedStickerId);
+    const currentSticker = stickers.find((s: StickerItem) => s.id === selectedStickerId);
     if (!currentSticker) {
       setIsDecorationStickerModalOpen(false);
       return;

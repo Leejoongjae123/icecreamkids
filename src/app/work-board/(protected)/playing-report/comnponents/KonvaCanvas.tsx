@@ -124,23 +124,7 @@ interface ExtractArea {
   });
 
   // 인라인 편집 중 Enter 키로 적용하기 트리거 (입력 포커스 시 무시)
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName.toLowerCase();
-        const isEditable = tag === 'input' || tag === 'textarea' || (target as HTMLElement).isContentEditable;
-        if (isEditable) return;
-      }
-      if (e.key === 'Enter') {
-        if (isLoading || !konvaImage) return;
-        e.preventDefault();
-        handleExtractToAddPicture();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isLoading, konvaImage, handleExtractToAddPicture]);
+  // moved below to avoid forward reference of handleExtractToAddPicture
 
   // targetFrame을 캔버스 좌표계로 변환하는 함수
   const convertTargetFrameToExtractArea = useCallback(() => {
@@ -363,6 +347,25 @@ interface ExtractArea {
           alert("이미지 추출 중 오류가 발생했습니다.");
         }
       }, [getTargetFrameImageDataInternal, onExtractComplete, konvaImage, extractArea, imageData]);
+
+      // 인라인 편집 중 Enter 키로 적용하기 트리거 (입력 포커스 시 무시)
+      useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+          const target = e.target as HTMLElement | null;
+          if (target) {
+            const tag = target.tagName.toLowerCase();
+            const isEditable = tag === 'input' || tag === 'textarea' || (target as HTMLElement).isContentEditable;
+            if (isEditable) return;
+          }
+          if (e.key === 'Enter') {
+            if (isLoading || !konvaImage) return;
+            e.preventDefault();
+            handleExtractToAddPicture();
+          }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+      }, [isLoading, konvaImage, handleExtractToAddPicture]);
 
     // 스테이지 좌표계 기준 크롭 영역
     const [cropArea, setCropArea] = useState<CropArea>({

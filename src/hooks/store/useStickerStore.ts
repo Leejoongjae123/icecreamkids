@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { StickerItem, StickerStore } from '@/app/work-board/(protected)/report/comnponents/types';
+import { StickerItem, StickerStore } from '@/app/work-board/(protected)/playing-report/comnponents/types';
 
 export const useStickerStore = create<StickerStore>((set, get) => ({
   stickers: [],

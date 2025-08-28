@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { TextStickerItem, TextStickerStore } from '@/app/work-board/(protected)/report/comnponents/types';
+import { TextStickerItem, TextStickerStore } from '@/app/work-board/(protected)/playing-report/comnponents/types';
 
 export const useTextStickerStore = create<TextStickerStore>((set, get) => ({
   textStickers: [],
