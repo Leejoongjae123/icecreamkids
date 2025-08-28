@@ -24,7 +24,7 @@ export const MemoIndicator = ({ show }: MemoIndicatorProps) => {
       }}
     >
       <img
-        src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/memo.png"
+        src="/report/memo.png"
         alt="메모 아이콘"
         className="w-full h-full"
         style={{

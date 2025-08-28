@@ -68,7 +68,7 @@ const Loader = React.forwardRef<HTMLDivElement, LoaderProps>(
         {...props}
       >
         <img
-          src="https://icecreamkids.s3.ap-northeast-2.amazonaws.com/loader.svg"
+          src="/report/loader.svg"
           alt="Loading..."
           className={cn(loaderVariants({ size }))}
         />
