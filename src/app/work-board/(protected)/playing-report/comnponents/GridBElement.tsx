@@ -1267,20 +1267,19 @@ function GridBElement({
     if (!gridId) return;
     // 기본 이미지가 아닌 실제 업로드된 이미지들만 필터링
     const validImages = currentImages.filter(
-      (img) =>
-        img &&
-        img !==
-          "/report/noimage2.svg"
+      (img) => img && img !== "/report/noimage2.svg"
     );
 
-    const storeImages = gridContents?.[gridId]?.imageUrls || [];
+    // 스토어 스냅샷에서 현재 값만 읽어 비교하여 순환 업데이트 방지
+    const storeSnapshot = useGridContentStore.getState();
+    const storeImages = storeSnapshot.gridContents?.[gridId]?.imageUrls || [];
     const sameLength = storeImages.length === validImages.length;
     const sameOrderAndValues = sameLength && storeImages.every((v, i) => v === validImages[i]);
     if (sameOrderAndValues) {
       return;
     }
     updateImages(gridId, validImages);
-  }, [currentImages, gridId, updateImages, gridContents]);
+  }, [currentImages, gridId, updateImages]);
 
   // 키워드 입력 변경 (store에 반영하지 않음)
   const handleKeywordChange = (

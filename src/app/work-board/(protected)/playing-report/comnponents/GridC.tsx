@@ -18,6 +18,7 @@ import ApplyModal from "./ApplyModal";
 import useGridCStore from "@/hooks/store/useGridCStore";
 import useKeywordExpansionStore from "@/hooks/store/useKeywordExpansionStore";
 import useGridContentStore from "@/hooks/store/useGridContentStore";
+import useS3FileUpload from "@/hooks/useS3FileUpload";
 
 interface GridCItem {
   id: string;
@@ -46,6 +47,7 @@ function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isRead
   const { setSelected, remove, setImage, clearAll } = useGridCStore();
   const { gridContents } = useGridContentStore();
   const { expandFirstImageGrid } = useKeywordExpansionStore();
+  const { postFile } = useS3FileUpload();
   // photoCount에 따라 그리드 아이템 데이터 관리
   const [items, setItems] = React.useState<GridCItem[]>(() => {
     const initialItems: GridCItem[] = [];
@@ -105,12 +107,12 @@ function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isRead
     processUploadedFiles,
   } = useImageUpload({
     uploadedFiles,
-    onFilesUpload: (files: File[] | any[]) => {
+    onFilesUpload: async (files: File[] | any[]) => {
       // 초기 업로드(통합): 다중 배치
       const anyHasImage = hasExistingImages();
       if (!anyHasImage && !singleUploadTargetIdRef.current) {
         console.log('📥 GridC 통합 이미지 업로드 완료:', files);
-        handleMultipleImageUpload(files);
+        void handleMultipleImageUpload(files);
         return;
       }
 
@@ -126,11 +128,30 @@ function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isRead
       }
       let imageUrl = ""; let driveItemKey = "";
       if (first instanceof File) {
-        imageUrl = URL.createObjectURL(first);
-        driveItemKey = `local_${Date.now()}_${Math.random()}`;
-      } else if (first && typeof first === 'object' && (first.thumbUrl || first.driveItemResult?.thumbUrl)) {
-        imageUrl = first.thumbUrl || first.driveItemResult?.thumbUrl || "";
-        driveItemKey = first.driveItemKey || first.driveItemResult?.driveItemKey || `external_${Date.now()}_${Math.random()}`;
+        const res = await postFile({
+          file: first,
+          fileType: "IMAGE",
+          taskType: "ETC",
+          source: "FILE",
+          thumbFile: first,
+        });
+        if (res && !Array.isArray(res)) {
+          const anyRes: any = res as any;
+          const url = anyRes?.thumbUrl || anyRes?.driveItemResult?.thumbUrl;
+          const key = anyRes?.driveItemKey || anyRes?.driveItemResult?.driveItemKey;
+          if (url) {
+            imageUrl = url;
+            driveItemKey = key || '';
+            setUploadedFiles((prev) => [...prev, first]);
+          }
+        }
+      } else if (first && typeof first === 'object') {
+        const resolvedUrl = first.thumbUrl || first.driveItemResult?.thumbUrl;
+        const resolvedKey = first.driveItemKey || first.driveItemResult?.driveItemKey || `external_${Date.now()}_${Math.random()}`;
+        if (resolvedUrl) {
+          imageUrl = resolvedUrl;
+          driveItemKey = resolvedKey;
+        }
       }
       if (!imageUrl) {
         return;
@@ -791,13 +812,51 @@ function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isRead
   };
 
   // 다중 이미지 업로드 핸들러 - 1번째부터 순차적으로 새롭게 할당
-  const handleMultipleImageUpload = React.useCallback((files: File[] | any[]) => {
+  const handleMultipleImageUpload = React.useCallback(async (files: File[] | any[]) => {
     const defaultImage = "/report/noimage2.svg";
     console.log('📥 GridC 다중 이미지 업로드 시작:', { 파일수: files.length, 그리드수: items.length });
+    // 1) 업로드/해결된 url,key 목록 생성
+    const resolvedList: Array<{ url: string; key: string }> = [];
+    const localFiles: File[] = [];
+    for (const file of files as any[]) {
+      if (file instanceof File) {
+        localFiles.push(file);
+      } else if (file && typeof file === 'object') {
+        const resolvedUrl = file.thumbUrl || file.driveItemResult?.thumbUrl;
+        const resolvedKey = file.driveItemKey || file.driveItemResult?.driveItemKey || `external_${Date.now()}_${Math.random()}`;
+        if (resolvedUrl) {
+          resolvedList.push({ url: resolvedUrl, key: resolvedKey });
+        }
+      }
+    }
+    if (localFiles.length > 0) {
+      const uploadResults = await Promise.all(
+        localFiles.map(async (file) => {
+          const res = await postFile({
+            file,
+            fileType: "IMAGE",
+            taskType: "ETC",
+            source: "FILE",
+            thumbFile: file,
+          });
+          if (res && !Array.isArray(res)) {
+            const anyRes: any = res as any;
+            const url = anyRes?.thumbUrl || anyRes?.driveItemResult?.thumbUrl;
+            const key = anyRes?.driveItemKey || anyRes?.driveItemResult?.driveItemKey;
+            if (url) return { url, key: key || '' };
+          }
+          return null;
+        })
+      );
+      uploadResults.filter(Boolean).forEach((r: any) => resolvedList.push(r));
+      if (uploadResults.some(Boolean)) {
+        setUploadedFiles((prev) => [...prev, ...localFiles]);
+      }
+    }
 
     setItems(prevItems => {
       const updatedItems = [...prevItems];
-      const uploadedCount = { success: 0, total: files.length };
+      const uploadedCount = { success: 0, total: resolvedList.length };
 
       // 1) 선택된 아이템(배열 인덱스)을 우선 대상으로 사용, 없으면 전체 인덱스
       const selectedArrayIndices: number[] = prevItems.reduce((arr: number[], item, idx) => {
@@ -810,17 +869,10 @@ function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isRead
       // 2) 타겟 인덱스 순서대로 파일 배정, 초과분은 나머지 인덱스에 연속 배정
       const assignedIndices = new Set<number>();
       let filePtr = 0;
-      const maxAssignable = Math.min(files.length, updatedItems.length);
+      const maxAssignable = Math.min(resolvedList.length, updatedItems.length);
 
-      const assignAtIndex = (idx: number, file: any) => {
-        let imageUrl = ""; let driveItemKey = "";
-        if (file instanceof File) {
-          imageUrl = URL.createObjectURL(file);
-          driveItemKey = `local_${Date.now()}_${Math.random()}`;
-        } else if (file && typeof file === 'object' && file.thumbUrl) {
-          imageUrl = file.thumbUrl;
-          driveItemKey = file.driveItemKey || `external_${Date.now()}_${Math.random()}`;
-        }
+      const assignAtIndex = (idx: number, entry: { url: string; key: string }) => {
+        const imageUrl = entry.url; const driveItemKey = entry.key;
         if (!imageUrl) return false;
         updatedItems[idx] = { ...updatedItems[idx], imageUrl, driveItemKey };
         try { setImage(updatedItems[idx].id, driveItemKey); } catch (_) {}
@@ -833,14 +885,14 @@ function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isRead
       // 우선 대상에 배정
       for (; filePtr < maxAssignable && filePtr < baseTargets.length; filePtr++) {
         const idx = baseTargets[filePtr];
-        assignAtIndex(idx, files[filePtr]);
+        assignAtIndex(idx, resolvedList[filePtr]);
       }
       // 남은 파일을 나머지 인덱스에 배정
       if (filePtr < maxAssignable) {
         const remainingTargets = allIndices.filter(i => !assignedIndices.has(i));
         let rPtr = 0;
         while (filePtr < maxAssignable && rPtr < remainingTargets.length) {
-          assignAtIndex(remainingTargets[rPtr], files[filePtr]);
+          assignAtIndex(remainingTargets[rPtr], resolvedList[filePtr]);
           filePtr++; rPtr++;
         }
       }
@@ -854,7 +906,7 @@ function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isRead
       }
       return updatedItems;
     });
-  }, [items.length, selectedItems]);
+  }, [items.length, selectedItems, postFile]);
 
   // 통합 업로드 모달 열기 핸들러
   const handleOpenIntegratedUpload = React.useCallback(() => {
@@ -1209,6 +1261,8 @@ function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isRead
             }}
             isMultiUpload={!singleUploadTargetIdRef.current && !hasExistingImages()}
             allowsFileTypes={['IMAGE']}
+            isUploadS3
+            isReturnS3UploadedItemData
           />
         )}
 
