@@ -80,7 +80,7 @@ export type GridCRef = {
 
 const GridC = React.forwardRef<GridCRef, GridCProps>(function GridC({ isClippingEnabled, photoCount, showOnlySelected = false, isReadOnly = false, initialLayout, initialImagePositionsMap }: GridCProps, ref) {
   const { setSelected, remove, setImage, clearAll } = useGridCStore();
-  const { gridContents } = useGridContentStore();
+  const { gridContents, updateImages, updateDriveItemKeys } = useGridContentStore();
   const { expandFirstImageGrid } = useKeywordExpansionStore();
   const { postFile } = useS3FileUpload();
   // photoCount에 따라 그리드 아이템 데이터 관리
@@ -195,6 +195,8 @@ const GridC = React.forwardRef<GridCRef, GridCProps>(function GridC({ isClipping
       }
       setItems(prev => prev.map(it => it.id === targetId ? { ...it, imageUrl, driveItemKey } : it));
       try { setImage(targetId, driveItemKey); } catch (_) {}
+      try { updateImages(targetId, [imageUrl]); } catch (_) {}
+      try { if (driveItemKey) updateDriveItemKeys(targetId, [driveItemKey]); } catch (_) {}
       // 단일 업로드 종료 후 타겟 초기화
       setSingleUploadTargetId(null);
       singleUploadTargetIdRef.current = null;
@@ -247,36 +249,36 @@ const GridC = React.forwardRef<GridCRef, GridCProps>(function GridC({ isClipping
       if (initialImagePositionsMap && Object.keys(initialImagePositionsMap).length > 0) {
         setImagePositionsMap({ ...initialImagePositionsMap });
       }
-      if (typeof initialLayout.largeItemPosition === 'number') {
+      if (initialLayout && typeof initialLayout.largeItemPosition === 'number') {
         setLargeItemPosition(initialLayout.largeItemPosition);
       }
-      if (typeof initialLayout.wideRowForPhoto8 !== 'undefined') {
+      if (initialLayout && typeof initialLayout.wideRowForPhoto8 !== 'undefined') {
         setWideRowForPhoto8(initialLayout.wideRowForPhoto8 as 1 | 2 | 3);
       }
-      if (typeof initialLayout.wideColForPhoto8 !== 'undefined') {
+      if (initialLayout && typeof initialLayout.wideColForPhoto8 !== 'undefined') {
         setWideColForPhoto8(initialLayout.wideColForPhoto8 as 1 | 2);
       }
-      if (typeof initialLayout.wideColForPhoto5Row3 !== 'undefined') {
+      if (initialLayout && typeof initialLayout.wideColForPhoto5Row3 !== 'undefined') {
         setWideColForPhoto5Row3(initialLayout.wideColForPhoto5Row3 as 1 | 2);
       }
-      if (typeof initialLayout.firstWideRowForPhoto7 !== 'undefined') {
+      if (initialLayout && typeof initialLayout.firstWideRowForPhoto7 !== 'undefined') {
         setFirstWideRowForPhoto7(initialLayout.firstWideRowForPhoto7 as 1 | 2 | 3);
       }
-      if (typeof initialLayout.firstWideColForPhoto7 !== 'undefined') {
+      if (initialLayout && typeof initialLayout.firstWideColForPhoto7 !== 'undefined') {
         setFirstWideColForPhoto7(initialLayout.firstWideColForPhoto7 as 1 | 2);
       }
-      if (typeof initialLayout.secondWideRowForPhoto7 !== 'undefined') {
+      if (initialLayout && typeof initialLayout.secondWideRowForPhoto7 !== 'undefined') {
         setSecondWideRowForPhoto7(initialLayout.secondWideRowForPhoto7 as 1 | 2 | 3);
       }
-      if (typeof initialLayout.secondWideColForPhoto7 !== 'undefined') {
+      if (initialLayout && typeof initialLayout.secondWideColForPhoto7 !== 'undefined') {
         setSecondWideColForPhoto7(initialLayout.secondWideColForPhoto7 as 1 | 2);
       }
 
-      if (Array.isArray(initialLayout.hiddenIds)) {
+      if (initialLayout && Array.isArray(initialLayout.hiddenIds)) {
         setHiddenItems(new Set(initialLayout.hiddenIds));
       }
 
-      if (initialLayout.framesByGridId && typeof initialLayout.framesByGridId === 'object') {
+      if (initialLayout && initialLayout.framesByGridId && typeof initialLayout.framesByGridId === 'object') {
         setItems(prev => prev.map(it => {
           const f = initialLayout.framesByGridId![it.id];
           if (f) {
@@ -287,7 +289,7 @@ const GridC = React.forwardRef<GridCRef, GridCProps>(function GridC({ isClipping
         }));
       }
 
-      if ((Array.isArray(initialLayout.orderIds) && initialLayout.orderIds.length > 0) || (Array.isArray(initialLayout.orderIndices) && initialLayout.orderIndices.length > 0)) {
+      if (initialLayout && ((Array.isArray(initialLayout.orderIds) && initialLayout.orderIds.length > 0) || (Array.isArray(initialLayout.orderIndices) && initialLayout.orderIndices.length > 0))) {
         setItems(prev => {
           const idToItem = new Map(prev.map(x => [x.id, x] as const));
           const idxToItem = new Map(prev.map(x => [x.index, x] as const));
@@ -912,6 +914,8 @@ const GridC = React.forwardRef<GridCRef, GridCProps>(function GridC({ isClipping
           : item
       )
     );
+    try { updateImages(gridId, [imageUrl]); } catch (_) {}
+    try { if (driveItemKey) updateDriveItemKeys(gridId, [driveItemKey]); } catch (_) {}
   };
 
   // 다중 이미지 업로드 핸들러 - 1번째부터 순차적으로 새롭게 할당
@@ -977,11 +981,14 @@ const GridC = React.forwardRef<GridCRef, GridCProps>(function GridC({ isClipping
       const assignAtIndex = (idx: number, entry: { url: string; key: string }) => {
         const imageUrl = entry.url; const driveItemKey = entry.key;
         if (!imageUrl) return false;
+        const gridId = updatedItems[idx].id;
         updatedItems[idx] = { ...updatedItems[idx], imageUrl, driveItemKey };
-        try { setImage(updatedItems[idx].id, driveItemKey); } catch (_) {}
+        try { setImage(gridId, driveItemKey); } catch (_) {}
+        try { updateImages(gridId, [imageUrl]); } catch (_) {}
+        try { if (driveItemKey) updateDriveItemKeys(gridId, [driveItemKey]); } catch (_) {}
         uploadedCount.success++;
         assignedIndices.add(idx);
-        console.log(`📷 이미지 배정 완료 idx=${idx}:`, { gridId: updatedItems[idx].id, imageUrl: imageUrl.substring(0,50)+'...' });
+        console.log(`📷 이미지 배정 완료 idx=${idx}:`, { gridId, imageUrl: imageUrl.substring(0,50)+'...' });
         return true;
       };
 

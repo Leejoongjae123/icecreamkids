@@ -20,6 +20,8 @@ interface DragDropGridBItemProps {
   // 저장 후 descriptionText가 비어있는 경우 시각적으로 숨김 처리 (레이아웃은 유지)
   isInvisibleInSavedMode?: boolean;
   highlightMode?: 'none' | 'full' | 'split';
+  imagePositions?: { x: number; y: number; scale: number }[];
+  onImagePositionsUpdate?: (positions: { x: number; y: number; scale: number }[]) => void;
 }
 
 function DragDropGridBItem({
@@ -38,6 +40,8 @@ function DragDropGridBItem({
   isPrintHidden,
   isInvisibleInSavedMode,
   highlightMode = 'none',
+  imagePositions,
+  onImagePositionsUpdate,
 }: DragDropGridBItemProps) {
   const {
     attributes,
@@ -92,6 +96,8 @@ function DragDropGridBItem({
         imageCount={imageCount}
         onImageCountChange={onImageCountChange}
         highlightMode={highlightMode}
+        imagePositions={imagePositions}
+        onImagePositionsUpdate={onImagePositionsUpdate}
       />
     </div>
   );

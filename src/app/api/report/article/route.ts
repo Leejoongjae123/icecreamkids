@@ -62,10 +62,16 @@ export async function GET(request: NextRequest, ctx?: RouteParams) {
       }
     } catch {}
 
+    // smartFolderItem 포함 반환 (공유 모달 연동용)
+    const smartFolderItem = record && typeof record === 'object' && 'smartFolderItem' in record
+      ? (record as any).smartFolderItem
+      : null;
+
     return NextResponse.json(
       {
         success: true,
         data: parsed ?? {},
+        smartFolderItem,
       },
       { status: 200 }
     );

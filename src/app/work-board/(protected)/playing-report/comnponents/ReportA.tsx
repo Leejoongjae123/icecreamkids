@@ -35,6 +35,7 @@ import DraggableTextSticker from "./DraggableTextSticker";
 import useMousePositionTracker from "@/hooks/useMousePositionTracker";
 import { StickerItem, TextStickerItem } from "./types";
 import Loader from "@/components/common/Loader";
+import { ShareLinkModal } from "@/components/modal/share-link";
 import { useLoadingState } from "@/hooks/useLoadingState";
 // searchParams를 사용하는 컴포넌트 분리
 function ReportAContent() {
@@ -111,6 +112,10 @@ function ReportAContent() {
         const json = await res.json();
         if (json && json.success && json.data) {
           const data = json.data as any;
+          // 공유 모달용 smartFolderItem 저장
+          if (json.smartFolderItem) {
+            setShareLinkItem({ ...(json.smartFolderItem || {}), smartFolderApiType: (json.smartFolderItem?.smartFolderApiType || 'UserFolder') });
+          }
           // 스티커/텍스트 스티커
           if (Array.isArray(data.stickers)) {
             setStickers(data.stickers);
@@ -147,6 +152,19 @@ function ReportAContent() {
     return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // 공유 모달 상태
+  const [isShareLinkModalOpen, setIsShareLinkModalOpen] = React.useState(false);
+  const [shareLinkItem, setShareLinkItem] = React.useState<any | null>(null);
+
+  const handleOpenShare = () => {
+    const articleId = searchParams.get('articleId');
+    if (!articleId) {
+      alert('먼저 저장을 완료해주세요. 저장 후 공유가 가능합니다.');
+      return;
+    }
+    setIsShareLinkModalOpen(true);
+  };
+
 
   const [initialReportBottomData, setInitialReportBottomData] = React.useState<any | undefined>(undefined);
   const [initialGridLayout, setInitialGridLayout] = React.useState<any[] | undefined>(undefined);
@@ -559,6 +577,8 @@ function ReportAContent() {
               <Button
                 size="sm"
                 className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[13px] text-black shadow-none font-semibold h-[34px] w-[80px] border-solid border-[1px] border-[#CCCCCC]"
+                onClick={handleOpenShare}
+                disabled={!isSaved}
               >
                 <Image
                   src="/report/share.svg"
@@ -683,6 +703,15 @@ function ReportAContent() {
           <Loader hasOverlay loadingMessage={savingMessage || "저장중입니다. 잠시만 기다려주세요."} />
         )}
       </div>
+
+      {/* 공유 모달 */}
+      {isShareLinkModalOpen && (
+        <ShareLinkModal
+          item={shareLinkItem}
+          onCancel={() => setIsShareLinkModalOpen(false)}
+          onCloseRefetch={async () => {}}
+        />
+      )}
     </TooltipProvider>
   );
 }

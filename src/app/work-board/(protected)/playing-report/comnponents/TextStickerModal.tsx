@@ -1,11 +1,12 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useTextStickerStore } from "@/hooks/store/useTextStickerStore";
 import { Button } from "@/components/common/Button";
+import { DecorationItemRemote, RemoteResponse } from "./types";
 
 interface TextStickerModalProps {
   isOpen: boolean;
@@ -23,21 +24,38 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
   );
   const [selectedFrame, setSelectedFrame] = useState<number>(0); // bubble.png가 첫 번째
   const [selectedTextType, setSelectedTextType] = useState<"title" | "subtitle" | "body">("title");
+  const [bubbleItems, setBubbleItems] = useState<DecorationItemRemote[]>([]);
+  const [loadingBubbles, setLoadingBubbles] = useState<boolean>(false);
+  const [bubbleError, setBubbleError] = useState<string | null>(null);
 
   const { addTextSticker } = useTextStickerStore();
 
-  // 말풍선 이미지 URL들 - bubble.png를 첫 번째로
-  const bubbleUrls = [
-    {
-      url: "/report/bubble.png",
-      isImage: true,
-    },
-    // 나머지 15개는 빈 슬롯
-    ...Array.from({ length: 15 }, () => ({
-      url: "",
-      isImage: false,
-    })),
-  ];
+  // 말풍선 리스트 불러오기 (카테고리 ID: 3)
+  useEffect(() => {
+    if (!isOpen || activeTab !== "category2") return;
+    let mounted = true;
+    const fetchBubbles = async () => {
+      setLoadingBubbles(true);
+      setBubbleError(null);
+      try {
+        const url = `/api/decoration-items/3?offsetWithLimit=0,20&sorts=createdAt.desc,name.asc`;
+        const res = await fetch(url, { method: "GET" });
+        const json: RemoteResponse<DecorationItemRemote[]> = await res.json();
+        if (mounted && Array.isArray(json.result)) {
+          setBubbleItems(json.result);
+          setSelectedFrame(0);
+        }
+      } catch (_e) {
+        setBubbleError("말풍선 목록을 불러오지 못했습니다.");
+      } finally {
+        setLoadingBubbles(false);
+      }
+    };
+    fetchBubbles();
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen, activeTab]);
 
   const handleApply = () => {
     if (activeTab === "category1") {
@@ -61,9 +79,10 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
         fontFamily: defaults.fontFamily,
       });
     } else {
-      // 말풍선 텍스트 스티커 추가
-      const bubbleUrl = bubbleUrls[selectedFrame];
-      if (bubbleUrl.isImage) {
+      // 말풍선 텍스트 스티커 추가 (원격 리스트 기반)
+      const sticker = bubbleItems[selectedFrame];
+      const bgUrl = sticker?.thumbUrl || sticker?.imageUrl;
+      if (bgUrl) {
         addTextSticker({
           type: 'bubble',
           bubbleIndex: selectedFrame,
@@ -71,7 +90,7 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
           position: { x: 50, y: 50 },
           size: { width: 120, height: 120 },
           rotation: 0,
-          backgroundUrl: bubbleUrl.url,
+          backgroundUrl: bgUrl,
           fontSize: 16,
           fontColor: '#000000',
           fontFamily: 'Arial',
@@ -242,38 +261,40 @@ const TextStickerModal: React.FC<TextStickerModalProps> = ({
               </RadioGroup>
             </div>
           ) : (
-            /* Bubble Grid for 말풍선 tab */
-            <div className="grid grid-cols-4 gap-3 min-h-[400px]">
-              {Array.from({ length: 16 }, (_, index) => {
-                const bubble = bubbleUrls[index];
-                
-                return (
-                  <div
-                    key={index}
-                    className={cn(
-                      "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors flex items-center justify-center overflow-hidden",
-                      selectedFrame === index &&
-                        "border-2 border-amber-400 border-solid",
-                      !bubble?.isImage && "opacity-50"
-                    )}
-                    onClick={() => bubble?.isImage && handleFrameSelect(index)}
-                  >
-                    {bubble?.isImage ? (
+            /* Bubble Grid for 말풍선 tab (원격 리스트) */
+            <div className="min-h-[400px]">
+              {bubbleError && (
+                <div className="text-sm text-red-500 mb-2">{bubbleError}</div>
+              )}
+              {loadingBubbles ? (
+                <div className="py-20 text-center text-zinc-400">말풍선 불러오는 중…</div>
+              ) : (
+                <div className="grid grid-cols-4 gap-3">
+                  {bubbleItems.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className={cn(
+                        "bg-gray-50 rounded-lg aspect-square cursor-pointer hover:bg-gray-100 transition-colors flex items-center justify-center overflow-hidden",
+                        selectedFrame === index && "border-2 border-amber-400 border-solid"
+                      )}
+                      onClick={() => handleFrameSelect(index)}
+                      title={item.name}
+                    >
                       <img
-                        src={bubble.url}
-                        alt={`말풍선 ${index + 1}`}
-                        className="w-full h-full object-fill rounded-lg p-2"
+                        src={item.thumbUrl || item.imageUrl || ''}
+                        alt={item.name}
+                        className="w-full h-full object-contain rounded-lg p-2"
                         onError={(e) => {
-                          // 이미지 로드 실패시 처리
                           e.currentTarget.style.display = 'none';
                         }}
                       />
-                    ) : (
-                      <div className="w-full h-full bg-gray-100 rounded-lg" />
-                    )}
-                  </div>
-                );
-              })}
+                    </div>
+                  ))}
+                  {bubbleItems.length === 0 && (
+                    <div className="col-span-4 text-center text-zinc-400 py-10">아이템이 없습니다.</div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

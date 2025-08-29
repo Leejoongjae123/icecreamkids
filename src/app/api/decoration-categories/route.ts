@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@/utils/supabase/server';
 
 export async function GET() {
   try {
+    const supabase = await createClient();
     const response = await fetch(
       'http://3.37.227.162:8080/file/v1/play-record/decoration-category-list?contentType=DecorationItem',
       {

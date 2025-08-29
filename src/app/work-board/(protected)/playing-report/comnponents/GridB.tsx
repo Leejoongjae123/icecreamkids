@@ -29,6 +29,7 @@ interface GridBProps {
     imageCountByIndex?: Record<number, number>;
     orderIndices?: number[];
   };
+  initialImagePositionsMap?: Record<string, any[]>;
 }
 
 export type GridBRef = {
@@ -40,10 +41,11 @@ export type GridBRef = {
       imageCountByIndex: Record<number, number>;
       orderIndices: number[];
     };
+    imagePositionsMap: Record<string, any[]>;
   };
 };
 
-function GridBContentImpl({ gridCount = 12, initialLayout }: GridBProps, ref: React.Ref<GridBRef>) {
+function GridBContentImpl({ gridCount = 12, initialLayout, initialImagePositionsMap }: GridBProps, ref: React.Ref<GridBRef>) {
   const searchParams = useSearchParams();
   
   // B타입에서는 prop으로 전달된 gridCount를 우선 사용, 없으면 URL subject 사용
@@ -103,6 +105,16 @@ function GridBContentImpl({ gridCount = 12, initialLayout }: GridBProps, ref: Re
   
   // 확장된 아이템들을 관리하는 상태 (col-span-2가 적용된 아이템)
   const [expandedItems, setExpandedItems] = React.useState<Set<number>>(new Set());
+
+  // 이미지 변환(위치/배율) 맵: gridId -> [{ x, y, scale }]
+  const [imagePositionsMap, setImagePositionsMap] = React.useState<Record<string, any[]>>({});
+
+  // 초기 이미지 변환 데이터 주입
+  React.useEffect(() => {
+    if (initialImagePositionsMap && typeof initialImagePositionsMap === 'object') {
+      setImagePositionsMap(initialImagePositionsMap);
+    }
+  }, [initialImagePositionsMap]);
 
   // +/− 버튼 hover 시 미리보기 상태
   const [hoverPreview, setHoverPreview] = React.useState<{
@@ -585,6 +597,10 @@ function GridBContentImpl({ gridCount = 12, initialLayout }: GridBProps, ref: Re
             }
             return 'none';
           })()}
+          imagePositions={imagePositionsMap[gridId] || []}
+          onImagePositionsUpdate={(positions) => {
+            setImagePositionsMap((prev) => ({ ...prev, [gridId]: positions }));
+          }}
         />
       );
     }).filter(Boolean); // null 값 제거
@@ -726,9 +742,10 @@ function GridBContentImpl({ gridCount = 12, initialLayout }: GridBProps, ref: Re
           imageCountByIndex,
           orderIndices: items.map(it => it.index),
         },
+        imagePositionsMap: { ...imagePositionsMap },
       };
     }
-  }), [items, expandedItems, removedItems, hiddenItems]);
+  }), [items, expandedItems, removedItems, hiddenItems, imagePositionsMap]);
 
   return (
     <DndContext

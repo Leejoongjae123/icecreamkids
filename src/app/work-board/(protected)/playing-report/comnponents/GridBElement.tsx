@@ -51,6 +51,8 @@ interface GridBElementProps {
   imageCount?: number; // 초기 이미지 개수
   onImageCountChange?: (count: number) => void; // 이미지 개수 변경 콜백
   highlightMode?: 'none' | 'full' | 'split';
+  imagePositions?: { x: number; y: number; scale: number }[];
+  onImagePositionsUpdate?: (positions: { x: number; y: number; scale: number }[]) => void;
 }
 
 function GridBElement({
@@ -73,6 +75,8 @@ function GridBElement({
   imageCount: propsImageCount = 1, // 초기 이미지 개수
   onImageCountChange, // 이미지 개수 변경 콜백
   highlightMode = 'none',
+  imagePositions: externalImagePositions = [],
+  onImagePositionsUpdate,
 }: GridBElementProps) {
   // 사용자 정보 가져오기
   const { isSaved } = useSavedDataStore();
@@ -528,9 +532,32 @@ function GridBElement({
   }, [getCurrentImageCount, imageCount]);
 
   // 이미지 위치 정보 상태
-  const [imagePositions, setImagePositions] = React.useState<ImagePosition[]>(
-    () => Array(imageCount).fill({ x: 0, y: 0, scale: 1 })
-  );
+  const [imagePositions, setImagePositions] = React.useState<ImagePosition[]>(() => {
+    const base = (externalImagePositions && externalImagePositions.length > 0)
+      ? externalImagePositions
+      : Array(imageCount).fill({ x: 0, y: 0, scale: 1 });
+    if (base.length === imageCount) return base as ImagePosition[];
+    if (base.length > imageCount) return base.slice(0, imageCount) as ImagePosition[];
+    const filled = [...base];
+    while (filled.length < imageCount) filled.push({ x: 0, y: 0, scale: 1 });
+    return filled as ImagePosition[];
+  });
+
+  // 외부 보정값 변경 시 동기화
+  React.useEffect(() => {
+    const base = (externalImagePositions && externalImagePositions.length > 0)
+      ? externalImagePositions
+      : Array(imageCount).fill({ x: 0, y: 0, scale: 1 });
+    const next = (() => {
+      if (base.length === imageCount) return base as ImagePosition[];
+      if (base.length > imageCount) return base.slice(0, imageCount) as ImagePosition[];
+      const filled = [...base];
+      while (filled.length < imageCount) filled.push({ x: 0, y: 0, scale: 1 });
+      return filled as ImagePosition[];
+    })();
+    const same = imagePositions.length === next.length && imagePositions.every((p, i) => p?.x === next[i]?.x && p?.y === next[i]?.y && p?.scale === next[i]?.scale);
+    if (!same) setImagePositions(next);
+  }, [externalImagePositions, imageCount]);
 
   // 인라인 편집 상태 및 레퍼런스
   const [inlineEditState, setInlineEditState] = React.useState<{
@@ -622,6 +649,9 @@ function GridBElement({
       ...inlineEditState.tempPosition,
     } as ImagePosition;
     setImagePositions(nextPositions);
+    if (onImagePositionsUpdate) {
+      onImagePositionsUpdate(nextPositions);
+    }
     setInlineEditState((prev) => ({
       ...prev,
       active: false,
@@ -662,6 +692,19 @@ function GridBElement({
     window.addEventListener('keydown', onKeyDown);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [inlineEditState.active, endInlineEditConfirm]);
+
+  // ReportB 저장 전 보정 커밋 이벤트 구독
+  React.useEffect(() => {
+    const onCommit = () => {
+      if (inlineEditState.active) {
+        endInlineEditConfirm();
+      }
+    };
+    window.addEventListener('reportB:commit-edits', onCommit);
+    return () => {
+      window.removeEventListener('reportB:commit-edits', onCommit);
     };
   }, [inlineEditState.active, endInlineEditConfirm]);
 
@@ -739,6 +782,9 @@ function GridBElement({
               ...prev.tempPosition,
             } as ImagePosition;
             setImagePositions(nextPositions);
+            if (onImagePositionsUpdate) {
+              onImagePositionsUpdate(nextPositions);
+            }
           }
           return { ...prev, startPointer: null, mode: null };
         });
@@ -791,6 +837,9 @@ function GridBElement({
               ...prev.tempPosition,
             } as ImagePosition;
             setImagePositions(nextPositions);
+            if (onImagePositionsUpdate) {
+              onImagePositionsUpdate(nextPositions);
+            }
           }
           return { ...prev, startPointer: null, mode: null };
         });

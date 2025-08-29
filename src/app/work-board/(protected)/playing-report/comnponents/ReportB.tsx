@@ -32,6 +32,7 @@ import useS3FileUpload from "@/hooks/useS3FileUpload";
 import Loader from "@/components/common/Loader";
 import { useLoadingState } from "@/hooks/useLoadingState";
 import { StickerItem } from "./types";
+import { ShareLinkModal } from "@/components/modal/share-link";
 
 // searchParams를 사용하는 컴포넌트 분리
 function ReportBContent() {
@@ -95,6 +96,7 @@ function ReportBContent() {
     imageCountByIndex?: Record<number, number>;
     orderIndices?: number[];
   } | undefined>(undefined);
+  const [initialImagePositionsMap, setInitialImagePositionsMap] = React.useState<Record<string, any[]> | undefined>(undefined);
 
   // articleId가 있으면 API에서 취득한 데이터로 상태 초기화 (ReportA와 동일 패턴)
   React.useEffect(() => {
@@ -110,6 +112,9 @@ function ReportBContent() {
         const json = await res.json();
         if (json && json.success && json.data) {
           const data = json.data as any;
+          if (json.smartFolderItem) {
+            setShareLinkItem({ ...(json.smartFolderItem || {}), smartFolderApiType: (json.smartFolderItem?.smartFolderApiType || 'UserFolder') });
+          }
           // 스티커/텍스트 스티커
           if (Array.isArray(data.stickers)) {
             setStickers(data.stickers);
@@ -128,6 +133,10 @@ function ReportBContent() {
           if (data.gridBLayout && typeof data.gridBLayout === 'object') {
             setInitialGridBLayout(data.gridBLayout);
           }
+          // 이미지 위치/배율 초기화
+          if (data.imagePositionsMap && typeof data.imagePositionsMap === 'object') {
+            setInitialImagePositionsMap(data.imagePositionsMap);
+          }
           // gridCount 덮어쓰기: URL에 gridCount 없으면 데이터 subject를 사용 (1~12로 제한)
           if (!searchParams.get('gridCount') && typeof data.subject === 'number') {
             const next = Math.min(Math.max(parseInt(String(data.subject), 10), 1), 12);
@@ -142,6 +151,18 @@ function ReportBContent() {
     return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // 공유 모달 상태
+  const [isShareLinkModalOpen, setIsShareLinkModalOpen] = React.useState(false);
+  const [shareLinkItem, setShareLinkItem] = React.useState<any | null>(null);
+
+  const handleOpenShare = () => {
+    const articleId = searchParams.get('articleId');
+    if (!articleId) {
+      alert('먼저 저장을 완료해주세요. 저장 후 공유가 가능합니다.');
+      return;
+    }
+    setIsShareLinkModalOpen(true);
+  };
 
 
 
@@ -259,6 +280,12 @@ function ReportBContent() {
   const performSave = async () => {
     setIsSaving(true);
     try {
+      try {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('reportB:commit-edits'));
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+      } catch {}
       const reportBottomData = reportBottomRef.current?.getReportBottomData();
       const reportTitleData = reportTitleRef.current?.getReportTitleData();
       const gridBData = gridBRef.current?.getGridData();
@@ -276,7 +303,7 @@ function ReportBContent() {
         gridContents,
         reportBottomData,
         backgroundImageUrl || undefined,
-        undefined,
+        gridBData?.imagePositionsMap,
         reportTitleData
       );
 
@@ -294,7 +321,7 @@ function ReportBContent() {
         gridContents,
         reportBottomData,
         backgroundImageUrl: backgroundImageUrl || undefined,
-        imagePositionsMap: undefined,
+        imagePositionsMap: gridBData?.imagePositionsMap,
         reportTitleData,
         gridBLayout: gridBData?.gridBLayout,
       } as const;
@@ -412,6 +439,8 @@ function ReportBContent() {
               <Button
                 size="sm"
                 className="gap-1 bg-[#F9FAFB] hover:bg-gray-100 text-[13px] text-black shadow-none font-semibold h-[34px] w-[80px] border-solid border-[1px] border-[#CCCCCC]"
+                onClick={handleOpenShare}
+                disabled={!isSaved}
               >
                 <Image src="/report/share.svg" alt="share" width={14} height={14} />
                 공유
@@ -472,7 +501,7 @@ function ReportBContent() {
                 height: 'calc(100% - 84px - 16px - 174px - 12px)' // 전체 - 타이틀 - 타이틀패딩 - 하단 - 간격
               }}
             >
-              <GridB ref={gridBRef} gridCount={gridCount} initialLayout={initialGridBLayout} />
+              <GridB ref={gridBRef} gridCount={gridCount} initialLayout={initialGridBLayout} initialImagePositionsMap={initialImagePositionsMap} />
             </div>
 
             {/* 하단 텍스트 부위 - 고정 높이 174px */}
@@ -494,6 +523,14 @@ function ReportBContent() {
       {/* 저장 로딩 오버레이 */}
       {isSavingLoading && (
         <Loader hasOverlay loadingMessage={savingMessage || "저장중입니다. 잠시만 기다려주세요."} />
+      )}
+      {/* 공유 모달 */}
+      {isShareLinkModalOpen && (
+        <ShareLinkModal
+          item={shareLinkItem}
+          onCancel={() => setIsShareLinkModalOpen(false)}
+          onCloseRefetch={async () => {}}
+        />
       )}
     </TooltipProvider>
   );
