@@ -411,7 +411,7 @@ function RightSideBarContent() {
     } else if (pendingAction.type === "PHOTO_CHANGE") {
       return `기존에 작업한 내용이 모두 초기화 됩니다.\n사진 개수를 ${pendingAction.data.count}개로 변경하시겠습니까?`;
     } else if (pendingAction.type === "C_KEYWORD_MISSING") {
-      return "선택한 그리드 중 키워드가 없습니다.\n 키워드 입력 후 생성해주세요.";
+      return "선택한 사진에 키워드가 입력되어 있지 않습니다.\n키워드 입력 후 다시 시도해주세요.";
     }
 
     return "";

@@ -29,6 +29,7 @@ import { IEditMemoData } from "@/components/modal/memo-edit/types";
 import { useSearchParams } from "next/navigation";
 import { useSavedDataStore } from "@/hooks/store/useSavedDataStore";
 import { useGridToolbarStore } from "@/hooks/store/useGridToolbarStore";
+import TutorialBox from "./TutorialBox";
 
 interface GridAElementProps {
   index: number;
@@ -2660,12 +2661,30 @@ function GridAElement({
     setIsEditingCategory(false);
   };
 
+  // TutorialBox 앵커 (카테고리 입력 영역 기준 배치용)
+  const categoryAnchorRef = React.useRef<HTMLDivElement | null>(null);
+
   // 저장 모드에서 LLM 콘텐츠가 없는 경우 레이아웃 영향 없이 시각적으로만 숨김 처리
 
   return (
     <div
       className={`relative w-full h-full flex flex-col ${shouldHideInSavedMode ? "invisible pointer-events-none" : ""}`}
     >
+      {index === 0 && (!categoryValue || categoryValue.trim() === "" || categoryValue === "Text") ? (
+        <TutorialBox
+          position="top"
+          title="놀이주제 입력하기"
+          text="업로드한 사진을 설명하는 문장을 입력해주세요."
+          buttonText="다음"
+          targetRef={categoryAnchorRef}
+          
+          offset={6}
+          visible={!isSaved}
+          onClickButton={() => {
+            setIsEditingCategory(true);
+          }}
+        />
+      ) : null}
       <div
         ref={containerRef}
         className={`drag-contents overflow-hidden px-2.5 py-2.5 ${
@@ -2689,6 +2708,7 @@ function GridAElement({
             } ${
               isSaved ? "border-transparent bg-white" : "border-gray-300"
             }`}
+            ref={categoryAnchorRef}
             onClick={
               !isEditingCategory && !isSaved ? handleCategoryClick : undefined
             }

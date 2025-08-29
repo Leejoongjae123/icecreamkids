@@ -389,6 +389,11 @@ function ReportBContent() {
       try {
         const json = await response.json().catch(() => null);
         const newId = (json && (json.result?.id ?? json.id)) || null;
+        // 공유 모달용 smartFolderItem 저장 (저장 직후에도 공유 가능하도록 설정)
+        const smartItem = json && (json.result?.smartFolderItem ?? json.smartFolderItem);
+        if (smartItem) {
+          setShareLinkItem({ ...(smartItem || {}), smartFolderApiType: (smartItem?.smartFolderApiType || 'UserFolder') });
+        }
         if (!existingArticleId && newId) {
           const params = new URLSearchParams(searchParams.toString());
           params.set('articleId', String(newId));
